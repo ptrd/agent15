@@ -5,27 +5,40 @@ import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 import java.io.UnsupportedEncodingException;
 import java.security.*;
-import org.bouncycastle.jce.ECNamedCurveTable;
+import java.security.spec.ECGenParameterSpec;
+
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.jce.spec.ECNamedCurveParameterSpec;
 
 public class EC {
 
-     public static byte[] iv = new SecureRandom().generateSeed(16);
+    public static byte[] iv = new SecureRandom().generateSeed(16);
 
     public static void main(String[] args) {
         Security.addProvider(new BouncyCastleProvider());
+
+        //String curve = "brainpoolp256r1";
+        String curve = "X25519";
 
         String plainText = "Look mah, I'm a message!";
         System.out.println("Original plaintext message: " + plainText);
 
         // Initialize two key pairs
-        KeyPair keyPairA = generateECKeys();
-        KeyPair keyPairB = generateECKeys();
+        KeyPair keyPairA = generateECKeys(curve);
+        KeyPair keyPairB = generateECKeys(curve);
 
         // Create two AES secret keys to encrypt/decrypt the message
-        SecretKey secretKeyA = generateSharedSecret(keyPairA.getPrivate(), keyPairB.getPublic());
-        SecretKey secretKeyB = generateSharedSecret(keyPairB.getPrivate(), keyPairA.getPublic());
+        SecretKey secretKeyA;
+        SecretKey secretKeyB;
+
+        if (curve.startsWith("brain")) {
+            secretKeyA = generateSharedSecret(keyPairA.getPrivate(), keyPairB.getPublic());
+            secretKeyB = generateSharedSecret(keyPairB.getPrivate(), keyPairA.getPublic());
+        }
+        else {
+            secretKeyA = generateSharedSecretXDH(keyPairA.getPrivate(), keyPairB.getPublic());
+            secretKeyB = generateSharedSecretXDH(keyPairB.getPrivate(), keyPairA.getPublic());
+        }
 
         // Encrypt the message using 'secretKeyA'
         String cipherText = encryptString(secretKeyA, plainText);
@@ -36,18 +49,24 @@ public class EC {
         System.out.println("Decrypted cipher text: " + decryptedPlainText);
     }
 
-    public static KeyPair generateECKeys() {
+    public static KeyPair generateECKeys(String curve) {
         try {
-            ECNamedCurveParameterSpec parameterSpec = ECNamedCurveTable.getParameterSpec("brainpoolp256r1");
-            KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance(
-                    "ECDH", "BC");
+            KeyPairGenerator keyPairGenerator;
+            if (curve.startsWith("brain")) {
+                ECNamedCurveParameterSpec parameterSpec = ECNamedCurveTable.getParameterSpec(curve);
+                keyPairGenerator = KeyPairGenerator.getInstance("ECDH", "BC");
+                keyPairGenerator.initialize(parameterSpec);
+            }
+            else {
+                keyPairGenerator = KeyPairGenerator.getInstance("XDH");
+                ECGenParameterSpec ecsp = new ECGenParameterSpec(curve);
+                keyPairGenerator.initialize(ecsp);
+            }
 
-            keyPairGenerator.initialize(parameterSpec);
             KeyPair keyPair = keyPairGenerator.generateKeyPair();
 
             return keyPair;
-        } catch (NoSuchAlgorithmException | InvalidAlgorithmParameterException
-                | NoSuchProviderException e) {
+        } catch (NoSuchAlgorithmException | InvalidAlgorithmParameterException | NoSuchProviderException e) {
             e.printStackTrace();
             return null;
         }
@@ -63,6 +82,23 @@ public class EC {
             return key;
         } catch (InvalidKeyException | NoSuchAlgorithmException
                 | NoSuchProviderException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    public static SecretKey generateSharedSecretXDH(PrivateKey privateKey, PublicKey publicKey) {
+        try {
+            KeyAgreement keyAgreement = KeyAgreement.getInstance("XDH");
+            keyAgreement.init(privateKey);
+            keyAgreement.doPhase(publicKey, true);
+
+            byte[] keyBytes = keyAgreement.generateSecret();
+            SecretKeySpec key = new SecretKeySpec(keyBytes, "AES");
+
+            return key;
+        } catch (InvalidKeyException | NoSuchAlgorithmException e) {
             // TODO Auto-generated catch block
             e.printStackTrace();
             return null;
