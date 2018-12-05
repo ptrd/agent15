@@ -6,6 +6,7 @@ import javax.crypto.spec.SecretKeySpec;
 import java.io.UnsupportedEncodingException;
 import java.security.*;
 import java.security.spec.ECGenParameterSpec;
+import java.util.Arrays;
 
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.jce.spec.ECNamedCurveParameterSpec;
@@ -39,6 +40,8 @@ public class EC {
             secretKeyA = generateSharedSecretXDH(keyPairA.getPrivate(), keyPairB.getPublic());
             secretKeyB = generateSharedSecretXDH(keyPairB.getPrivate(), keyPairA.getPublic());
         }
+
+        System.out.println("Shared keys are identical: " + (Arrays.compare(secretKeyA.getEncoded(), secretKeyB.getEncoded()) == 0));
 
         // Encrypt the message using 'secretKeyA'
         String cipherText = encryptString(secretKeyA, plainText);

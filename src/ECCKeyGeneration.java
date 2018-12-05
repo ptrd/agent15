@@ -13,6 +13,7 @@ import java.security.interfaces.ECPrivateKey;
 import java.security.interfaces.ECPublicKey;
 import java.security.interfaces.XECPrivateKey;
 import java.security.interfaces.XECPublicKey;
+import java.security.spec.AlgorithmParameterSpec;
 import java.security.spec.ECGenParameterSpec;
 import java.security.spec.EncodedKeySpec;
 import java.security.spec.PKCS8EncodedKeySpec;
@@ -80,6 +81,8 @@ public class ECCKeyGeneration {
         System.out.println("private key: " + privKey.toString());
         String f = privKey.getFormat();
         System.out.println("private key: " + bytesToHex(privKey.getEncoded()));
+        AlgorithmParameterSpec privKeyParams = privKey.getParams();
+
         System.out.println("private key:" + pubKey.toString());
         String g = pubKey.getFormat();
         System.out.println("public key:" + bytesToHex(pubKey.getEncoded()));
@@ -87,6 +90,7 @@ public class ECCKeyGeneration {
         System.out.println("public key U: " + pubKey.getU());
         System.out.println("public key U: " + pubKey.getU().toString(16));
         System.out.println("public key params: " + pubKey.getParams());
+        AlgorithmParameterSpec pubKeyParams = pubKey.getParams();
 
         KeyFactory fac = KeyFactory.getInstance("XDH");
         EncodedKeySpec privKeySpec = new PKCS8EncodedKeySpec(privKey.getEncoded());
@@ -95,6 +99,7 @@ public class ECCKeyGeneration {
         System.out.println("Equal? " + (privKey.equals(restoredPrivate)));
 
         return pubKey;
+
     }
 
 
