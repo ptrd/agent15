@@ -21,10 +21,12 @@ import java.net.Socket;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.security.*;
+import java.security.interfaces.ECKey;
 import java.security.interfaces.ECPrivateKey;
 import java.security.interfaces.ECPublicKey;
 import java.security.spec.*;
 import java.util.Base64;
+import java.util.Random;
 
 // TODO:
 // algemeen: als input stream -1 teruggeeft...
@@ -33,18 +35,22 @@ public class Tls13 {
     public static final Charset ISO_8859_1 = Charset.forName("ISO-8859-1");
 
     static String server =
-            // "tls13.pinterjann.is"
-            // "www.wolfssl.com"
-            // "tls.ctf.network"
+            // "tls13.pinterjann.is";       // -> Only x25519
+            // "www.wolfssl.com";          // -> Handshake failure
+            // "tls.ctf.network";          // -> Only x25519
+            // "tls13.baishancloud.com";   // -> Handshake failure
+            // "mew.org";                  // -> Handshake failure
+            // "antagonist.nl"             // -> Handshake failure
             "rustls.jbp.io";   // Yes!
 
     private static byte[] serverHandshakeKey;
     private static byte[] serverHandshakeIV;
+    private static ECPublicKey publicKey;
 
     private byte[] affineY;
 
     public static void main(String[] args) throws Exception {
-        decryptCapturedMessages();
+        startTlsWithServer(server, 443);
     }
 
     public static void decryptCapturedMessages() throws Exception {
@@ -213,17 +219,21 @@ public class Tls13 {
         return aeadCipher.doFinal(message);
     }
 
-    public static void doTls() throws Exception {
+    public static void startTlsWithServer(String serverName, int serverPort) throws Exception {
+
+        ECKey[] keys = generateKeys("secp256r1");
+        ECPrivateKey privateKey = (ECPrivateKey) keys[0];
+        publicKey = (ECPublicKey) keys[1];
+
         ByteBuffer message = new Tls13().clientHello();
         byte[] data = new byte[message.limit()];
         message.rewind();
         message.get(data);
 
-        Socket socket = new Socket(server, 443);
+        Socket socket = new Socket(serverName, serverPort);
         socket.getOutputStream().write(data);
 
-        PushbackInputStream input = new PushbackInputStream(new BufferedInputStream(socket.getInputStream()));
-        parseServerMessages(input);
+        new TlsSession(data, privateKey, publicKey, new BufferedInputStream(socket.getInputStream()));
     }
 
     private static void parseServerMessages(PushbackInputStream input) throws IOException, TlsProtocolException {
@@ -293,24 +303,24 @@ public class Tls13 {
         // client version
         buffer.put((byte) 0x03);
         buffer.put((byte) 0x03);
+
         // client random 32 bytes
-        buffer.put(new byte[]{
-                (byte) 0x00, (byte) 0x01, (byte) 0x02, (byte) 0x03, (byte) 0x04, (byte) 0x05, (byte) 0x06, (byte) 0x07,
-                (byte) 0x08, (byte) 0x09, (byte) 0x0a, (byte) 0x0b, (byte) 0x0c, (byte) 0x0d, (byte) 0x0e, (byte) 0x0f,
-                (byte) 0x10, (byte) 0x11, (byte) 0x12, (byte) 0x13, (byte) 0x14, (byte) 0x15, (byte) 0x16, (byte) 0x17,
-                (byte) 0x18, (byte) 0x19, (byte) 0x1a, (byte) 0x1b, (byte) 0x1c, (byte) 0x1d, (byte) 0x1e, (byte) 0x1f
-        });
+        byte[] clientRandom = new byte[32];
+        Random randomizer = new Random();
+        randomizer.nextBytes(clientRandom);
+        buffer.put(clientRandom);
+
         // session id (not used): 32 bytes with length prepended
-        buffer.put(new byte[]{
-                (byte) 0x20, (byte) 0xe0, (byte) 0xe1, (byte) 0xe2, (byte) 0xe3, (byte) 0xe4, (byte) 0xe5, (byte) 0xe6,
-                (byte) 0xe7, (byte) 0xe8, (byte) 0xe9, (byte) 0xea, (byte) 0xeb, (byte) 0xec, (byte) 0xed, (byte) 0xee,
-                (byte) 0xef, (byte) 0xf0, (byte) 0xf1, (byte) 0xf2, (byte) 0xf3, (byte) 0xf4, (byte) 0xf5, (byte) 0xf6,
-                (byte) 0xf7, (byte) 0xf8, (byte) 0xf9, (byte) 0xfa, (byte) 0xfb, (byte) 0xfc, (byte) 0xfd, (byte) 0xfe, (byte) 0xff
-        });
+        byte[] sessionId = new byte[32];
+        randomizer.nextBytes(sessionId);
+        buffer.put((byte) sessionId.length);
+        buffer.put(sessionId);
+
         // Cipher suites (3, 6 bytes)
         buffer.put(new byte[]{
                 (byte) 0x00, (byte) 0x06, (byte) 0x13, (byte) 0x01, (byte) 0x13, (byte) 0x02, (byte) 0x13, (byte) 0x03
         });
+
         // Compression (none)
         buffer.put(new byte[]{
                 (byte) 0x01, (byte) 0x00
@@ -366,27 +376,18 @@ public class Tls13 {
         buffer.put(new byte[] { (byte) 0x00, (byte) 0x17 });
         // 0x41 (65 bytes of public key follows
         buffer.putShort((short) 65);
-        // public key from the step "Client Key Exchange Generation"
-//        byte[] publicKey = new byte[] {
-//                // From keys/secp256r1-key.pem
-//                (byte) 0x04, (byte) 0xd4, (byte) 0xcc, (byte) 0xb5, (byte) 0xe7, (byte) 0x23, (byte) 0xb2, (byte) 0x87, (byte) 0x2d, (byte) 0x45, (byte) 0xdd, (byte) 0x74, (byte) 0x8a, (byte) 0x90, (byte) 0xb4, (byte) 0x6c, (byte) 0xfc, (byte) 0xa0, (byte) 0xae, (byte) 0xa8, (byte) 0x1c, (byte) 0x1d, (byte) 0x1a, (byte) 0x26, (byte) 0xbd, (byte) 0xaa, (byte) 0xee, (byte) 0x0e, (byte) 0x07, (byte) 0xeb, (byte) 0x18, (byte) 0xe7, (byte) 0x9e, (byte) 0x36, (byte) 0x80, (byte) 0xf5, (byte) 0xe0, (byte) 0x49, (byte) 0x3d, (byte) 0x2a, (byte) 0x85, (byte) 0xde, (byte) 0xd7, (byte) 0x25, (byte) 0xc0, (byte) 0xd9, (byte) 0xdc, (byte) 0x83, (byte) 0xf4, (byte) 0xf4, (byte) 0x4a, (byte) 0xdb, (byte) 0x8d, (byte) 0x98, (byte) 0x09, (byte) 0x75, (byte) 0x4c, (byte) 0xa0, (byte) 0x63, (byte) 0xba, (byte) 0x25, (byte) 0xed, (byte) 0x3e, (byte) 0x15, (byte) 0x81
-//        };
-
-        byte[] publicKey = new byte[65];
+        // public key
+        byte[] publicKeyData = new byte[65];
         try {
-            System.out.println("***** Key generation *****");
-            ECPublicKey ecPublicKey = generateKeys("secp256r1");
-            System.out.println("***** end Key generation *****");
-            publicKey[0] = (byte) 0x04;
-            byte[] affineX = ecPublicKey.getW().getAffineX().toByteArray();
-            System.arraycopy(affineX, 0, publicKey, 1, 32);
-            affineY = ecPublicKey.getW().getAffineY().toByteArray();
-            System.arraycopy(affineY, 0, publicKey, 33, 32);
+            publicKeyData[0] = (byte) 0x04;
+            byte[] affineX = publicKey.getW().getAffineX().toByteArray();
+            System.arraycopy(affineX, 0, publicKeyData, 1, 32);
+            affineY = publicKey.getW().getAffineY().toByteArray();
+            System.arraycopy(affineY, 0, publicKeyData, 33, 32);
         } catch (Exception e) {
             e.printStackTrace();
         }
-
-        buffer.put(publicKey);
+        buffer.put(publicKeyData);
 
         // Extension - PSK Key Exchange Modes
         buffer.put(new byte[]{
@@ -403,7 +404,7 @@ public class Tls13 {
         return buffer;
     }
 
-    public static ECPublicKey generateKeys(String ecCurve) throws Exception {
+    public static ECKey[] generateKeys(String ecCurve) throws Exception {
         KeyPairGenerator kpg;
         kpg = KeyPairGenerator.getInstance("EC");
         ECGenParameterSpec ecsp;
@@ -414,6 +415,7 @@ public class Tls13 {
         ECPrivateKey privKey = (ECPrivateKey) kp.getPrivate();
         ECPublicKey pubKey = (ECPublicKey) kp.getPublic();
 
+        /*
         System.out.println("private key: " + privKey.toString());
         String f = privKey.getFormat();
         System.out.println("private key: " + bytesToHex(privKey.getEncoded()));
@@ -432,8 +434,8 @@ public class Tls13 {
         Object restoredPrivate = fac.generatePrivate(privKeySpec);
         System.out.println(restoredPrivate);
         System.out.println("Equal? " + (privKey.equals(restoredPrivate)));
-
-        return pubKey;
+*/
+        return new ECKey[] { privKey, pubKey };
     }
 
     public static KeyPair generateECKeys() {
