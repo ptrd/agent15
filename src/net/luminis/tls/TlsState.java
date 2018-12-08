@@ -46,8 +46,8 @@ public class TlsState {
     }
 
     private byte[] computeHandshakeMessagesHash(byte[] clientHello, byte[] serverHello) {
-        ByteBuffer helloData = ByteBuffer.allocate(clientHello.length - 5 + serverHello.length);
-        helloData.put(clientHello, 5, clientHello.length - 5);
+        ByteBuffer helloData = ByteBuffer.allocate(clientHello.length + serverHello.length);
+        helloData.put(clientHello, 0, clientHello.length);
         helloData.put(serverHello, 0, serverHello.length);
 
         MessageDigest digest = null;

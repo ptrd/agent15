@@ -2,12 +2,13 @@ package net.luminis.tls.sample;
 
 import net.luminis.tls.ByteUtils;
 import net.luminis.tls.TlsSession;
-import org.bouncycastle.jce.provider.BouncyCastleProvider;
 
-import java.io.*;
+import java.io.BufferedReader;
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.InputStreamReader;
 import java.security.KeyFactory;
 import java.security.PrivateKey;
-import java.security.Security;
 import java.security.spec.EncodedKeySpec;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.util.Arrays;
@@ -50,7 +51,9 @@ public class TlsSample {
         byte[] clientHello = readHexDump("clientdump.hex");
         byte[] serverReply = readHexDump("serverdump.hex");
 
-        new TlsSession(clientHello, loadPrivateKey(), null, new ByteArrayInputStream(serverReply));
+        byte[] clientHelloMessage = new byte[clientHello.length - 5];
+        System.arraycopy(clientHello, 5, clientHelloMessage, 0, clientHelloMessage.length);
+        new TlsSession(clientHelloMessage, loadPrivateKey(), null, new ByteArrayInputStream(serverReply));
     }
 
 }

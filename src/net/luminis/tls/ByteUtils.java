@@ -34,6 +34,24 @@ public class ByteUtils {
         return buffer.toString();
     }
 
+    public static String byteToHexBlock(byte[] data) {
+        return byteToHexBlock(data, data.length);
+    }
+
+    public static String byteToHexBlock(byte[] data, int length) {
+        String result = "";
+        for (int i = 0; i < length; ) {
+            result += (String.format("%02x ", data[i]));
+            i++;
+            if (i < data.length)
+            if (i % 16 == 0)
+                result += "\n";
+            else if (i % 8 == 0)
+                result += " ";
+        }
+        return result;
+    }
+
     public static byte[] hexToBytes(String string) {
         int length = string.length();
         byte[] data = new byte[length / 2];

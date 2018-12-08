@@ -6,6 +6,24 @@ import java.nio.ByteBuffer;
 
 public class HandshakeRecord {
 
+    byte[] data;
+
+    public HandshakeRecord() {
+    }
+
+    public HandshakeRecord(ClientHello clientHello) {
+        byte[] clientHelloData = clientHello.getBytes();
+
+        ByteBuffer buffer = ByteBuffer.allocate(5 + clientHelloData.length);
+        buffer.put(TlsConstants.ContentType.handshake.value);
+        // https://tools.ietf.org/html/rfc8446#section-5.1:
+        buffer.putShort((short) 0x0301);
+        buffer.putShort((short) (clientHelloData.length));
+        buffer.put(clientHelloData);
+
+        data = buffer.array();
+    }
+
     public void parse(PushbackInputStream input, TlsState state) throws IOException, TlsProtocolException {
         input.read();  // type
         int versionHigh = input.read();
@@ -19,6 +37,7 @@ public class HandshakeRecord {
         while (buffer.remaining() > 0)
             parseHandshakeMessage(buffer, state);
     }
+
 
     static void parseHandshakeMessage(ByteBuffer buffer, TlsState state) throws TlsProtocolException {
         int messageType = buffer.get();
@@ -46,5 +65,9 @@ public class HandshakeRecord {
             default:
                 throw new TlsProtocolException("Invalid/unsupported handshake message type (" + messageType + ")");
         }
+    }
+
+    public byte[] getBytes() {
+        return data;
     }
 }
