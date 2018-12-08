@@ -44,6 +44,10 @@ public class Tls13 {
     private byte[] affineY;
 
     public static void main(String[] args) throws Exception {
+        decryptCapturedMessages();
+    }
+
+    public static void decryptCapturedMessages() throws Exception {
         Security.addProvider(new BouncyCastleProvider());
 
         byte[] sharedSecret = loadKeys().getEncoded();
@@ -238,10 +242,10 @@ public class Tls13 {
                     new Alert().parse(input);
                     break;
                 case 22:
-                    new HandshakeRecord().parse(input);
+                    new HandshakeRecord().parse(input, null);
                     break;
                 case 23:
-                    new ApplicationData().parse(input);
+                    new ApplicationData().parse(input, null);
                     break;
                 default:
                     throw new RuntimeException("Record type is unknown (" + contentType + ")");
