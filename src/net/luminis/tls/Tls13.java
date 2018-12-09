@@ -19,12 +19,13 @@ public class Tls13 {
 
     static String server =
             // "tls13.pinterjann.is";      // -> Only x25519
-            // "www.wolfssl.com";          // -> Handshake failure
+            // "www.wolfssl.com";          // -> Handshake failure  -> geen 1.3 support ;-)
             // "tls.ctf.network";          // -> Only x25519
-            // "tls13.baishancloud.com";   // -> Handshake failure
+            // "tls13.baishancloud.com";   // -> Handshake failure  -> ook via browser, blijkbaar geen 1.3 support
             // "mew.org";                  // -> Crypto error: javax.crypto.AEADBadTagException: Tag mismatch!
-            // "antagonist.nl";            // -> Handshake failure
-            "rustls.jbp.io";   // Yes!
+            // "antagonist.nl";            // -> Handshake failure  -> geen 1.3 support
+            // "rustls.jbp.io";   // Yes!
+            "gmail.com";  //
 
 
 

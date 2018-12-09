@@ -34,8 +34,10 @@ public class ApplicationData {
         int lastByte = message[message.length-1];
         switch (lastByte) {
             case 22:
-                HandshakeRecord.parseHandshakeMessage(ByteBuffer.wrap(message, 0, message.length - 1), state);
+                HandshakeRecord.parseHandshakeMessages(ByteBuffer.wrap(message, 0, message.length - 1), state);
                 break;
+            default:
+                throw new RuntimeException("Unexpected record type in Application Data: " + lastByte);
         }
 
     }

@@ -34,36 +34,38 @@ public class HandshakeRecord {
         ByteBuffer buffer = ByteBuffer.allocate(length);
         input.read(buffer.array());
 
-        while (buffer.remaining() > 0)
-            parseHandshakeMessage(buffer, state);
+        parseHandshakeMessages(buffer, state);
     }
 
 
-    static void parseHandshakeMessage(ByteBuffer buffer, TlsState state) throws TlsProtocolException {
-        int messageType = buffer.get();
-        int length = ((buffer.get() & 0xff) << 16) | ((buffer.get() & 0xff) << 8) | (buffer.get() & 0xff);
-        buffer.rewind();
+    static void parseHandshakeMessages(ByteBuffer buffer, TlsState state) throws TlsProtocolException {
+        while (buffer.remaining() > 0) {
+            buffer.mark();
+            int messageType = buffer.get();
+            int length = ((buffer.get() & 0xff) << 16) | ((buffer.get() & 0xff) << 8) | (buffer.get() & 0xff);
+            buffer.reset();
 
-        switch (messageType) {
-            case 2:
-                new ServerHello().parse(buffer, length + 4, state);
-                break;
-            case 8:
-                new EncryptedExtensions().parse(buffer, length + 4, state);
-                break;
-            case 11:
-                new CertificateMessage().parse(buffer, length + 4, state);
-                break;
-            case 15:
-                new CertificateVerifyMessage().parse(buffer, length + 4, state);
-                break;
-            case 20:
-                new FinishedMessage().parse(buffer, length + 4, state);
-                break;
-            case 1:
-                // client hello
-            default:
-                throw new TlsProtocolException("Invalid/unsupported handshake message type (" + messageType + ")");
+            switch (messageType) {
+                case 2:
+                    new ServerHello().parse(buffer, length + 4, state);
+                    break;
+                case 8:
+                    new EncryptedExtensions().parse(buffer, length + 4, state);
+                    break;
+                case 11:
+                    new CertificateMessage().parse(buffer, length + 4, state);
+                    break;
+                case 15:
+                    new CertificateVerifyMessage().parse(buffer, length + 4, state);
+                    break;
+                case 20:
+                    new FinishedMessage().parse(buffer, length + 4, state);
+                    break;
+                case 1:
+                    // client hello
+                default:
+                    throw new TlsProtocolException("Invalid/unsupported handshake message type (" + messageType + ")");
+            }
         }
     }
 
