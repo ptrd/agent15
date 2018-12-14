@@ -18,6 +18,28 @@ public class TlsConstants {
         }
     } ;
 
+
+    public enum HandshakeType{
+          client_hello(1),
+          server_hello(2),
+          new_session_ticket(4),
+          end_of_early_data(5),
+          encrypted_extensions(8),
+          certificate(11),
+          certificate_request(13),
+          certificate_verify(15),
+          finished(20),
+          key_update(24),
+          message_hash(254),
+        ;
+
+        public final byte value;
+
+        HandshakeType(int value) {
+            this.value = (byte) value;
+        }
+    };
+
     enum ExtensionType {
         server_name(0),                             /* RFC 6066 */
         max_fragment_length(1),                     /* RFC 6066 */

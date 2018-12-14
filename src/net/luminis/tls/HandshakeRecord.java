@@ -4,6 +4,9 @@ import java.io.IOException;
 import java.io.PushbackInputStream;
 import java.nio.ByteBuffer;
 
+import static net.luminis.tls.TlsConstants.*;
+import static net.luminis.tls.TlsConstants.HandshakeType.*;
+
 public class HandshakeRecord {
 
     byte[] data;
@@ -15,7 +18,7 @@ public class HandshakeRecord {
         byte[] clientHelloData = clientHello.getBytes();
 
         ByteBuffer buffer = ByteBuffer.allocate(5 + clientHelloData.length);
-        buffer.put(TlsConstants.ContentType.handshake.value);
+        buffer.put(ContentType.handshake.value);
         // https://tools.ietf.org/html/rfc8446#section-5.1:
         buffer.putShort((short) 0x0301);
         buffer.putShort((short) (clientHelloData.length));
@@ -45,26 +48,23 @@ public class HandshakeRecord {
             int length = ((buffer.get() & 0xff) << 16) | ((buffer.get() & 0xff) << 8) | (buffer.get() & 0xff);
             buffer.reset();
 
-            switch (messageType) {
-                case 2:
-                    new ServerHello().parse(buffer, length + 4, state);
-                    break;
-                case 8:
-                    new EncryptedExtensions().parse(buffer, length + 4, state);
-                    break;
-                case 11:
-                    new CertificateMessage().parse(buffer, length + 4, state);
-                    break;
-                case 15:
-                    new CertificateVerifyMessage().parse(buffer, length + 4, state);
-                    break;
-                case 20:
-                    new FinishedMessage().parse(buffer, length + 4, state);
-                    break;
-                case 1:
-                    // client hello
-                default:
-                    throw new TlsProtocolException("Invalid/unsupported handshake message type (" + messageType + ")");
+            if (messageType == server_hello.value) {
+                new ServerHello().parse(buffer, length + 4, state);
+            }
+            else if (messageType == encrypted_extensions.value) {
+                new EncryptedExtensions().parse(buffer, length + 4, state);
+            }
+            else if (messageType == certificate.value) {
+                new CertificateMessage().parse(buffer, length + 4, state);
+            }
+            else if (messageType == certificate_verify.value) {
+                new CertificateVerifyMessage().parse(buffer, length + 4, state);
+            }
+            else if (messageType == finished.value) {
+                new FinishedMessage().parse(buffer, length + 4, state);
+            }
+            else {
+                throw new TlsProtocolException("Invalid/unsupported handshake message type (" + messageType + ")");
             }
         }
     }
