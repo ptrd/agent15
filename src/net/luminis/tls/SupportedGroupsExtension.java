@@ -5,7 +5,7 @@ import java.nio.ByteBuffer;
 public class SupportedGroupsExtension extends Extension {
 
     @Override
-    byte[] getBytes() {
+    public byte[] getBytes() {
         TlsConstants.NamedGroup[] namedGroups = new TlsConstants.NamedGroup[] { TlsConstants.NamedGroup.secp256r1 };
 
         int extensionLength = 2 + namedGroups.length * 2;

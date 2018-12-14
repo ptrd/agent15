@@ -17,7 +17,7 @@ public class KeyShareExtension extends Extension {
     }
 
     @Override
-    byte[] getBytes() {
+    public byte[] getBytes() {
         short rawKeyLength = 65;
         short keyShareEntryLength = (short) (2 + 2 + rawKeyLength);   // Named Group: 2 bytes, key length: 2 bytes
         short extensionLength = (short) (2 + 1 * keyShareEntryLength);

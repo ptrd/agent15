@@ -12,7 +12,7 @@ public class ServerNameExtension extends Extension {
     }
 
     @Override
-    byte[] getBytes() {
+    public byte[] getBytes() {
         short hostnameLength = (short) serverName.length();
         short extensionLength = (short) (hostnameLength + 2 + 1 + 2);
 

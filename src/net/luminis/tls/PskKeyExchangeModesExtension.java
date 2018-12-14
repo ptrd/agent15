@@ -5,7 +5,7 @@ import java.nio.ByteBuffer;
 public class PskKeyExchangeModesExtension extends Extension {
 
     @Override
-    byte[] getBytes() {
+    public byte[] getBytes() {
         short extensionLength = 2;
         ByteBuffer buffer = ByteBuffer.allocate(4 + extensionLength);
         buffer.putShort(TlsConstants.ExtensionType.psk_key_exchange_modes.value);

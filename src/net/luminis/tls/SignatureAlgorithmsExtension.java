@@ -8,7 +8,7 @@ import static net.luminis.tls.TlsConstants.SignatureScheme.*;
 public class SignatureAlgorithmsExtension extends Extension {
 
     @Override
-    byte[] getBytes() {
+    public byte[] getBytes() {
         TlsConstants.SignatureScheme[] schemas = new TlsConstants.SignatureScheme[] {
                 ecdsa_secp256r1_sha256,
                 rsa_pss_rsae_sha256,
