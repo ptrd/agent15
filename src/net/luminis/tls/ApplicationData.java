@@ -34,6 +34,7 @@ public class ApplicationData {
         int lastByte = message[message.length-1];
         switch (lastByte) {
             case 22:
+                System.out.println("Decrypted Application Data content is Handshake record.");
                 HandshakeRecord.parseHandshakeMessages(ByteBuffer.wrap(message, 0, message.length - 1), state);
                 break;
             default:
