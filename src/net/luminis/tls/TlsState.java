@@ -20,13 +20,26 @@ public class TlsState {
     private static final Charset ISO_8859_1 = Charset.forName("ISO-8859-1");
     private static byte[] P256_HEAD = Base64.getDecoder().decode("MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE");
 
+    private String labelPrefix;
     private byte[] serverHello;
     private byte[] serverSharedKey;
     private PrivateKey clientPrivateKey;
     private byte[] clientHello;
+    private byte[] serverHandshakeTrafficSecret;
     private byte[] serverHandshakeKey;
     private byte[] serverHandshakeIV;
 
+    public TlsState() {
+        labelPrefix = "tls13 ";
+    }
+
+    public TlsState(String alternativeLabelPrefix) {
+        labelPrefix = alternativeLabelPrefix;
+    }
+
+    public byte[] getServerHandshakeTrafficSecret() {
+        return serverHandshakeTrafficSecret;
+    }
 
     public void clientHelloSend(PrivateKey clientPrivateKey, byte[] sentClientHello) {
         this.clientPrivateKey = clientPrivateKey;
@@ -106,7 +119,7 @@ public class TlsState {
         byte[] clientHandshakeTrafficSecret = hkdfExpandLabel(handshakeSecret, "c hs traffic", helloHash, (short) 32);
         System.out.println("Client handshake traffic secret: " + bytesToHex(clientHandshakeTrafficSecret));
 
-        byte[] serverHandshakeTrafficSecret = hkdfExpandLabel(handshakeSecret, "s hs traffic", helloHash, (short) 32);
+        serverHandshakeTrafficSecret = hkdfExpandLabel(handshakeSecret, "s hs traffic", helloHash, (short) 32);
         System.out.println("Server handshake traffic secret: " + bytesToHex(serverHandshakeTrafficSecret));
 
         byte[] clientHandshakeKey = hkdfExpandLabel(clientHandshakeTrafficSecret, "key", "", (short) 16);
@@ -122,15 +135,11 @@ public class TlsState {
         System.out.println("Server handshake iv: " + bytesToHex(serverHandshakeIV));
     }
 
-    public void decrypt(byte[] array) {
-    }
-
-
-    static byte[] hkdfExpandLabel(byte[] secret, String label, String context, short length) {
+    byte[] hkdfExpandLabel(byte[] secret, String label, String context, short length) {
         return hkdfExpandLabel(secret, label, context.getBytes(ISO_8859_1), length);
     }
 
-    static byte[] hkdfExpandLabel(byte[] secret, String label, byte[] context, short length) {
+    byte[] hkdfExpandLabel(byte[] secret, String label, byte[] context, short length) {
         // See https://tools.ietf.org/html/rfc8446#section-7.1 for definition of HKDF-Expand-Label.
         ByteBuffer hkdfLabel = ByteBuffer.allocate(2 + 1 + labelPrefix.length() + label.getBytes(ISO_8859_1).length + 1 + context.length);
         hkdfLabel.putShort(length);
