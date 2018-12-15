@@ -127,26 +127,15 @@ public class TlsState {
 
 
     static byte[] hkdfExpandLabel(byte[] secret, String label, String context, short length) {
-        // See https://tools.ietf.org/html/rfc8446#section-7.1 for definition of HKDF-Expand-Label.
-        ByteBuffer hkdfLabel = ByteBuffer.allocate(2 + 1 + 6 + label.getBytes(ISO_8859_1).length + 1 + context.getBytes(ISO_8859_1).length);
-        hkdfLabel.putShort(length);
-        hkdfLabel.put((byte) (6 + label.getBytes().length));
-        // From https://tools.ietf.org/html/draft-ietf-quic-tls-16#section-5.1: 'the label for HKDF-Expand-Label uses the prefix "quic " rather than "tls13 "'
-        hkdfLabel.put("tls13 ".getBytes(ISO_8859_1));
-        hkdfLabel.put(label.getBytes(ISO_8859_1));
-        hkdfLabel.put((byte) (context.getBytes(ISO_8859_1).length));
-        hkdfLabel.put(context.getBytes(ISO_8859_1));
-        HKDF hkdf = HKDF.fromHmacSha256();
-        return hkdf.expand(secret, hkdfLabel.array(), length);
+        return hkdfExpandLabel(secret, label, context.getBytes(ISO_8859_1), length);
     }
 
     static byte[] hkdfExpandLabel(byte[] secret, String label, byte[] context, short length) {
         // See https://tools.ietf.org/html/rfc8446#section-7.1 for definition of HKDF-Expand-Label.
-        ByteBuffer hkdfLabel = ByteBuffer.allocate(2 + 1 + 6 + label.getBytes(ISO_8859_1).length + 1 + context.length);
+        ByteBuffer hkdfLabel = ByteBuffer.allocate(2 + 1 + labelPrefix.length() + label.getBytes(ISO_8859_1).length + 1 + context.length);
         hkdfLabel.putShort(length);
-        hkdfLabel.put((byte) (6 + label.getBytes().length));
-        // From https://tools.ietf.org/html/draft-ietf-quic-tls-16#section-5.1: 'the label for HKDF-Expand-Label uses the prefix "quic " rather than "tls13 "'
-        hkdfLabel.put("tls13 ".getBytes(ISO_8859_1));
+        hkdfLabel.put((byte) (labelPrefix.length() + label.getBytes().length));
+        hkdfLabel.put(labelPrefix.getBytes(ISO_8859_1));
         hkdfLabel.put(label.getBytes(ISO_8859_1));
         hkdfLabel.put((byte) (context.length));
         hkdfLabel.put(context);
