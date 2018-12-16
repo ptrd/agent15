@@ -1,5 +1,7 @@
 package net.luminis.tls;
 
+import java.nio.ByteBuffer;
+
 public class ByteUtils {
 
     public static String bytesToHex(byte[] data, int length) {
@@ -50,6 +52,15 @@ public class ByteUtils {
                 result += " ";
         }
         return result;
+    }
+
+    public static String byteToHexBlock(ByteBuffer data, int start, int size) {
+        int initialPosition = data.position();
+        data.position(start);
+        byte[] dataBytes = new byte[size];
+        data.get(dataBytes);
+        data.position(initialPosition);
+        return byteToHexBlock(dataBytes);
     }
 
     public static byte[] hexToBytes(String string) {

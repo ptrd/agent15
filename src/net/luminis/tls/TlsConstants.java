@@ -141,6 +141,20 @@ public class TlsConstants {
          }
      }
 
+
+     enum CertificateType {
+          X509(0),
+          RawPublicKey(2),
+         ;
+
+         public final byte value;
+
+         CertificateType(int value) {
+             this.value = (byte) value;
+         }
+     } ;
+
+
     // https://tools.ietf.org/html/rfc8446#appendix-B.4  Cipher Suites
     public static byte[] TLS_AES_128_GCM_SHA256 = new byte[]        { 0x13, 0x01};
     public static byte[] TLS_AES_256_GCM_SHA384 = new byte[]        { 0x13, 0x02};
