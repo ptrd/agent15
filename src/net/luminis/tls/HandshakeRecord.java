@@ -41,7 +41,7 @@ public class HandshakeRecord {
     }
 
 
-    static void parseHandshakeMessages(ByteBuffer buffer, TlsState state) throws TlsProtocolException {
+    public static void parseHandshakeMessages(ByteBuffer buffer, TlsState state) throws TlsProtocolException {
         while (buffer.remaining() > 0) {
             buffer.mark();
             int messageType = buffer.get();
