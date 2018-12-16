@@ -6,7 +6,7 @@ import java.nio.ByteBuffer;
 public class CertificateMessage {
 
     public void parse(ByteBuffer buffer, int length, TlsState state) {
-        System.out.println("Certificate message:\n" + ByteUtils.byteToHexBlock(buffer, buffer.position(), length));
+        System.out.println("Certificate message:\n" + ByteUtils.byteToHexBlock(buffer, buffer.position(), Math.min(length, buffer.remaining())));
         if (length > buffer.remaining()) {
             System.out.println("Underflow: expecting " + length + " bytes, but only " + buffer.remaining() + " left!");
         }
