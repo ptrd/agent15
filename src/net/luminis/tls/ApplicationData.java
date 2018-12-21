@@ -35,7 +35,10 @@ public class ApplicationData {
         switch (lastByte) {
             case 22:
                 System.out.println("Decrypted Application Data content is Handshake record.");
-                HandshakeRecord.parseHandshakeMessages(ByteBuffer.wrap(message, 0, message.length - 1), state);
+                ByteBuffer buffer = ByteBuffer.wrap(message, 0, message.length - 1);
+                while (buffer.remaining() > 0) {
+                    HandshakeRecord.parseHandshakeMessage(buffer, state);
+                }
                 break;
             default:
                 throw new RuntimeException("Unexpected record type in Application Data: " + lastByte);

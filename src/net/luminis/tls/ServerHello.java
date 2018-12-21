@@ -19,7 +19,7 @@ public class ServerHello {
     private byte[] serverSharedKey;
     private short tlsVersion;
 
-    public void parse(ByteBuffer buffer, int length, TlsState state) throws TlsProtocolException {
+    public ServerHello parse(ByteBuffer buffer, int length, TlsState state) throws TlsProtocolException {
         buffer.position(4);  // Skip message type and 3 bytes length
 
         int versionHigh = buffer.get();
@@ -72,6 +72,8 @@ public class ServerHello {
         buffer.rewind();
         buffer.get(raw);
         state.setServerSharedKey(raw, serverSharedKey);
+
+        return this;
     }
 
     private void parseExtensions(ByteBuffer buffer, int length) throws TlsProtocolException {

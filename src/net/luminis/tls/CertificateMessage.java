@@ -5,7 +5,7 @@ import java.nio.ByteBuffer;
 // https://tools.ietf.org/html/rfc8446#section-4.4.2
 public class CertificateMessage {
 
-    public void parse(ByteBuffer buffer, int length, TlsState state) {
+    public CertificateMessage parse(ByteBuffer buffer, int length, TlsState state) {
         System.out.println("Certificate message:\n" + ByteUtils.byteToHexBlock(buffer, buffer.position(), Math.min(length, buffer.remaining())));
         if (length > buffer.remaining()) {
             System.out.println("Underflow: expecting " + length + " bytes, but only " + buffer.remaining() + " left!");
@@ -24,7 +24,8 @@ public class CertificateMessage {
 
         int certCount = parseCertificateEntry(buffer, certificateListSize);
 
-        System.out.println("Got Certificate message (" + length + " bytes), contains " + certCount + " certificates.");
+        System.out.println("Got Certificate message (" + length + " bytes), contains " + certCount + " certificate" + (certCount == 1? ".": "s."));
+        return this;
     }
 
     private int parseCertificateEntry(ByteBuffer buffer, int certificateListSize) {
