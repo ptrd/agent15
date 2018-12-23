@@ -28,6 +28,7 @@ public class TlsState {
     private byte[] serverHandshakeTrafficSecret;
     private byte[] serverHandshakeKey;
     private byte[] serverHandshakeIV;
+    private byte[] clientHandshakeTrafficSecret;
 
     public TlsState() {
         labelPrefix = "tls13 ";
@@ -35,6 +36,10 @@ public class TlsState {
 
     public TlsState(String alternativeLabelPrefix) {
         labelPrefix = alternativeLabelPrefix;
+    }
+
+    public byte[] getClientHandshakeTrafficSecret() {
+        return clientHandshakeTrafficSecret;
     }
 
     public byte[] getServerHandshakeTrafficSecret() {
@@ -116,7 +121,7 @@ public class TlsState {
         byte[] handshakeSecret = hkdf.extract(derivedSecret, sharedSecret);
         System.out.println("Handshake secret: " + bytesToHex(handshakeSecret));
 
-        byte[] clientHandshakeTrafficSecret = hkdfExpandLabel(handshakeSecret, "c hs traffic", helloHash, (short) 32);
+        clientHandshakeTrafficSecret = hkdfExpandLabel(handshakeSecret, "c hs traffic", helloHash, (short) 32);
         System.out.println("Client handshake traffic secret: " + bytesToHex(clientHandshakeTrafficSecret));
 
         serverHandshakeTrafficSecret = hkdfExpandLabel(handshakeSecret, "s hs traffic", helloHash, (short) 32);
