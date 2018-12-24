@@ -19,7 +19,7 @@ public class TlsConstants {
     } ;
 
 
-    public enum HandshakeType{
+    public enum HandshakeType {
           client_hello(1),
           server_hello(2),
           new_session_ticket(4),

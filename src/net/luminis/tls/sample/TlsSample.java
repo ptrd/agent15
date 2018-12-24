@@ -53,7 +53,7 @@ public class TlsSample {
 
         byte[] clientHelloMessage = new byte[clientHello.length - 5];
         System.arraycopy(clientHello, 5, clientHelloMessage, 0, clientHelloMessage.length);
-        new TlsSession(clientHelloMessage, loadPrivateKey(), null, new ByteArrayInputStream(serverReply));
+        new TlsSession(clientHelloMessage, loadPrivateKey(), null, new ByteArrayInputStream(serverReply), null);
     }
 
 }

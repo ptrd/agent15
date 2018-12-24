@@ -2,8 +2,9 @@ package net.luminis.tls;
 
 import java.io.IOException;
 import java.io.PushbackInputStream;
+import java.nio.ByteBuffer;
 
-public class Alert {
+public class AlertRecord {
 
     public void parse(PushbackInputStream input) throws IOException, TlsProtocolException {
         input.read();  // type
@@ -15,12 +16,20 @@ public class Alert {
         if (length != 2)
             throw new TlsProtocolException("Invalid alert length (" + length + ")");
 
-        int alertLevel = input.read();
-        int alertDescription = input.read();
+        ByteBuffer buffer = ByteBuffer.allocate(length);
+        input.read(buffer.array());
+
+        parseAlertMessage(buffer);
+    }
+
+    public static void parseAlertMessage(ByteBuffer buffer) throws TlsProtocolException {
+        int alertLevel = buffer.get();
+        int alertDescription = buffer.get();
         if (alertLevel == 2 && alertDescription == 40) {
-            System.out.println("Alert fatal/handshake_failure");
+            System.out.println("AlertRecord fatal/handshake_failure");
         }
-        else
-            System.out.println("Alert " + alertLevel + "/" + alertDescription);
+        else {
+            System.out.println("AlertRecord " + alertLevel + "/" + alertDescription);
+        }
     }
 }

@@ -1,6 +1,7 @@
 package net.luminis.tls;
 
 import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
 import java.io.OutputStream;
 import java.net.Socket;
 import java.nio.charset.Charset;
@@ -43,11 +44,11 @@ public class Tls13 {
         HandshakeRecord handshakeRecord = new HandshakeRecord(clientHello);
 
         Socket socket = new Socket(serverName, serverPort);
-        OutputStream outputStream = socket.getOutputStream();
+        OutputStream outputStream = new BufferedOutputStream(socket.getOutputStream());
         outputStream.write(handshakeRecord.getBytes());
         outputStream.flush();
 
-        new TlsSession(clientHello.getBytes(), privateKey, publicKey, new BufferedInputStream(socket.getInputStream()));
+        new TlsSession(clientHello.getBytes(), privateKey, publicKey, new BufferedInputStream(socket.getInputStream()), outputStream);
     }
 
     public static ECKey[] generateKeys(String ecCurve) throws Exception {
