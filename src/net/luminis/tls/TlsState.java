@@ -49,6 +49,8 @@ public class TlsState {
     private byte[] clientHandshakeIV;
     private byte[] handshakeSecret;
     private byte[] handshakeServerFinishedHash;
+    private byte[] clientApplicationTrafficSecret;
+    private byte[] serverApplicationTrafficSecret;
     private byte[] serverKey;
     private byte[] serverIv;
     private byte[] clientKey;
@@ -75,6 +77,14 @@ public class TlsState {
     public void clientHelloSend(PrivateKey clientPrivateKey, byte[] sentClientHello) {
         this.clientPrivateKey = clientPrivateKey;
         clientHello = sentClientHello;
+    }
+
+    public byte[] getClientApplicationTrafficSecret() {
+        return clientApplicationTrafficSecret;
+    }
+
+    public byte[] getServerApplicationTrafficSecret() {
+        return serverApplicationTrafficSecret;
     }
 
     public void setServerSharedKey(byte[] serverHello, byte[] serverSharedKey) {
@@ -196,7 +206,7 @@ public class TlsState {
         serverIv = serverHandshakeIV;
     }
 
-    void computeApplicationSecrets() {
+    public void computeApplicationSecrets() {
         computeApplicationSecrets(handshakeSecret, handshakeServerFinishedHash);
         // Reset record counters
         serverRecordCount = 0;
@@ -221,10 +231,10 @@ public class TlsState {
         byte[] masterSecret = hkdf.extract(derivedSecret, zeroKey);
         System.out.println("Master secret: "+ bytesToHex(masterSecret));
 
-        byte[] clientApplicationTrafficSecret = hkdfExpandLabel(masterSecret, "c ap traffic", handshakeHash, (short) 32);
+        clientApplicationTrafficSecret = hkdfExpandLabel(masterSecret, "c ap traffic", handshakeHash, (short) 32);
         System.out.println("Client application traffic secret: " + bytesToHex(clientApplicationTrafficSecret));
 
-        byte[] serverApplicationTrafficSecret = hkdfExpandLabel(masterSecret, "s ap traffic", handshakeHash, (short) 32);
+        serverApplicationTrafficSecret = hkdfExpandLabel(masterSecret, "s ap traffic", handshakeHash, (short) 32);
         System.out.println("Server application traffic secret: " + bytesToHex(serverApplicationTrafficSecret));
 
         byte[] clientApplicationKey = hkdfExpandLabel(clientApplicationTrafficSecret, "key", "", (short) 16);
