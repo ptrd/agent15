@@ -1,0 +1,21 @@
+apply plugin: 'java'
+apply plugin: 'idea'
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    // https://mvnrepository.com/artifact/at.favre.lib/hkdf
+    compile group: 'at.favre.lib', name: 'hkdf', version: '1.0.1'
+}
+
+sourceSets {
+    main {
+        java {
+            srcDirs = ['src']
+            exclude 'net/luminis/tls/sample'
+        }
+    }
+}
+
