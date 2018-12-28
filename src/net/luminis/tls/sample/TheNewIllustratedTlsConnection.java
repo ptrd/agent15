@@ -1,3 +1,4 @@
+package net.luminis.tls.sample;
 
 import at.favre.lib.crypto.HKDF;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
@@ -17,7 +18,7 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.security.*;
 import java.security.spec.X509EncodedKeySpec;
-import java.util.Arrays;
+
 
 public class TheNewIllustratedTlsConnection {
 
