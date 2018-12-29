@@ -3,19 +3,25 @@ package net.luminis.tls;
 import java.nio.ByteBuffer;
 import java.security.SecureRandom;
 import java.security.interfaces.ECPublicKey;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Random;
 import java.util.stream.Stream;
 
 public class ClientHello {
 
     private static final int MAX_CLIENT_HELLO_SIZE = 3000;
+    public static final byte[][] SUPPORTED_CIPHERS = new byte[][]{TlsConstants.TLS_AES_128_GCM_SHA256, TlsConstants.TLS_AES_256_GCM_SHA384};
 
     private static Random random = new Random();
     private static SecureRandom secureRandom = new SecureRandom();
     private final byte[] data;
 
-
     public ClientHello(String serverName, ECPublicKey publicKey) {
+        this(serverName, publicKey, true, SUPPORTED_CIPHERS, new Extension[0]);
+    }
+
+    public ClientHello(String serverName, ECPublicKey publicKey, boolean compatibilityMode, byte[][] supportedCiphers, Extension[] extraExtensions) {
         ByteBuffer buffer = ByteBuffer.allocate(MAX_CLIENT_HELLO_SIZE);
 
         // HandshakeType client_hello(1),
@@ -35,7 +41,6 @@ public class ClientHello {
         buffer.put(clientRandom);
 
         byte[] sessionId;
-        boolean compatibilityMode = true;
         if (compatibilityMode) {
             sessionId = new byte[32];
             random.nextBytes(sessionId);
@@ -47,7 +52,6 @@ public class ClientHello {
         if (sessionId.length > 0)
             buffer.put(sessionId);
 
-        byte[][] supportedCiphers = new byte[][] { TlsConstants.TLS_AES_128_GCM_SHA256, TlsConstants.TLS_AES_256_GCM_SHA384};
         buffer.putShort((short) (supportedCiphers.length * 2));
         for (byte[] cipher: supportedCiphers) {
             buffer.put(cipher);
@@ -60,7 +64,7 @@ public class ClientHello {
                 (byte) 0x01, (byte) 0x00
         });
 
-        Extension[] extensions = new Extension[] {
+        Extension[] defaultExtensions = new Extension[] {
                 new ServerNameExtension(serverName),
                 new SupportedVersionsExtension(),
                 new SupportedGroupsExtension(),
@@ -69,7 +73,11 @@ public class ClientHello {
                 new PskKeyExchangeModesExtension()
         };
 
-        int extensionsLength = Stream.of(extensions).mapToInt(e -> e.getBytes().length).sum();
+        List<Extension> extensions = new ArrayList<>();
+        extensions.addAll(List.of(defaultExtensions));
+        extensions.addAll(List.of(extraExtensions));
+
+        int extensionsLength = extensions.stream().mapToInt(e -> e.getBytes().length).sum();
         buffer.putShort((short) extensionsLength);
         for (Extension extension: extensions) {
             buffer.put(extension.getBytes());
@@ -84,7 +92,7 @@ public class ClientHello {
         buffer.get(data);
     }
 
-    byte[] getBytes() {
+    public byte[] getBytes() {
         return data;
     }
 }
