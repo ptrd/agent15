@@ -62,7 +62,8 @@ public class ServerHello {
 
         int legacyCompressionMethod = buffer.get();  // TODO: must match, see 4.1.3
 
-        List<Extension> extensions = parseExtensions(buffer, length - buffer.position());
+        List<Extension> extensions = EncryptedExtensions.parseExtensions(buffer);
+
         extensions.stream().forEach( extension -> {
             if (extension instanceof KeyShareExtension) {
                 serverSharedKey = ((KeyShareExtension) extension).getServerSharedKey();
@@ -84,79 +85,5 @@ public class ServerHello {
         state.setServerSharedKey(raw, serverSharedKey);
 
         return this;
-    }
-
-    private List<Extension> parseExtensions(ByteBuffer buffer, int length) throws TlsProtocolException {
-        int extensionsLength = buffer.getShort();
-        if (extensionsLength != length - 2)
-            throw new TlsProtocolException("invalid extensions length");
-
-        List<Extension> extensions = new ArrayList<>();
-        while (buffer.remaining() > 0) {
-            buffer.mark();
-            int extensionType = buffer.getShort();
-            buffer.reset();
-
-            switch (extensionType) {
-                case 51:
-                    // key_share(51)
-                    extensions.add(new KeyShareExtension().parse(buffer));
-                    break;
-                case 43:
-                    // supported_versions(43),                     /* RFC 8446 */
-                    extensions.add(new SupportedVersionsExtension().parse(buffer));
-                    break;
-                case 0:
-                    // server_name(0),                             /* RFC 6066 */
-                case 1:
-                    // max_fragment_length(1),                     /* RFC 6066 */
-                case 5:
-                       // status_request(5),                          /* RFC 6066 */
-                case 10:
-                    // supported_groups(10),                       /* RFC 8422, 7919 */
-                case 13:
-                    // signature_algorithms(13),                   /* RFC 8446 */
-                case 14:
-                    // use_srtp(14),                               /* RFC 5764 */
-                case 15:
-                        // heartbeat(15),                              /* RFC 6520 */
-                case 16:
-                        // application_layer_protocol_negotiation(16), /* RFC 7301 */
-                case 18:
-                    // signed_certificate_timestamp(18),           /* RFC 6962 */
-                case 19:
-                    // client_certificate_type(19),                /* RFC 7250 */
-                case 20:
-                        // server_certificate_type(20),                /* RFC 7250 */
-                case 21:
-                    // padding(21),                                /* RFC 7685 */
-                case 41:
-                        // pre_shared_key(41),                         /* RFC 8446 */
-                case 42:
-                        // early_data(42),                             /* RFC 8446 */
-                case 44:
-                    // cookie(44),                                 /* RFC 8446 */
-                case 45:
-                        // psk_key_exchange_modes(45),                 /* RFC 8446 */
-                case 47:
-                    // certificate_authorities(47),                /* RFC 8446 */
-                case 48:
-                    // oid_filters(48),                            /* RFC 8446 */
-                case 49:
-                        // post_handshake_auth(49),                    /* RFC 8446 */
-                case 50:
-                        // signature_algorithms_cert(50),              /* RFC 8446 */
-                default:
-                    parseUnknownExtension(buffer);
-            }
-        }
-        return extensions;
-    }
-
-    private void parseUnknownExtension(ByteBuffer buffer) {
-        buffer.getShort();
-        int length = buffer.getShort();
-        for (int i = 0; i < length; i++)
-            buffer.get();
     }
 }
