@@ -3,7 +3,7 @@ package net.luminis.tls;
 public class TlsConstants {
 
 
-    enum ContentType {
+    public enum ContentType {
           invalid(0),
           change_cipher_spec(20),
           alert(21),
@@ -40,7 +40,7 @@ public class TlsConstants {
         }
     };
 
-    enum ExtensionType {
+    public enum ExtensionType {
         server_name(0),                             /* RFC 6066 */
         max_fragment_length(1),                     /* RFC 6066 */
         status_request(5),                          /* RFC 6066 */

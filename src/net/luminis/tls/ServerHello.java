@@ -1,7 +1,9 @@
 package net.luminis.tls;
 
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 
 public class ServerHello {
 
@@ -60,7 +62,15 @@ public class ServerHello {
 
         int legacyCompressionMethod = buffer.get();  // TODO: must match, see 4.1.3
 
-        parseExtensions(buffer, length - buffer.position());
+        List<Extension> extensions = parseExtensions(buffer, length - buffer.position());
+        extensions.stream().forEach( extension -> {
+            if (extension instanceof KeyShareExtension) {
+                serverSharedKey = ((KeyShareExtension) extension).getServerSharedKey();
+            }
+            else if (extension instanceof SupportedVersionsExtension) {
+                tlsVersion = ((SupportedVersionsExtension) extension).getTlsVersion();
+            }
+        });
 
         // Post processing after record is completely parsed
         if (tlsVersion != 0x0304) {
@@ -76,11 +86,12 @@ public class ServerHello {
         return this;
     }
 
-    private void parseExtensions(ByteBuffer buffer, int length) throws TlsProtocolException {
+    private List<Extension> parseExtensions(ByteBuffer buffer, int length) throws TlsProtocolException {
         int extensionsLength = buffer.getShort();
         if (extensionsLength != length - 2)
             throw new TlsProtocolException("invalid extensions length");
 
+        List<Extension> extensions = new ArrayList<>();
         while (buffer.remaining() > 0) {
             buffer.mark();
             int extensionType = buffer.getShort();
@@ -89,11 +100,11 @@ public class ServerHello {
             switch (extensionType) {
                 case 51:
                     // key_share(51)
-                    parseKeyShareExtension(buffer);
+                    extensions.add(new KeyShareExtension().parse(buffer));
                     break;
                 case 43:
                     // supported_versions(43),                     /* RFC 8446 */
-                    parseSupportedVersionsExtension(buffer);
+                    extensions.add(new SupportedVersionsExtension().parse(buffer));
                     break;
                 case 0:
                     // server_name(0),                             /* RFC 6066 */
@@ -139,30 +150,7 @@ public class ServerHello {
                     parseUnknownExtension(buffer);
             }
         }
-    }
-
-
-    private void parseKeyShareExtension(ByteBuffer buffer) throws TlsProtocolException {
-        buffer.getShort();
-        int length = buffer.getShort();
-        int group = buffer.getShort();
-        switch (group) {
-            case 0x0017:
-                keyGroup = "secp256r1";
-                break;
-            default:
-                throw new TlsProtocolException("Unsupported key group " + group);
-        }
-        int keyLength = buffer.getShort();
-        serverSharedKey = new byte[keyLength];
-        buffer.get(serverSharedKey);
-        System.out.println("Server shared key (" + keyLength + "): " + ByteUtils.bytesToHex(serverSharedKey));
-    }
-
-    private void parseSupportedVersionsExtension(ByteBuffer buffer) {
-        buffer.getShort();
-        int length = buffer.getShort();
-        tlsVersion = buffer.getShort();
+        return extensions;
     }
 
     private void parseUnknownExtension(ByteBuffer buffer) {

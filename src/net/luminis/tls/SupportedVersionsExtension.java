@@ -5,7 +5,25 @@ import java.nio.ByteBuffer;
 
 public class SupportedVersionsExtension extends Extension {
 
+    private short tlsVersion;
+
     public SupportedVersionsExtension() {
+    }
+
+    /**
+     * Assuming handshake message type Server Hello, so message consists of one ProtocolVersion struct.
+     * @param buffer
+     * @return
+     */
+    public SupportedVersionsExtension parse(ByteBuffer buffer) throws TlsProtocolException {
+        buffer.getShort();
+        int extensionDataLength = buffer.getShort();
+        if (extensionDataLength != 2) {
+            throw new TlsProtocolException("Incorrect extension length");
+        }
+        tlsVersion = buffer.getShort();
+
+        return this;
     }
 
     public byte[] getBytes() {
@@ -16,5 +34,9 @@ public class SupportedVersionsExtension extends Extension {
         buffer.put(new byte[] { (byte) 0x03, (byte) 0x04 });  // TLS 1.3
 
         return buffer.array();
+    }
+
+    public short getTlsVersion() {
+        return tlsVersion;
     }
 }
