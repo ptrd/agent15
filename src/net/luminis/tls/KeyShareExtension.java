@@ -60,7 +60,7 @@ public class KeyShareExtension extends Extension {
         int keyLength = buffer.getShort();
         serverSharedKey = new byte[keyLength];
         buffer.get(serverSharedKey);
-        System.out.println("Server shared key (" + keyLength + "): " + ByteUtils.bytesToHex(serverSharedKey));
+        Logger.debug("Server shared key (" + keyLength + "): " + ByteUtils.bytesToHex(serverSharedKey));
     }
 
     @Override

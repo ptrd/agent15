@@ -17,6 +17,6 @@ public class ChangeCipherSpec {
             throw new TlsProtocolException("change_cipher_spec must have value 0x01");
         input.read();
 
-        System.out.println("Got ChangeCipherSpec message");
+        Logger.debug("Got ChangeCipherSpec message");
     }
 }

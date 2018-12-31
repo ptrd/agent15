@@ -26,10 +26,10 @@ public class AlertRecord {
         int alertLevel = buffer.get();
         int alertDescription = buffer.get();
         if (alertLevel == 2 && alertDescription == 40) {
-            System.out.println("AlertRecord fatal/handshake_failure");
+            Logger.debug("AlertRecord fatal/handshake_failure");
         }
         else {
-            System.out.println("AlertRecord " + alertLevel + "/" + alertDescription);
+            Logger.debug("AlertRecord " + alertLevel + "/" + alertDescription);
         }
     }
 }

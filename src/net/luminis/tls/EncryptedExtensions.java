@@ -11,7 +11,7 @@ public class EncryptedExtensions {
 
     public EncryptedExtensions parse(ByteBuffer buffer, int length, TlsState state) throws TlsProtocolException {
 
-        System.out.println("Got Encrypted Extensions message (" + length + " bytes)");
+        Logger.debug("Got Encrypted Extensions message (" + length + " bytes)");
 
         // Update TLS state: raw bytes are needed for computing the "hello hash".
         byte[] raw = new byte[length];
@@ -44,7 +44,7 @@ public class EncryptedExtensions {
                 } else if (extensionType == TlsConstants.ExtensionType.supported_versions.value) {
                     extensions.add(new SupportedVersionsExtension().parse(buffer));
                 } else {
-                    System.out.println("Unsupported extension, type is: " + extensionType);
+                    Logger.debug("Unsupported extension, type is: " + extensionType);
                     extensions.add(new UnknownExtension().parse(buffer));
                 }
             }

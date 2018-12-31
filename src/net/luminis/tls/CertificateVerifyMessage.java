@@ -6,7 +6,7 @@ public class CertificateVerifyMessage {
 
     public CertificateVerifyMessage parse(ByteBuffer buffer, int length, TlsState state) {
 
-        System.out.println("Got Certificate Verify message( " + length + " bytes)");
+        Logger.debug("Got Certificate Verify message( " + length + " bytes)");
 
         // Update state.
         byte[] raw = new byte[length];

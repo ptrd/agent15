@@ -34,14 +34,14 @@ public class TlsSession {
         };
         output.write(changeCipherSpec);
         output.flush();
-        System.out.println("Sent (legacy) Change Cipher Spec: " + ByteUtils.bytesToHex(changeCipherSpec));
+        Logger.debug("Sent (legacy) Change Cipher Spec: " + ByteUtils.bytesToHex(changeCipherSpec));
 
         // Send Finished
         ApplicationData applicationDataRecord = new ApplicationData(new FinishedMessage(state), state);
         output.write(applicationDataRecord.getBytes());
         output.flush();
-        System.out.println("Sent Finished: " + ByteUtils.bytesToHex(applicationDataRecord.getBytes()));
-        System.out.println("Handshake done!");
+        Logger.debug("Sent Finished: " + ByteUtils.bytesToHex(applicationDataRecord.getBytes()));
+        Logger.debug("Handshake done!");
 
         state.computeApplicationSecrets();
 
@@ -49,7 +49,7 @@ public class TlsSession {
         applicationDataRecord = new ApplicationData("GET / HTTP/1.1\r\n\r\n".getBytes(), state);
         output.write(applicationDataRecord.getBytes());
         output.flush();
-        System.out.println("GET request sent: " + ByteUtils.bytesToHex(applicationDataRecord.getBytes()));
+        Logger.debug("GET request sent: " + ByteUtils.bytesToHex(applicationDataRecord.getBytes()));
 
         parseServerMessages(inputStream);
     }

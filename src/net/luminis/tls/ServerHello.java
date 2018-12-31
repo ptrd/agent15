@@ -32,7 +32,7 @@ public class ServerHello {
         random = new byte[32];
         buffer.get(random);
         if (Arrays.equals(random, HelloRetryRequest_SHA256)) {
-            System.out.println("HelloRetryRequest!");
+            Logger.debug("HelloRetryRequest!");
         }
 
         int sessionIdLength = buffer.get();

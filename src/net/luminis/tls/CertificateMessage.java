@@ -8,9 +8,9 @@ public class CertificateMessage {
     public CertificateMessage parse(ByteBuffer buffer, int length, TlsState state) {
         int startPosition = buffer.position();
 
-        System.out.println("Certificate message:\n" + ByteUtils.byteToHexBlock(buffer, buffer.position(), Math.min(length, buffer.remaining())));
+        Logger.debug("Certificate message:\n" + ByteUtils.byteToHexBlock(buffer, buffer.position(), Math.min(length, buffer.remaining())));
         if (length > buffer.remaining()) {
-            System.out.println("Underflow: expecting " + length + " bytes, but only " + buffer.remaining() + " left!");
+            Logger.debug("Underflow: expecting " + length + " bytes, but only " + buffer.remaining() + " left!");
         }
 
         int handshakeType = buffer.get();  // Should be certificate.value
@@ -26,7 +26,7 @@ public class CertificateMessage {
 
         int certCount = parseCertificateEntry(buffer, certificateListSize);
 
-        System.out.println("Got Certificate message (" + length + " bytes), contains " + certCount + " certificate" + (certCount == 1? ".": "s."));
+        Logger.debug("Got Certificate message (" + length + " bytes), contains " + certCount + " certificate" + (certCount == 1? ".": "s."));
 
         // Update state.
         byte[] raw = new byte[length];

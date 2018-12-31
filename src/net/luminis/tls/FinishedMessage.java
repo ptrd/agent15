@@ -25,7 +25,7 @@ public class FinishedMessage extends TlsMessage {
     }
 
     public FinishedMessage parse(ByteBuffer buffer, int length, TlsState state) {
-        System.out.println("Got Finished message (" + length + " bytes)");
+        Logger.debug("Got Finished message (" + length + " bytes)");
 
         // Update state.
         byte[] raw = new byte[length];

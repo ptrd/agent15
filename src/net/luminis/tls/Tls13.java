@@ -31,6 +31,7 @@ public class Tls13 {
 
 
     public static void main(String[] args) throws Exception {
+        Logger.enableDebugLogging(true);
         startTlsWithServer(server, 443);
     }
 

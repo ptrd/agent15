@@ -111,7 +111,7 @@ public class TlsState {
         }
         byte[] helloHash = digest.digest(helloData.array());
 
-        System.out.println("Hello hash: " + bytesToHex(helloHash));
+        Logger.debug("Hello hash: " + bytesToHex(helloHash));
         return helloHash;
     }
 
@@ -153,7 +153,7 @@ public class TlsState {
 
             //SecretKey key = keyAgreement.generateSecret("AES");
             SecretKey key = keyAgreement.generateSecret("TlsPremasterSecret");
-            System.out.println("Shared key: " + bytesToHex(key.getEncoded()));
+            Logger.debug("Shared key: " + bytesToHex(key.getEncoded()));
             return key.getEncoded();
         } catch (NoSuchAlgorithmException | InvalidKeyException e) {
             throw new RuntimeException("Unsupported crypto: " + e);
@@ -172,37 +172,37 @@ public class TlsState {
         byte[] zeroSalt = new byte[32];
         byte[] zeroPSK = new byte[32];
         byte[] earlySecret = hkdf.extract(zeroSalt, zeroPSK);
-        System.out.println("Early secret: " + bytesToHex(earlySecret));
+        Logger.debug("Early secret: " + bytesToHex(earlySecret));
 
         byte[] emptyHash = digest.digest(new byte[0]);
-        System.out.println("Empty hash: " + bytesToHex(emptyHash));
+        Logger.debug("Empty hash: " + bytesToHex(emptyHash));
 
         byte[] derivedSecret = hkdfExpandLabel(earlySecret, "derived", emptyHash, (short) 32);
-        System.out.println("Derived secret: " + bytesToHex(derivedSecret));
+        Logger.debug("Derived secret: " + bytesToHex(derivedSecret));
 
         handshakeSecret = hkdf.extract(derivedSecret, sharedSecret);
-        System.out.println("Handshake secret: " + bytesToHex(handshakeSecret));
+        Logger.debug("Handshake secret: " + bytesToHex(handshakeSecret));
 
         clientHandshakeTrafficSecret = hkdfExpandLabel(handshakeSecret, "c hs traffic", helloHash, (short) 32);
-        System.out.println("Client handshake traffic secret: " + bytesToHex(clientHandshakeTrafficSecret));
+        Logger.debug("Client handshake traffic secret: " + bytesToHex(clientHandshakeTrafficSecret));
 
         serverHandshakeTrafficSecret = hkdfExpandLabel(handshakeSecret, "s hs traffic", helloHash, (short) 32);
-        System.out.println("Server handshake traffic secret: " + bytesToHex(serverHandshakeTrafficSecret));
+        Logger.debug("Server handshake traffic secret: " + bytesToHex(serverHandshakeTrafficSecret));
 
         clientHandshakeKey = hkdfExpandLabel(clientHandshakeTrafficSecret, "key", "", (short) 16);
-        System.out.println("Client handshake key: " + bytesToHex(clientHandshakeKey));
+        Logger.debug("Client handshake key: " + bytesToHex(clientHandshakeKey));
         clientKey = clientHandshakeKey;
 
         serverHandshakeKey = hkdfExpandLabel(serverHandshakeTrafficSecret, "key", "", (short) 16);
-        System.out.println("Server handshake key: " + bytesToHex(serverHandshakeKey));
+        Logger.debug("Server handshake key: " + bytesToHex(serverHandshakeKey));
         serverKey = serverHandshakeKey;
 
         clientHandshakeIV = hkdfExpandLabel(clientHandshakeTrafficSecret, "iv", "", (short) 12);
-        System.out.println("Client handshake iv: " + bytesToHex(clientHandshakeIV));
+        Logger.debug("Client handshake iv: " + bytesToHex(clientHandshakeIV));
         clientIv = clientHandshakeIV;
 
         serverHandshakeIV = hkdfExpandLabel(serverHandshakeTrafficSecret, "iv", "", (short) 12);
-        System.out.println("Server handshake iv: " + bytesToHex(serverHandshakeIV));
+        Logger.debug("Server handshake iv: " + bytesToHex(serverHandshakeIV));
         serverIv = serverHandshakeIV;
     }
 
@@ -225,32 +225,32 @@ public class TlsState {
         byte[] emptyHash = digest.digest(new byte[0]);
 
         byte[] derivedSecret = hkdfExpandLabel(handshakeSecret, "derived", emptyHash, (short) 32);
-        System.out.println("Derived secret: " + bytesToHex(derivedSecret));
+        Logger.debug("Derived secret: " + bytesToHex(derivedSecret));
 
         byte[] zeroKey = new byte[32];
         byte[] masterSecret = hkdf.extract(derivedSecret, zeroKey);
-        System.out.println("Master secret: "+ bytesToHex(masterSecret));
+        Logger.debug("Master secret: "+ bytesToHex(masterSecret));
 
         clientApplicationTrafficSecret = hkdfExpandLabel(masterSecret, "c ap traffic", handshakeHash, (short) 32);
-        System.out.println("Client application traffic secret: " + bytesToHex(clientApplicationTrafficSecret));
+        Logger.debug("Client application traffic secret: " + bytesToHex(clientApplicationTrafficSecret));
 
         serverApplicationTrafficSecret = hkdfExpandLabel(masterSecret, "s ap traffic", handshakeHash, (short) 32);
-        System.out.println("Server application traffic secret: " + bytesToHex(serverApplicationTrafficSecret));
+        Logger.debug("Server application traffic secret: " + bytesToHex(serverApplicationTrafficSecret));
 
         byte[] clientApplicationKey = hkdfExpandLabel(clientApplicationTrafficSecret, "key", "", (short) 16);
-        System.out.println("Client application key: " + bytesToHex(clientApplicationKey));
+        Logger.debug("Client application key: " + bytesToHex(clientApplicationKey));
         clientKey = clientApplicationKey;
 
         byte[] serverApplicationKey = hkdfExpandLabel(serverApplicationTrafficSecret, "key", "", (short) 16);
-        System.out.println("Server application key: " + bytesToHex(serverApplicationKey));
+        Logger.debug("Server application key: " + bytesToHex(serverApplicationKey));
         serverKey = serverApplicationKey;
 
         byte[] clientApplicationIv = hkdfExpandLabel(clientApplicationTrafficSecret, "iv", "", (short) 12);
-        System.out.println("Client application iv: " + bytesToHex(clientApplicationIv));
+        Logger.debug("Client application iv: " + bytesToHex(clientApplicationIv));
         clientIv = clientApplicationIv;
 
         byte[] serverApplicationIv = hkdfExpandLabel(serverApplicationTrafficSecret, "iv", "", (short) 12);
-        System.out.println("Server application iv: " + bytesToHex(serverApplicationIv));
+        Logger.debug("Server application iv: " + bytesToHex(serverApplicationIv));
         serverIv = serverApplicationIv;
 
         status = Status.ApplicationData;
@@ -300,21 +300,21 @@ public class TlsState {
 
     byte[] decrypt(byte[] recordHeader, byte[] payload) {
         int recordSize = (recordHeader[3] & 0xff) << 8 | (recordHeader[4] & 0xff);
-        System.out.println("Payload length: " + payload.length + " bytes, size in record: " + recordSize);
+        Logger.debug("Payload length: " + payload.length + " bytes, size in record: " + recordSize);
 
         byte[] encryptedData = new byte[recordSize - 16];
         byte[] authTag = new byte[16];
         System.arraycopy(payload, 0, encryptedData, 0, encryptedData.length);
         System.arraycopy(payload, 0 + recordSize - 16, authTag, 0, authTag.length);
 
-        System.out.println("Record data: " + bytesToHex(recordHeader));
-        System.out.println("Encrypted data: " + bytesToHex(encryptedData, Math.min(8, encryptedData.length))
+        Logger.debug("Record data: " + bytesToHex(recordHeader));
+        Logger.debug("Encrypted data: " + bytesToHex(encryptedData, Math.min(8, encryptedData.length))
                 + "..." + bytesToHex(encryptedData, Math.max(encryptedData.length - 8, 0), Math.min(8, encryptedData.length)));
-        System.out.println("Auth tag: " + bytesToHex(authTag));
+        Logger.debug("Auth tag: " + bytesToHex(authTag));
 
         byte[] wrapped = decryptPayload(payload, recordHeader, serverRecordCount);
         serverRecordCount++;
-        System.out.println("Decrypted data (" + wrapped.length + "): " + bytesToHex(wrapped, Math.min(8, wrapped.length))
+        Logger.debug("Decrypted data (" + wrapped.length + "): " + bytesToHex(wrapped, Math.min(8, wrapped.length))
                 + "..." + bytesToHex(wrapped, Math.max(wrapped.length - 8, 0), Math.min(8, wrapped.length)));
         return wrapped;
     }

@@ -44,7 +44,7 @@ public class ApplicationData {
         byte[] payload = new byte[data.length + 1];
         System.arraycopy(data, 0, payload, 0, data.length);
         payload[payload.length - 1] = contentType.value;
-        System.out.println("Before encrypting: " + ByteUtils.bytesToHex(payload));
+        Logger.debug("Before encrypting: " + ByteUtils.bytesToHex(payload));
         byte[] encryptedPayload = state.encryptPayload(payload, recordHeader);
 
         recordBytes = new byte[5 + payloadLength];
@@ -67,11 +67,11 @@ public class ApplicationData {
         ByteBuffer buffer = ByteBuffer.allocate(length);
         input.read(buffer.array());
 
-        System.out.println("Received Application Data bytes: ");
-        System.out.println(ByteUtils.bytesToHex(buffer.array()));
+        Logger.debug("Received Application Data bytes: ");
+        Logger.debug(ByteUtils.bytesToHex(buffer.array()));
 
         byte[] decryptedData = state.decrypt(recordHeader, buffer.array());
-        System.out.println("Decrypted: " + ByteUtils.bytesToHex(decryptedData));
+        Logger.debug("Decrypted: " + ByteUtils.bytesToHex(decryptedData));
 
         // TODO: remove padding, see https://tools.ietf.org/html/rfc8446#section-5.4
         parseMessage(decryptedData, state);
@@ -80,22 +80,22 @@ public class ApplicationData {
     private void parseMessage(byte[] message, TlsState state) throws TlsProtocolException {
         int lastByte = message[message.length-1];
         if (lastByte == TlsConstants.ContentType.handshake.value) {
-            System.out.println("Decrypted Application Data content is Handshake record.");
+            Logger.debug("Decrypted Application Data content is Handshake record.");
             ByteBuffer buffer = ByteBuffer.wrap(message, 0, message.length - 1);
             while (buffer.remaining() > 0) {
                 HandshakeRecord.parseHandshakeMessage(buffer, state);
             }
         }
         else if (lastByte == TlsConstants.ContentType.alert.value) {
-            System.out.println("Decrypted Application Data content is Alert record.");
+            Logger.debug("Decrypted Application Data content is Alert record.");
             ByteBuffer alert = ByteBuffer.wrap(message, 0, message.length - 1);
             AlertRecord.parseAlertMessage(alert);
         }
         else if (lastByte == application_data.value) {
-            System.out.println("Decrypted Application Data content is Application Data record");
+            Logger.debug("Decrypted Application Data content is Application Data record");
             String content = new String(message, 0, message.length - 1, Charset.forName("UTF-8"));
-            System.out.println("Content:");
-            System.out.println(content);
+            Logger.debug("Content:");
+            Logger.debug(content);
         }
         else {
             throw new RuntimeException("Unexpected record type in Application Data: " + lastByte);
