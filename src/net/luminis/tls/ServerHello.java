@@ -22,7 +22,7 @@ public class ServerHello {
     private short tlsVersion;
 
     public ServerHello parse(ByteBuffer buffer, int length, TlsState state) throws TlsProtocolException {
-        buffer.position(4);  // Skip message type and 3 bytes length
+        buffer.getInt();  // Skip message type and 3 bytes length
 
         int versionHigh = buffer.get();
         int versionLow = buffer.get();

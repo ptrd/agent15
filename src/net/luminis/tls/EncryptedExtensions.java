@@ -20,7 +20,7 @@ public class EncryptedExtensions {
         state.setEncryptedExtensions(raw);
         buffer.reset();
 
-        buffer.position(4);  // Skip message type and 3 bytes length
+        buffer.getInt();  // Skip message type and 3 bytes length
 
         extensions = parseExtensions(buffer);
 
@@ -36,7 +36,7 @@ public class EncryptedExtensions {
 
             while (buffer.position() - startPosition < extensionsLength) {
                 buffer.mark();
-                int extensionType = buffer.getShort();
+                int extensionType = buffer.getShort() & 0xffff;
                 buffer.reset();
 
                 if (extensionType == TlsConstants.ExtensionType.key_share.value) {
