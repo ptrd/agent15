@@ -1,11 +1,11 @@
 package net.luminis.tls;
 
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-public class ServerHello {
+
+public class ServerHello extends HandshakeMessage {
 
     static byte[] HelloRetryRequest_SHA256 = new byte[] {
             (byte) 0xCF, (byte) 0x21, (byte) 0xAD, (byte) 0x74, (byte) 0xE5, (byte) 0x9A, (byte) 0x61, (byte) 0x11,
@@ -85,5 +85,10 @@ public class ServerHello {
         state.setServerSharedKey(raw, serverSharedKey);
 
         return this;
+    }
+
+    @Override
+    public byte[] getBytes() {
+        return new byte[0];
     }
 }

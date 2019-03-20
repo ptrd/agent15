@@ -19,7 +19,7 @@ public class ApplicationData {
      * @param message
      * @param state
      */
-    public ApplicationData(TlsMessage message, TlsState state) {
+    public ApplicationData(HandshakeMessage message, TlsState state) {
         this(message.getBytes(), state, TlsConstants.ContentType.handshake);
     }
 

@@ -1,6 +1,6 @@
 package net.luminis.tls;
 
-public abstract class TlsMessage {
+public abstract class HandshakeMessage {
 
     public abstract byte[] getBytes();
 

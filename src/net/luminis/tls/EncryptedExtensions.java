@@ -5,7 +5,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 // https://tools.ietf.org/html/rfc8446#section-4.3.1
-public class EncryptedExtensions {
+public class EncryptedExtensions extends HandshakeMessage {
 
     private List<Extension> extensions;
 
@@ -54,5 +54,10 @@ public class EncryptedExtensions {
 
     public List<Extension> getExtensions() {
         return extensions;
+    }
+
+    @Override
+    public byte[] getBytes() {
+        return new byte[0];
     }
 }

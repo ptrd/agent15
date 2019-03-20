@@ -2,7 +2,7 @@ package net.luminis.tls;
 
 import java.nio.ByteBuffer;
 
-public class FinishedMessage extends TlsMessage {
+public class FinishedMessage extends HandshakeMessage {
 
     private byte[] data;
 
@@ -35,6 +35,7 @@ public class FinishedMessage extends TlsMessage {
         return this;
     }
 
+    @Override
     public byte[] getBytes() {
         return data;
     }

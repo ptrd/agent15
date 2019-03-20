@@ -3,7 +3,7 @@ package net.luminis.tls;
 import java.nio.ByteBuffer;
 
 // https://tools.ietf.org/html/rfc8446#section-4.4.2
-public class CertificateMessage {
+public class CertificateMessage extends HandshakeMessage {
 
     public CertificateMessage parse(ByteBuffer buffer, int length, TlsState state) {
         int startPosition = buffer.position();
@@ -54,5 +54,10 @@ public class CertificateMessage {
             remainingCertificateBytes -= (2 + extensionsSize);
         }
         return certCount;
+    }
+
+    @Override
+    public byte[] getBytes() {
+        return new byte[0];
     }
 }

@@ -6,9 +6,9 @@ import java.security.interfaces.ECPublicKey;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
-import java.util.stream.Stream;
 
-public class ClientHello {
+
+public class ClientHello extends HandshakeMessage {
 
     private static final int MAX_CLIENT_HELLO_SIZE = 3000;
     public static final byte[][] SUPPORTED_CIPHERS = new byte[][]{TlsConstants.TLS_AES_128_GCM_SHA256, TlsConstants.TLS_AES_256_GCM_SHA384};
@@ -92,6 +92,7 @@ public class ClientHello {
         buffer.get(data);
     }
 
+    @Override
     public byte[] getBytes() {
         return data;
     }

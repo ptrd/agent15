@@ -42,13 +42,13 @@ public class HandshakeRecord {
         }
     }
 
-    public static Object parseHandshakeMessage(ByteBuffer buffer, TlsState state) throws TlsProtocolException {
+    public static HandshakeMessage parseHandshakeMessage(ByteBuffer buffer, TlsState state) throws TlsProtocolException {
         buffer.mark();
         int messageType = buffer.get();
         int length = ((buffer.get() & 0xff) << 16) | ((buffer.get() & 0xff) << 8) | (buffer.get() & 0xff);
         buffer.reset();
 
-        Object msg;
+        HandshakeMessage msg;
         if (messageType == server_hello.value) {
             msg = new ServerHello().parse(buffer, length + 4, state);
         }

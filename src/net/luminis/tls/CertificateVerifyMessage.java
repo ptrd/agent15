@@ -2,7 +2,7 @@ package net.luminis.tls;
 
 import java.nio.ByteBuffer;
 
-public class CertificateVerifyMessage {
+public class CertificateVerifyMessage extends HandshakeMessage {
 
     public CertificateVerifyMessage parse(ByteBuffer buffer, int length, TlsState state) {
 
@@ -14,5 +14,10 @@ public class CertificateVerifyMessage {
         state.setCertificateVerify(raw);
 
         return this;
+    }
+
+    @Override
+    public byte[] getBytes() {
+        return new byte[0];
     }
 }
