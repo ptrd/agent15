@@ -3,13 +3,17 @@ package net.luminis.tls;
 import java.io.IOException;
 import java.io.PushbackInputStream;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.List;
 
 import static net.luminis.tls.TlsConstants.*;
 import static net.luminis.tls.TlsConstants.HandshakeType.*;
 
 public class HandshakeRecord {
 
-    byte[] data;
+    private byte[] data;
+    private List<HandshakeMessage> messages = new ArrayList<>();
+
 
     public HandshakeRecord() {
     }
@@ -27,7 +31,7 @@ public class HandshakeRecord {
         data = buffer.array();
     }
 
-    public void parse(PushbackInputStream input, TlsState state) throws IOException, TlsProtocolException {
+    public HandshakeRecord parse(PushbackInputStream input, TlsState state) throws IOException, TlsProtocolException {
         input.read();  // type
         int versionHigh = input.read();
         int versionLow = input.read();
@@ -38,8 +42,11 @@ public class HandshakeRecord {
         input.read(buffer.array());
 
         while (buffer.remaining() > 0) {
-            parseHandshakeMessage(buffer, state);
+            HandshakeMessage message = parseHandshakeMessage(buffer, state);
+            messages.add(message);
         }
+
+        return this;
     }
 
     public static HandshakeMessage parseHandshakeMessage(ByteBuffer buffer, TlsState state) throws TlsProtocolException {
@@ -75,5 +82,9 @@ public class HandshakeRecord {
 
     public byte[] getBytes() {
         return data;
+    }
+
+    public List<HandshakeMessage> getMessages() {
+        return messages;
     }
 }
