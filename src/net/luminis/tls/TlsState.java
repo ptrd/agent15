@@ -19,6 +19,7 @@ public class TlsState {
 
     private static final Charset ISO_8859_1 = Charset.forName("ISO-8859-1");
     private static byte[] P256_HEAD = Base64.getDecoder().decode("MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE");
+    private byte[] earlySecret;
 
     enum Status {
         keyExchangeClient,
@@ -33,6 +34,7 @@ public class TlsState {
 
     private final MessageDigest hashFunction;
     private final HKDF hkdf;
+    private final byte[] emptyHash;
     private Status status;
     private String labelPrefix;
     private byte[] serverHello;
@@ -59,7 +61,7 @@ public class TlsState {
     private byte[] clientIv;
     private int serverRecordCount = 0;
     private int clientRecordCount = 0;
-    
+
 
     public TlsState(String alternativeLabelPrefix) {
         labelPrefix = alternativeLabelPrefix;
@@ -72,10 +74,23 @@ public class TlsState {
             throw new RuntimeException("Missing sha-256 support");
         }
         hkdf = HKDF.fromHmacSha256();
+
+        emptyHash = hashFunction.digest(new byte[0]);
+        Logger.debug("Empty hash: " + bytesToHex(emptyHash));
+
+        computeEarlySecret();
     }
 
     public TlsState() {
         this("tls13 ");
+    }
+
+    private byte[] computeEarlySecret() {
+        byte[] zeroSalt = new byte[32];
+        byte[] zeroPSK = new byte[32];
+        earlySecret = hkdf.extract(zeroSalt, zeroPSK);
+        Logger.debug("Early secret: " + bytesToHex(earlySecret));
+        return earlySecret;
     }
 
     private byte[] computeHandshakeMessagesHash(byte[] clientHello, byte[] serverHello) {
@@ -121,12 +136,10 @@ public class TlsState {
         ECPublicKey serverPublicKey = convertP256Key(serverSharedKey);
 
         try {
-            //KeyAgreement keyAgreement = KeyAgreement.getInstance("ECDH", "BC");
             KeyAgreement keyAgreement = KeyAgreement.getInstance("ECDH");
             keyAgreement.init(clientPrivateKey);
             keyAgreement.doPhase(serverPublicKey, true);
 
-            //SecretKey key = keyAgreement.generateSecret("AES");
             SecretKey key = keyAgreement.generateSecret("TlsPremasterSecret");
             Logger.debug("Shared key: " + bytesToHex(key.getEncoded()));
             return key.getEncoded();
@@ -136,15 +149,6 @@ public class TlsState {
     }
 
     private void computeHandshakeSecrets(byte[] helloHash, byte[] sharedSecret) {
-        byte[] zeroSalt = new byte[32];
-        byte[] zeroPSK = new byte[32];
-        byte[] earlySecret = hkdf.extract(zeroSalt, zeroPSK);
-        Logger.debug("Early secret: " + bytesToHex(earlySecret));
-
-        hashFunction.reset();
-        byte[] emptyHash = hashFunction.digest(new byte[0]);
-        Logger.debug("Empty hash: " + bytesToHex(emptyHash));
-
         byte[] derivedSecret = hkdfExpandLabel(earlySecret, "derived", emptyHash, (short) 32);
         Logger.debug("Derived secret: " + bytesToHex(derivedSecret));
 
@@ -182,8 +186,6 @@ public class TlsState {
     }
 
     void computeApplicationSecrets(byte[] handshakeSecret, byte[] handshakeHash) {
-        hashFunction.reset();
-        byte[] emptyHash = hashFunction.digest(new byte[0]);
 
         byte[] derivedSecret = hkdfExpandLabel(handshakeSecret, "derived", emptyHash, (short) 32);
         Logger.debug("Derived secret: " + bytesToHex(derivedSecret));
