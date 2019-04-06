@@ -19,7 +19,6 @@ public class TlsState {
 
     private static final Charset ISO_8859_1 = Charset.forName("ISO-8859-1");
     private static byte[] P256_HEAD = Base64.getDecoder().decode("MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE");
-    private byte[] earlySecret;
 
     enum Status {
         keyExchangeClient,
@@ -41,6 +40,8 @@ public class TlsState {
     private byte[] serverSharedKey;
     private PrivateKey clientPrivateKey;
     private byte[] clientHello;
+    private byte[] earlySecret;
+    private byte[] resumptionMasterSecret;
     private byte[] serverHandshakeTrafficSecret;
     private byte[] serverHandshakeKey;
     private byte[] serverHandshakeIV;
@@ -49,10 +50,12 @@ public class TlsState {
     private byte[] certificateMessage;
     private byte[] certificateVerifyMessage;
     private byte[] serverFinishedMessage;
+    private byte[] clientFinishedMessage;
     private byte[] clientHandshakeKey;
     private byte[] clientHandshakeIV;
     private byte[] handshakeSecret;
     private byte[] handshakeServerFinishedHash;
+    private byte[] handshakeClientFinishedHash;
     private byte[] clientApplicationTrafficSecret;
     private byte[] serverApplicationTrafficSecret;
     private byte[] serverKey;
@@ -105,7 +108,7 @@ public class TlsState {
         return helloHash;
     }
 
-    byte[] computeHandshakeFinishedHmac() {
+    byte[] computeHandshakeFinishedHmac(boolean withClientFinished) {
 
         hashFunction.reset();
         hashFunction.update(clientHello);
@@ -114,7 +117,16 @@ public class TlsState {
         hashFunction.update(certificateMessage);
         hashFunction.update(certificateVerifyMessage);
         hashFunction.update(serverFinishedMessage);
-        handshakeServerFinishedHash = hashFunction.digest();
+        if (withClientFinished) {
+            hashFunction.update(clientFinishedMessage);
+            }
+        byte[] hash = hashFunction.digest();
+        if (withClientFinished) {
+            handshakeClientFinishedHash = hash;
+        }
+        else {
+            handshakeServerFinishedHash = hash;
+        }
 
         byte[] finishedKey = hkdfExpandLabel(clientHandshakeTrafficSecret, "finished", "", (short) 32);
         SecretKeySpec hmacKey = new SecretKeySpec(finishedKey, "HmacSHA256");
@@ -200,6 +212,9 @@ public class TlsState {
         serverApplicationTrafficSecret = hkdfExpandLabel(masterSecret, "s ap traffic", handshakeHash, (short) 32);
         Logger.debug("Server application traffic secret: " + bytesToHex(serverApplicationTrafficSecret));
 
+        resumptionMasterSecret = hkdfExpandLabel(masterSecret, "res master", handshakeClientFinishedHash, (short) 32);
+        Logger.debug("Resumption master secret: " + bytesToHex(resumptionMasterSecret));
+
         byte[] clientApplicationKey = hkdfExpandLabel(clientApplicationTrafficSecret, "key", "", (short) 16);
         Logger.debug("Client application key: " + bytesToHex(clientApplicationKey));
         clientKey = clientApplicationKey;
@@ -217,6 +232,14 @@ public class TlsState {
         serverIv = serverApplicationIv;
 
         status = Status.ApplicationData;
+    }
+
+    // https://tools.ietf.org/html/rfc8446#section-4.6.1
+    // "The PSK associated with the ticket is computed as:
+    //       HKDF-Expand-Label(resumption_master_secret, "resumption", ticket_nonce, Hash.length)"
+    byte[] computePSK(byte[] ticketNonce) {
+        byte[] psk = hkdfExpandLabel(resumptionMasterSecret, "resumption", ticketNonce, (short) 32);
+        return psk;
     }
 
     byte[] hkdfExpandLabel(byte[] secret, String label, String context, short length) {
@@ -382,5 +405,10 @@ public class TlsState {
 
     public boolean isServerFinished() {
         return status == Status.AuthServerFinished;
+    }
+
+    public void setClientFinished(byte[] raw) {
+        clientFinishedMessage = raw;
+        computeHandshakeFinishedHmac(true);
     }
 }

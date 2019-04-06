@@ -6,6 +6,9 @@ import java.io.OutputStream;
 import java.io.PushbackInputStream;
 import java.security.PrivateKey;
 import java.security.interfaces.ECPublicKey;
+import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.function.Consumer;
 
 
 public class TlsSession {
@@ -15,6 +18,8 @@ public class TlsSession {
     private final PushbackInputStream input;
     private final OutputStream output;
     private final TlsState state;
+    private List<NewSessionTicketMessage> newSessionTicketMessages;
+    private Consumer<NewSessionTicket> newSessionTicketCallback;
 
 
     public TlsSession(PrivateKey clientPrivateKey, ECPublicKey clientPublicKey, InputStream input, OutputStream output, String serverName) throws IOException, TlsProtocolException {
@@ -23,6 +28,7 @@ public class TlsSession {
         this.input = new PushbackInputStream(input, 16);;
         this.output = output;
         state = new TlsState();
+        newSessionTicketMessages = new CopyOnWriteArrayList<>();
 
         sendClientHello(serverName);
         parseServerMessages();
@@ -107,7 +113,13 @@ public class TlsSession {
                     new HandshakeRecord().parse(input, state);
                     break;
                 case 23:
-                    new ApplicationData().parse(input, state);
+                    List<Message> messages = new ApplicationData().parse(input, state).getMessages();
+                    messages.stream()
+                            .filter(m -> m instanceof NewSessionTicketMessage)
+                            .findAny()
+                            .stream()
+                            .forEach(m -> addNewSessionTicket((NewSessionTicketMessage) m));
+
                     if (state.isServerFinished()) {
                         return;
                     }
@@ -119,4 +131,27 @@ public class TlsSession {
         }
     }
 
+    private void addNewSessionTicket(NewSessionTicketMessage m) {
+        newSessionTicketMessages.add(m);
+        if (newSessionTicketCallback != null) {
+            newSessionTicketCallback.accept(new NewSessionTicket(state, m));
+        }
+    }
+
+    public int getNewSessionTicketCount() {
+        return newSessionTicketMessages.size();
+    }
+
+    public NewSessionTicket getNewSessionTicket(int index) {
+        if (index < newSessionTicketMessages.size()) {
+            return new NewSessionTicket(state, newSessionTicketMessages.get(index));
+        }
+        else {
+            throw new IllegalArgumentException();
+        }
+    }
+
+    public void setNewSessionTicketCallback(Consumer<NewSessionTicket> callback) {
+        newSessionTicketCallback = callback;
+    }
 }

@@ -1,10 +1,10 @@
 package net.luminis.tls;
 
-import java.io.BufferedInputStream;
-import java.io.BufferedOutputStream;
-import java.io.OutputStream;
+import java.io.*;
 import java.net.Socket;
 import java.nio.charset.Charset;
+import java.nio.file.Files;
+import java.nio.file.StandardOpenOption;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.interfaces.ECKey;
@@ -46,6 +46,15 @@ public class Tls13 {
         BufferedInputStream input = new BufferedInputStream(socket.getInputStream());
 
         TlsSession tlsSession = new TlsSession(privateKey, publicKey, input, outputStream, serverName);
+        tlsSession.setNewSessionTicketCallback(ticket -> {
+                    File savedSessionTicket = new File("lastSessionTicket.bin");
+                    NewSessionTicket newSessionTicket = tlsSession.getNewSessionTicket(0);
+                    try {
+                        Files.write(savedSessionTicket.toPath(), newSessionTicket.serialize(), StandardOpenOption.CREATE);
+                    } catch (IOException e) {
+                        System.err.println("Saving new session ticket failed: " + e);
+                    }
+                });
         tlsSession.sendApplicationData("GET / HTTP/1.1\r\n\r\n".getBytes());
     }
 

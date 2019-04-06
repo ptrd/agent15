@@ -10,8 +10,10 @@ public class FinishedMessage extends HandshakeMessage {
     }
 
     public FinishedMessage(TlsState state) {
+        // Assuming client finished message (client role)
 
-        byte[] hmac = state.computeHandshakeFinishedHmac();
+        // The hmac sent in the client finished message does not include itself (of course)
+        byte[] hmac = state.computeHandshakeFinishedHmac(false);
 
         int remainingLength = hmac.length;
         ByteBuffer buffer = ByteBuffer.allocate(4 + remainingLength);
@@ -22,6 +24,9 @@ public class FinishedMessage extends HandshakeMessage {
 
         buffer.put(hmac);
         data = buffer.array();
+
+        // Make the client finished message available for computing the transcript hash
+        state.setClientFinished(data);
     }
 
     public FinishedMessage parse(ByteBuffer buffer, int length, TlsState state) {
