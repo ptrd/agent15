@@ -5,56 +5,90 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.PushbackInputStream;
 import java.security.PrivateKey;
-import java.security.PublicKey;
+import java.security.interfaces.ECPublicKey;
+
 
 public class TlsSession {
 
-
-    private final byte[] sentClientHello;
     private final PrivateKey clientPrivateKey;
-    private final PublicKey clientPublicKey;
-    private final InputStream input;
+    private final ECPublicKey clientPublicKey;
+    private final PushbackInputStream input;
+    private final OutputStream output;
     private final TlsState state;
 
-    public TlsSession(byte[] sentClientHello, PrivateKey clientPrivateKey, PublicKey clientPublicKey, InputStream input, OutputStream output) throws IOException, TlsProtocolException {
 
-        this.sentClientHello = sentClientHello;
+    public TlsSession(PrivateKey clientPrivateKey, ECPublicKey clientPublicKey, InputStream input, OutputStream output, String serverName) throws IOException, TlsProtocolException {
         this.clientPrivateKey = clientPrivateKey;
         this.clientPublicKey = clientPublicKey;
-        this.input = input;
+        this.input = new PushbackInputStream(input, 16);;
+        this.output = output;
+        state = new TlsState();
+
+        sendClientHello(serverName);
+        parseServerMessages();
+
+        sendChangeCipherSpec(output);
+        sendClientFinished(output);
+
+        state.computeApplicationSecrets();
+    }
+
+    public TlsSession(byte[] sentClientHello, PrivateKey clientPrivateKey, ECPublicKey clientPublicKey, InputStream input, OutputStream output) throws IOException, TlsProtocolException {
+
+        this.clientPrivateKey = clientPrivateKey;
+        this.clientPublicKey = clientPublicKey;
+        this.input = new PushbackInputStream(input, 16);
+        this.output = output;
 
         state = new TlsState();
         state.clientHelloSend(clientPrivateKey, sentClientHello);
-        PushbackInputStream inputStream = new PushbackInputStream(input, 16);
-        parseServerMessages(inputStream);
+        parseServerMessages();
 
-        // Send Client Change Cipher Spec
+        sendChangeCipherSpec(output);
+        sendClientFinished(output);
+
+        state.computeApplicationSecrets();
+        sendApplicationData("GET / HTTP/1.1\r\n\r\n".getBytes());
+    }
+
+    private void sendClientHello(String serverName) throws IOException {
+        ClientHello clientHello = new ClientHello(serverName, clientPublicKey);
+        HandshakeRecord handshakeRecord = new HandshakeRecord(clientHello);
+        output.write(handshakeRecord.getBytes());
+        output.flush();
+        state.clientHelloSend(clientPrivateKey, clientHello.getBytes());
+        Logger.debug("Sent Client Hello: " + ByteUtils.bytesToHex(clientHello.getBytes()));
+    }
+
+    private void sendChangeCipherSpec(OutputStream output) throws IOException {
         byte[] changeCipherSpec = new byte[] {
                 0x14, 0x03, 0x03, 0x00, 0x01, 0x01
         };
         output.write(changeCipherSpec);
         output.flush();
         Logger.debug("Sent (legacy) Change Cipher Spec: " + ByteUtils.bytesToHex(changeCipherSpec));
+    }
 
-        // Send Finished
+    private void sendClientFinished(OutputStream output) throws IOException {
         ApplicationData applicationDataRecord = new ApplicationData(new FinishedMessage(state), state);
         output.write(applicationDataRecord.getBytes());
         output.flush();
         Logger.debug("Sent Finished: " + ByteUtils.bytesToHex(applicationDataRecord.getBytes()));
         Logger.debug("Handshake done!");
-
-        state.computeApplicationSecrets();
-
-        // Send application data
-        applicationDataRecord = new ApplicationData("GET / HTTP/1.1\r\n\r\n".getBytes(), state);
-        output.write(applicationDataRecord.getBytes());
-        output.flush();
-        Logger.debug("GET request sent: " + ByteUtils.bytesToHex(applicationDataRecord.getBytes()));
-
-        parseServerMessages(inputStream);
     }
 
-    private void parseServerMessages(PushbackInputStream input) throws IOException, TlsProtocolException {
+    public void sendApplicationData(byte[] data) throws IOException, TlsProtocolException {
+        ApplicationData applicationDataRecord;
+        applicationDataRecord = new ApplicationData(data, state);
+        output.write(applicationDataRecord.getBytes());
+        output.flush();
+        Logger.debug("Application data sent: " + ByteUtils.bytesToHex(applicationDataRecord.getBytes()));
+
+        parseServerMessages();
+    }
+
+
+    private void parseServerMessages() throws IOException, TlsProtocolException {
         int contentType = input.read();
 
         while (contentType != -1) {

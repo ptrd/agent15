@@ -41,15 +41,12 @@ public class Tls13 {
         ECPrivateKey privateKey = (ECPrivateKey) keys[0];
         ECPublicKey publicKey = (ECPublicKey) keys[1];
 
-        ClientHello clientHello = new ClientHello(serverName, publicKey);
-        HandshakeRecord handshakeRecord = new HandshakeRecord(clientHello);
-
         Socket socket = new Socket(serverName, serverPort);
         OutputStream outputStream = new BufferedOutputStream(socket.getOutputStream());
-        outputStream.write(handshakeRecord.getBytes());
-        outputStream.flush();
+        BufferedInputStream input = new BufferedInputStream(socket.getInputStream());
 
-        new TlsSession(clientHello.getBytes(), privateKey, publicKey, new BufferedInputStream(socket.getInputStream()), outputStream);
+        TlsSession tlsSession = new TlsSession(privateKey, publicKey, input, outputStream, serverName);
+        tlsSession.sendApplicationData("GET / HTTP/1.1\r\n\r\n".getBytes());
     }
 
     public static ECKey[] generateKeys(String ecCurve) throws Exception {
