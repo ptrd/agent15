@@ -31,6 +31,8 @@ public class TlsState {
         ApplicationData
     }
 
+    private final MessageDigest hashFunction;
+    private final HKDF hkdf;
     private Status status;
     private String labelPrefix;
     private byte[] serverHello;
@@ -57,45 +59,23 @@ public class TlsState {
     private byte[] clientIv;
     private int serverRecordCount = 0;
     private int clientRecordCount = 0;
-
-    public TlsState() {
-        labelPrefix = "tls13 ";
-    }
+    
 
     public TlsState(String alternativeLabelPrefix) {
         labelPrefix = alternativeLabelPrefix;
+
+        // https://tools.ietf.org/html/rfc8446#section-7.1
+        // "The Hash function used by Transcript-Hash and HKDF is the cipher suite hash algorithm."
+        try {
+            hashFunction = MessageDigest.getInstance("SHA-256");
+        } catch (NoSuchAlgorithmException e) {
+            throw new RuntimeException("Missing sha-256 support");
+        }
+        hkdf = HKDF.fromHmacSha256();
     }
 
-    public byte[] getClientHandshakeTrafficSecret() {
-        return clientHandshakeTrafficSecret;
-    }
-
-    public byte[] getServerHandshakeTrafficSecret() {
-        return serverHandshakeTrafficSecret;
-    }
-
-    public void clientHelloSend(PrivateKey clientPrivateKey, byte[] sentClientHello) {
-        this.clientPrivateKey = clientPrivateKey;
-        clientHello = sentClientHello;
-    }
-
-    public byte[] getClientApplicationTrafficSecret() {
-        return clientApplicationTrafficSecret;
-    }
-
-    public byte[] getServerApplicationTrafficSecret() {
-        return serverApplicationTrafficSecret;
-    }
-
-    public void setServerSharedKey(byte[] serverHello, byte[] serverSharedKey) {
-        this.serverHello = serverHello;
-        this.serverSharedKey = serverSharedKey;
-
-        byte[] handshakeHash = computeHandshakeMessagesHash(clientHello, serverHello);
-
-        byte[] sharedSecret = computeSharedSecret(serverSharedKey);
-
-        computeHandshakeSecrets(handshakeHash, sharedSecret);
+    public TlsState() {
+        this("tls13 ");
     }
 
     private byte[] computeHandshakeMessagesHash(byte[] clientHello, byte[] serverHello) {
@@ -103,33 +83,28 @@ public class TlsState {
         helloData.put(clientHello, 0, clientHello.length);
         helloData.put(serverHello, 0, serverHello.length);
 
-        MessageDigest digest = null;
-        try {
-            digest = MessageDigest.getInstance("SHA-256");
-        } catch (NoSuchAlgorithmException e) {
-            throw new RuntimeException("Missing sha-256 support");
-        }
-        byte[] helloHash = digest.digest(helloData.array());
+        hashFunction.reset();
+        byte[] helloHash = hashFunction.digest(helloData.array());
 
         Logger.debug("Hello hash: " + bytesToHex(helloHash));
         return helloHash;
     }
 
     byte[] computeHandshakeFinishedHmac() {
+
+        hashFunction.reset();
+        hashFunction.update(clientHello);
+        hashFunction.update(serverHello);
+        hashFunction.update(encryptedExtensionsMessage);
+        hashFunction.update(certificateMessage);
+        hashFunction.update(certificateVerifyMessage);
+        hashFunction.update(serverFinishedMessage);
+        handshakeServerFinishedHash = hashFunction.digest();
+
+        byte[] finishedKey = hkdfExpandLabel(clientHandshakeTrafficSecret, "finished", "", (short) 32);
+        SecretKeySpec hmacKey = new SecretKeySpec(finishedKey, "HmacSHA256");
+
         try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-
-            digest.update(clientHello);
-            digest.update(serverHello);
-            digest.update(encryptedExtensionsMessage);
-            digest.update(certificateMessage);
-            digest.update(certificateVerifyMessage);
-            digest.update(serverFinishedMessage);
-            handshakeServerFinishedHash = digest.digest();
-
-            byte[] finishedKey = hkdfExpandLabel(clientHandshakeTrafficSecret, "finished", "", (short) 32);
-            SecretKeySpec hmacKey = new SecretKeySpec(finishedKey, "HmacSHA256");
-
             Mac hmacSHA256 = Mac.getInstance("HmacSHA256");
             hmacSHA256.init(hmacKey);
             hmacSHA256.update(handshakeServerFinishedHash);
@@ -161,20 +136,13 @@ public class TlsState {
     }
 
     private void computeHandshakeSecrets(byte[] helloHash, byte[] sharedSecret) {
-        HKDF hkdf = HKDF.fromHmacSha256();
-        MessageDigest digest = null;
-        try {
-            digest = MessageDigest.getInstance("SHA-256");
-        } catch (NoSuchAlgorithmException e) {
-            throw new RuntimeException("Missing support for sha-256");
-        }
-
         byte[] zeroSalt = new byte[32];
         byte[] zeroPSK = new byte[32];
         byte[] earlySecret = hkdf.extract(zeroSalt, zeroPSK);
         Logger.debug("Early secret: " + bytesToHex(earlySecret));
 
-        byte[] emptyHash = digest.digest(new byte[0]);
+        hashFunction.reset();
+        byte[] emptyHash = hashFunction.digest(new byte[0]);
         Logger.debug("Empty hash: " + bytesToHex(emptyHash));
 
         byte[] derivedSecret = hkdfExpandLabel(earlySecret, "derived", emptyHash, (short) 32);
@@ -214,15 +182,8 @@ public class TlsState {
     }
 
     void computeApplicationSecrets(byte[] handshakeSecret, byte[] handshakeHash) {
-        HKDF hkdf = HKDF.fromHmacSha256();
-        MessageDigest digest = null;
-        try {
-            digest = MessageDigest.getInstance("SHA-256");
-        } catch (NoSuchAlgorithmException e) {
-            throw new RuntimeException("Missing support for sha-256");
-        }
-
-        byte[] emptyHash = digest.digest(new byte[0]);
+        hashFunction.reset();
+        byte[] emptyHash = hashFunction.digest(new byte[0]);
 
         byte[] derivedSecret = hkdfExpandLabel(handshakeSecret, "derived", emptyHash, (short) 32);
         Logger.debug("Derived secret: " + bytesToHex(derivedSecret));
@@ -269,7 +230,6 @@ public class TlsState {
         hkdfLabel.put(label.getBytes(ISO_8859_1));
         hkdfLabel.put((byte) (context.length));
         hkdfLabel.put(context);
-        HKDF hkdf = HKDF.fromHmacSha256();
         return hkdf.expand(secret, hkdfLabel.array(), length);
     }
 
@@ -367,6 +327,38 @@ public class TlsState {
                 | IllegalBlockSizeException | BadPaddingException e) {
             throw new RuntimeException("Crypto error: " + e);
         }
+    }
+
+    public byte[] getClientHandshakeTrafficSecret() {
+        return clientHandshakeTrafficSecret;
+    }
+
+    public byte[] getServerHandshakeTrafficSecret() {
+        return serverHandshakeTrafficSecret;
+    }
+
+    public byte[] getClientApplicationTrafficSecret() {
+        return clientApplicationTrafficSecret;
+    }
+
+    public byte[] getServerApplicationTrafficSecret() {
+        return serverApplicationTrafficSecret;
+    }
+
+    public void clientHelloSend(PrivateKey clientPrivateKey, byte[] sentClientHello) {
+        this.clientPrivateKey = clientPrivateKey;
+        clientHello = sentClientHello;
+    }
+
+    public void setServerSharedKey(byte[] serverHello, byte[] serverSharedKey) {
+        this.serverHello = serverHello;
+        this.serverSharedKey = serverSharedKey;
+
+        byte[] handshakeHash = computeHandshakeMessagesHash(clientHello, serverHello);
+
+        byte[] sharedSecret = computeSharedSecret(serverSharedKey);
+
+        computeHandshakeSecrets(handshakeHash, sharedSecret);
     }
 
     public void setEncryptedExtensions(byte[] raw) {
