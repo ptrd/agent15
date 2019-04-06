@@ -15,7 +15,12 @@ public class ChangeCipherSpec {
 
         if (length != 1)
             throw new TlsProtocolException("change_cipher_spec must have value 0x01");
-        input.read();
+
+        byte[] data = new byte[length];
+        int count = input.read(data);
+        while (count != length) {
+            count += input.read(data, count, length - count);
+        }
 
         Logger.debug("Got ChangeCipherSpec message");
     }

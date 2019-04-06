@@ -38,8 +38,14 @@ public class HandshakeRecord {
         if (versionHigh != 3 || versionLow != 3)
             throw new TlsProtocolException("Invalid version number (should be 0x0303");
         int length = input.read() << 8 | input.read();
-        ByteBuffer buffer = ByteBuffer.allocate(length);
-        input.read(buffer.array());
+
+        byte[] data = new byte[length];
+        int count = input.read(data);
+        while (count != length) {
+            count += input.read(data, count, length - count);
+        }
+
+        ByteBuffer buffer = ByteBuffer.wrap(data);
 
         while (buffer.remaining() > 0) {
             HandshakeMessage message = parseHandshakeMessage(buffer, state);

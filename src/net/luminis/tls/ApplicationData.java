@@ -67,14 +67,18 @@ public class ApplicationData {
         int versionLow = input.read();
         if (versionHigh != 3 || versionLow != 3)
             throw new TlsProtocolException("Invalid version number (should be 0x0303");
+
         int length = input.read() << 8 | input.read();
-        ByteBuffer buffer = ByteBuffer.allocate(length);
-        input.read(buffer.array());
+        byte[] data = new byte[length];
+        int count = input.read(data);
+        while (count != length) {
+            count += input.read(data, count, length - count);
+        }
 
         Logger.debug("Received Application Data bytes: ");
-        Logger.debug(ByteUtils.bytesToHex(buffer.array()));
+        Logger.debug(ByteUtils.bytesToHex(data));
 
-        byte[] decryptedData = state.decrypt(recordHeader, buffer.array());
+        byte[] decryptedData = state.decrypt(recordHeader, data);
         Logger.debug("Decrypted: " + ByteUtils.bytesToHex(decryptedData));
 
         // TODO: remove padding, see https://tools.ietf.org/html/rfc8446#section-5.4

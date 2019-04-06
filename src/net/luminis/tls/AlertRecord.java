@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.io.PushbackInputStream;
 import java.nio.ByteBuffer;
 
+
 public class AlertRecord {
 
     public void parse(PushbackInputStream input) throws IOException, TlsProtocolException {
@@ -16,10 +17,13 @@ public class AlertRecord {
         if (length != 2)
             throw new TlsProtocolException("Invalid alert length (" + length + ")");
 
-        ByteBuffer buffer = ByteBuffer.allocate(length);
-        input.read(buffer.array());
+        byte[] data = new byte[length];
+        int count = input.read(data);
+        while (count != length) {
+            count += input.read(data, count, length - count);
+        }
 
-        parseAlertMessage(buffer);
+        parseAlertMessage(ByteBuffer.wrap(data));
     }
 
     public static void parseAlertMessage(ByteBuffer buffer) throws TlsProtocolException {
