@@ -4,12 +4,16 @@ import java.io.IOException;
 import java.io.PushbackInputStream;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
+import java.util.ArrayList;
+import java.util.List;
 
 import static net.luminis.tls.TlsConstants.ContentType.application_data;
 
 public class ApplicationData {
 
     private byte[] recordBytes;
+    private List<Message> messages = new ArrayList<>();
+
 
     public ApplicationData() {
     }
@@ -53,7 +57,7 @@ public class ApplicationData {
         System.arraycopy(encryptedPayload, 0, recordBytes, 5, encryptedPayload.length);
     }
 
-    public void parse(PushbackInputStream input, TlsState state) throws TlsProtocolException, IOException {
+    public ApplicationData parse(PushbackInputStream input, TlsState state) throws TlsProtocolException, IOException {
         byte[] recordHeader = new byte[5];
         input.read(recordHeader);
         input.unread(recordHeader);
@@ -75,6 +79,8 @@ public class ApplicationData {
 
         // TODO: remove padding, see https://tools.ietf.org/html/rfc8446#section-5.4
         parseMessage(decryptedData, state);
+
+        return this;
     }
 
     private void parseMessage(byte[] message, TlsState state) throws TlsProtocolException {
@@ -83,7 +89,8 @@ public class ApplicationData {
             Logger.debug("Decrypted Application Data content is Handshake record.");
             ByteBuffer buffer = ByteBuffer.wrap(message, 0, message.length - 1);
             while (buffer.remaining() > 0) {
-                HandshakeRecord.parseHandshakeMessage(buffer, state);
+                HandshakeMessage handshakeMessage = HandshakeRecord.parseHandshakeMessage(buffer, state);
+                messages.add(handshakeMessage);
             }
         }
         else if (lastByte == TlsConstants.ContentType.alert.value) {
@@ -104,5 +111,9 @@ public class ApplicationData {
 
     public byte[] getBytes() {
         return recordBytes;
+    }
+
+    public List<Message> getMessages() {
+        return messages;
     }
 }
