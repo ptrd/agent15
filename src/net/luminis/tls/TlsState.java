@@ -126,12 +126,16 @@ public class TlsState {
         hashFunction.update(clientHello);
         hashFunction.update(serverHello);
         hashFunction.update(encryptedExtensionsMessage);
-        hashFunction.update(certificateMessage);
-        hashFunction.update(certificateVerifyMessage);
+        if (certificateMessage != null) {
+            hashFunction.update(certificateMessage);
+        }
+        if (certificateVerifyMessage != null) {
+            hashFunction.update(certificateVerifyMessage);
+        }
         hashFunction.update(serverFinishedMessage);
         if (withClientFinished) {
             hashFunction.update(clientFinishedMessage);
-            }
+        }
         byte[] hash = hashFunction.digest();
         if (withClientFinished) {
             handshakeClientFinishedHash = hash;
