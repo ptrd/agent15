@@ -21,6 +21,10 @@ public class ClientHello extends HandshakeMessage {
         this(serverName, publicKey, true, SUPPORTED_CIPHERS, new Extension[0]);
     }
 
+    public ClientHello(String serverName, ECPublicKey publicKey, boolean compatibilityMode, Extension[] extraExtensions) {
+        this(serverName, publicKey, compatibilityMode, SUPPORTED_CIPHERS, extraExtensions);
+    }
+
     public ClientHello(String serverName, ECPublicKey publicKey, boolean compatibilityMode, byte[][] supportedCiphers, Extension[] extraExtensions) {
         ByteBuffer buffer = ByteBuffer.allocate(MAX_CLIENT_HELLO_SIZE);
 
@@ -77,9 +81,15 @@ public class ClientHello extends HandshakeMessage {
         extensions.addAll(List.of(defaultExtensions));
         extensions.addAll(List.of(extraExtensions));
 
-        int extensionsLength = extensions.stream().mapToInt(e -> e.getBytes().length).sum();
+        int pskExtensionStartPosition = 0;
+        ClientHelloPreSharedKeyExtension pskExtension = null;
+        int extensionsLength = extensions.stream().mapToInt(ext -> ext.getBytes().length).sum();
         buffer.putShort((short) extensionsLength);
         for (Extension extension: extensions) {
+            if (extension instanceof ClientHelloPreSharedKeyExtension) {
+                pskExtension = (ClientHelloPreSharedKeyExtension) extension;
+                pskExtensionStartPosition = buffer.position();
+            }
             buffer.put(extension.getBytes());
         }
 
@@ -90,6 +100,14 @@ public class ClientHello extends HandshakeMessage {
         data = new byte[clientHelloLength + 4];
         buffer.rewind();
         buffer.get(data);
+
+        if (pskExtension != null) {
+            pskExtension.calculateBinder(data, pskExtensionStartPosition);
+            buffer.position(pskExtensionStartPosition);
+            buffer.put(pskExtension.getBytes());
+            buffer.rewind();
+            buffer.get(data);
+        }
     }
 
     @Override

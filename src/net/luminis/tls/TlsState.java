@@ -41,6 +41,7 @@ public class TlsState {
     private PrivateKey clientPrivateKey;
     private byte[] clientHello;
     private byte[] earlySecret;
+    private byte[] binderKey;
     private byte[] resumptionMasterSecret;
     private byte[] serverHandshakeTrafficSecret;
     private byte[] serverHandshakeKey;
@@ -65,8 +66,11 @@ public class TlsState {
     private int serverRecordCount = 0;
     private int clientRecordCount = 0;
 
+    public TlsState(byte[] psk) {
+        this("tls13 ", psk);
+    }
 
-    public TlsState(String alternativeLabelPrefix) {
+    public TlsState(String alternativeLabelPrefix, byte[] psk) {
         labelPrefix = alternativeLabelPrefix;
 
         // https://tools.ietf.org/html/rfc8446#section-7.1
@@ -81,18 +85,26 @@ public class TlsState {
         emptyHash = hashFunction.digest(new byte[0]);
         Logger.debug("Empty hash: " + bytesToHex(emptyHash));
 
-        computeEarlySecret();
+        if (psk == null) {
+            // https://tools.ietf.org/html/rfc8446#section-7.1
+            // "... if no PSK is selected, it will then need to compute the Early Secret corresponding to the zero PSK."
+            psk = new byte[32];
+        }
+        computeEarlySecret(psk);
     }
 
     public TlsState() {
-        this("tls13 ");
+        this("tls13 ", null);
     }
 
-    private byte[] computeEarlySecret() {
+    private byte[] computeEarlySecret(byte[] psk) {
         byte[] zeroSalt = new byte[32];
-        byte[] zeroPSK = new byte[32];
-        earlySecret = hkdf.extract(zeroSalt, zeroPSK);
+        earlySecret = hkdf.extract(zeroSalt, psk);
         Logger.debug("Early secret: " + bytesToHex(earlySecret));
+
+        binderKey = hkdfExpandLabel(earlySecret, "res binder", emptyHash, (short) 32);
+        Logger.debug("Binder key: " + bytesToHex(binderKey));
+
         return earlySecret;
     }
 
@@ -135,6 +147,27 @@ public class TlsState {
             Mac hmacSHA256 = Mac.getInstance("HmacSHA256");
             hmacSHA256.init(hmacKey);
             hmacSHA256.update(handshakeServerFinishedHash);
+            byte[] hmac = hmacSHA256.doFinal();
+            return hmac;
+        } catch (NoSuchAlgorithmException e) {
+            throw new RuntimeException("Missing (hmac) sha-256 support");
+        } catch (InvalidKeyException e) {
+            throw new RuntimeException();
+        }
+    }
+
+    byte[] computePskBinder(byte[] partialClientHello) {
+        try {
+            hashFunction.reset();
+            hashFunction.update(partialClientHello);
+            byte[] hash = hashFunction.digest();
+
+            byte[] finishedKey = hkdfExpandLabel(binderKey, "finished", "", (short) 32);
+            SecretKeySpec hmacKey = new SecretKeySpec(finishedKey, "HmacSHA256");
+
+            Mac hmacSHA256 = Mac.getInstance("HmacSHA256");         // TODO -> field member
+            hmacSHA256.init(hmacKey);
+            hmacSHA256.update(hash);
             byte[] hmac = hmacSHA256.doFinal();
             return hmac;
         } catch (NoSuchAlgorithmException e) {

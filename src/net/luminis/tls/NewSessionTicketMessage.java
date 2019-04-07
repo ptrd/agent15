@@ -7,13 +7,15 @@ public class NewSessionTicketMessage extends HandshakeMessage {
     private long ticketAgeAdd;
     private byte[] ticket;
     private byte[] ticketNonce;
-
-    private long ticketLifetime;
+    private int ticketLifetime;
 
     public NewSessionTicketMessage parse(ByteBuffer buffer, int length, TlsState state) throws TlsProtocolException {
         buffer.getInt();  // Skip message type and 3 bytes length
 
-        ticketLifetime = buffer.getInt() & 0xffffffffL;
+        // https://www.davidwong.fr/tls13/#section-4.6.1
+        // "Servers MUST NOT use any value greater than 604800 seconds (7 days)."
+        // So a signed int is large enough to hold the unsigned value.
+        ticketLifetime = buffer.getInt();
         ticketAgeAdd = buffer.getInt() & 0xffffffffL;
         int ticketNonceSize = buffer.get() & 0xff;
         ticketNonce = new byte[ticketNonceSize];
@@ -33,7 +35,7 @@ public class NewSessionTicketMessage extends HandshakeMessage {
         return new byte[0];
     }
 
-    public long getTicketLifetime() {
+    public int getTicketLifetime() {
         return ticketLifetime;
     }
 

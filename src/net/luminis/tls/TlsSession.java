@@ -1,9 +1,6 @@
 package net.luminis.tls;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.io.PushbackInputStream;
+import java.io.*;
 import java.security.PrivateKey;
 import java.security.interfaces.ECPublicKey;
 import java.util.List;
@@ -22,15 +19,21 @@ public class TlsSession {
     private Consumer<NewSessionTicket> newSessionTicketCallback;
 
 
-    public TlsSession(PrivateKey clientPrivateKey, ECPublicKey clientPublicKey, InputStream input, OutputStream output, String serverName) throws IOException, TlsProtocolException {
+    public TlsSession(NewSessionTicket newSessionTicket, PrivateKey clientPrivateKey, ECPublicKey clientPublicKey, InputStream input, OutputStream output, String serverName) throws IOException, TlsProtocolException {
         this.clientPrivateKey = clientPrivateKey;
         this.clientPublicKey = clientPublicKey;
         this.input = new PushbackInputStream(input, 16);;
         this.output = output;
-        state = new TlsState();
         newSessionTicketMessages = new CopyOnWriteArrayList<>();
 
-        sendClientHello(serverName);
+        if (newSessionTicket == null) {
+            state = new TlsState();
+            sendClientHello(serverName, new Extension[0]);
+        }
+        else {
+            state = new TlsState(newSessionTicket.getPSK());
+            sendClientHello(serverName, new Extension[]{ new ClientHelloPreSharedKeyExtension(state, newSessionTicket) });
+        }
         parseServerMessages();
 
         sendChangeCipherSpec(output);
@@ -57,8 +60,9 @@ public class TlsSession {
         sendApplicationData("GET / HTTP/1.1\r\n\r\n".getBytes());
     }
 
-    private void sendClientHello(String serverName) throws IOException {
-        ClientHello clientHello = new ClientHello(serverName, clientPublicKey);
+    private void sendClientHello(String serverName, Extension[] extensions) throws IOException {
+        ClientHello clientHello = new ClientHello(serverName, clientPublicKey, true, extensions);
+
         HandshakeRecord handshakeRecord = new HandshakeRecord(clientHello);
         output.write(handshakeRecord.getBytes());
         output.flush();

@@ -32,10 +32,21 @@ public class Tls13 {
 
     public static void main(String[] args) throws Exception {
         Logger.enableDebugLogging(true);
-        startTlsWithServer(server, 443);
+        if (args.length > 0) {
+            File newSessionTicketFile = new File(args[0]);
+            if (! newSessionTicketFile.exists() || ! newSessionTicketFile.canRead()) {
+                System.err.println("Cannot read new session ticket file '" + newSessionTicketFile + "'");
+            }
+            else {
+                startTlsWithServer(server, 443, newSessionTicketFile);
+            }
+        }
+        else {
+            startTlsWithServer(server, 443, null);
+        }
     }
 
-    public static void startTlsWithServer(String serverName, int serverPort) throws Exception {
+    public static void startTlsWithServer(String serverName, int serverPort, File newSessionTicketFile) throws Exception {
 
         ECKey[] keys = generateKeys("secp256r1");
         ECPrivateKey privateKey = (ECPrivateKey) keys[0];
@@ -45,7 +56,16 @@ public class Tls13 {
         OutputStream outputStream = new BufferedOutputStream(socket.getOutputStream());
         BufferedInputStream input = new BufferedInputStream(socket.getInputStream());
 
-        TlsSession tlsSession = new TlsSession(privateKey, publicKey, input, outputStream, serverName);
+        TlsSession tlsSession;
+        if (newSessionTicketFile != null) {
+            byte[] ticketData = Files.readAllBytes(newSessionTicketFile.toPath());
+            NewSessionTicket newSessionTicket = NewSessionTicket.deserialize(ticketData);
+            tlsSession = new TlsSession(newSessionTicket, privateKey, publicKey, input, outputStream, serverName);
+        }
+        else {
+            tlsSession = new TlsSession(null, privateKey, publicKey, input, outputStream, serverName);
+        }
+
         tlsSession.setNewSessionTicketCallback(ticket -> {
                     File savedSessionTicket = new File("lastSessionTicket.bin");
                     NewSessionTicket newSessionTicket = tlsSession.getNewSessionTicket(0);
