@@ -36,10 +36,12 @@ public class TlsState {
     private final byte[] emptyHash;
     private Status status;
     private String labelPrefix;
+    private boolean pskSelected;
     private byte[] serverHello;
     private byte[] serverSharedKey;
     private PrivateKey clientPrivateKey;
     private byte[] clientHello;
+    private byte[] psk;
     private byte[] earlySecret;
     private byte[] binderKey;
     private byte[] resumptionMasterSecret;
@@ -72,6 +74,7 @@ public class TlsState {
 
     public TlsState(String alternativeLabelPrefix, byte[] psk) {
         labelPrefix = alternativeLabelPrefix;
+        this.psk = psk;
 
         // https://tools.ietf.org/html/rfc8446#section-7.1
         // "The Hash function used by Transcript-Hash and HKDF is the cipher suite hash algorithm."
@@ -87,7 +90,8 @@ public class TlsState {
 
         if (psk == null) {
             // https://tools.ietf.org/html/rfc8446#section-7.1
-            // "... if no PSK is selected, it will then need to compute the Early Secret corresponding to the zero PSK."
+            // "If a given secret is not available, then the 0-value consisting of a
+            //   string of Hash.length bytes set to zeros is used."
             psk = new byte[32];
         }
         computeEarlySecret(psk);
@@ -97,9 +101,9 @@ public class TlsState {
         this("tls13 ", null);
     }
 
-    private byte[] computeEarlySecret(byte[] psk) {
+    private byte[] computeEarlySecret(byte[] ikm) {
         byte[] zeroSalt = new byte[32];
-        earlySecret = hkdf.extract(zeroSalt, psk);
+        earlySecret = hkdf.extract(zeroSalt, ikm);
         Logger.debug("Early secret: " + bytesToHex(earlySecret));
 
         binderKey = hkdfExpandLabel(earlySecret, "res binder", emptyHash, (short) 32);
@@ -412,7 +416,18 @@ public class TlsState {
         clientHello = sentClientHello;
     }
 
+    public void setPskSelected(int selectedIdentity) {
+        pskSelected = true;
+    }
+
     public void setServerSharedKey(byte[] serverHello, byte[] serverSharedKey) {
+        if (psk != null && !pskSelected) {
+            // Recompute early secret, as psk is not accepted by server.
+            // https://tools.ietf.org/html/rfc8446#section-7.1
+            // "... if no PSK is selected, it will then need to compute the Early Secret corresponding to the zero PSK."
+            computeEarlySecret(new byte[32]);
+        }
+
         this.serverHello = serverHello;
         this.serverSharedKey = serverSharedKey;
 

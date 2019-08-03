@@ -4,6 +4,8 @@ import java.nio.ByteBuffer;
 
 public class ServerPreSharedKeyExtension extends PreSharedKeyExtension {
 
+    private int selectedIdentity;
+
     public ServerPreSharedKeyExtension() {
     }
 
@@ -11,8 +13,7 @@ public class ServerPreSharedKeyExtension extends PreSharedKeyExtension {
         // Parsing server variant!
         buffer.getShort();
         int extensionDataLength = buffer.getShort();
-        int selectedIdentity = buffer.getShort();
-        System.out.println("Server accepts PSK! ");
+        selectedIdentity = buffer.getShort();
 
         return this;
     }
@@ -21,5 +22,9 @@ public class ServerPreSharedKeyExtension extends PreSharedKeyExtension {
     @Override
     public byte[] getBytes() {
         return new byte[0];
+    }
+
+    public int getSelectedIdentity() {
+        return selectedIdentity;
     }
 }

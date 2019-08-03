@@ -71,6 +71,9 @@ public class ServerHello extends HandshakeMessage {
             else if (extension instanceof SupportedVersionsExtension) {
                 tlsVersion = ((SupportedVersionsExtension) extension).getTlsVersion();
             }
+            else if (extension instanceof ServerPreSharedKeyExtension) {
+                state.setPskSelected(((ServerPreSharedKeyExtension) extension).getSelectedIdentity());
+            }
         });
 
         // Post processing after record is completely parsed
