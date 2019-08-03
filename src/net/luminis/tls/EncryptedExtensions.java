@@ -45,6 +45,8 @@ public class EncryptedExtensions extends HandshakeMessage {
                     extensions.add(new SupportedVersionsExtension().parse(buffer));
                 } else if (extensionType == TlsConstants.ExtensionType.pre_shared_key.value) {
                     extensions.add(new ServerPreSharedKeyExtension().parse(buffer));
+                } else if (extensionType == TlsConstants.ExtensionType.early_data.value) {
+                    extensions.add(new EarlyDataExtension().parse(buffer));
                 } else {
                     Logger.debug("Unsupported extension, type is: " + extensionType);
                     extensions.add(new UnknownExtension().parse(buffer));

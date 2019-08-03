@@ -1,6 +1,7 @@
 package net.luminis.tls;
 
 import java.nio.ByteBuffer;
+import java.util.List;
 
 public class NewSessionTicketMessage extends HandshakeMessage {
 
@@ -8,6 +9,9 @@ public class NewSessionTicketMessage extends HandshakeMessage {
     private byte[] ticket;
     private byte[] ticketNonce;
     private int ticketLifetime;
+    // https://tools.ietf.org/html/rfc8446#section-4.6.1
+    // "The sole extension currently defined for NewSessionTicket is "early_data", ..."
+    private EarlyDataExtension earlyDataExtension;
 
     public NewSessionTicketMessage parse(ByteBuffer buffer, int length, TlsState state) throws TlsProtocolException {
         buffer.getInt();  // Skip message type and 3 bytes length
@@ -24,7 +28,14 @@ public class NewSessionTicketMessage extends HandshakeMessage {
         ticket = new byte[ticketSize];
         buffer.get(ticket);
 
-        EncryptedExtensions.parseExtensions(buffer);
+        List<Extension> extensions = EncryptedExtensions.parseExtensions(buffer);
+        if (! extensions.isEmpty()) {
+            if (extensions.get(0) instanceof EarlyDataExtension) {
+                earlyDataExtension = (EarlyDataExtension) extensions.get(0);
+            } else {
+                Logger.debug("Unexpected extension type in NewSessionTicketMessage: " + extensions.get(0));
+            }
+        }
 
         Logger.debug("Got New Session Ticket message (" + length + " bytes)");
         return this;
@@ -49,5 +60,9 @@ public class NewSessionTicketMessage extends HandshakeMessage {
 
     public byte[] getTicketNonce() {
         return ticketNonce;
+    }
+
+    public EarlyDataExtension getEarlyDataExtension() {
+        return earlyDataExtension;
     }
 }
