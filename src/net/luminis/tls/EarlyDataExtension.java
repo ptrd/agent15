@@ -24,10 +24,22 @@ public class EarlyDataExtension extends Extension {
 
     @Override
     public byte[] getBytes() {
-        return new byte[0];
+        int extensionDataLength = maxEarlyDataSize == null? 0: 4;
+        ByteBuffer buffer = ByteBuffer.allocate(4 + extensionDataLength);
+        buffer.putShort(TlsConstants.ExtensionType.early_data.value);
+        buffer.putShort((short) extensionDataLength);
+        if (maxEarlyDataSize != null) {
+            buffer.putInt((int) maxEarlyDataSize.longValue());
+        }
+        return buffer.array();
     }
 
     public long getMaxEarlyDataSize() {
         return maxEarlyDataSize;
+    }
+
+    @Override
+    public String toString() {
+        return "EarlyDataExtension " + (maxEarlyDataSize == null? "(empty)": "[" + maxEarlyDataSize + "]");
     }
 }
