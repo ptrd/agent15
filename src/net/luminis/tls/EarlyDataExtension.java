@@ -5,7 +5,7 @@ import java.nio.ByteBuffer;
 // https://tools.ietf.org/html/rfc8446#section-4.2.10
 public class EarlyDataExtension extends Extension {
 
-    private long maxEarlyDataSize;
+    private Long maxEarlyDataSize;
 
     public Extension parse(ByteBuffer buffer) {
         int extensionType = buffer.getShort();
@@ -14,7 +14,10 @@ public class EarlyDataExtension extends Extension {
         }
 
         int extensionLength = buffer.getShort();
-        maxEarlyDataSize = buffer.getInt() & 0xffffffffL;
+        // Only when used in New Session Ticket (message), the EarlyDataIndication value is non-empty.
+        if (extensionLength == 4) {
+            maxEarlyDataSize = buffer.getInt() & 0xffffffffL;
+        }
 
         return this;
     }
