@@ -48,6 +48,7 @@ public class TlsState {
     private byte[] serverHandshakeTrafficSecret;
     private byte[] serverHandshakeKey;
     private byte[] serverHandshakeIV;
+    private byte[] clientEarlyTrafficSecret;
     private byte[] clientHandshakeTrafficSecret;
     private byte[] encryptedExtensionsMessage;
     private byte[] certificateMessage;
@@ -110,6 +111,17 @@ public class TlsState {
         Logger.debug("Binder key: " + bytesToHex(binderKey));
 
         return earlySecret;
+    }
+
+    private byte[] computeClientHelloMessageHash(byte[] clientHello) {
+        ByteBuffer helloData = ByteBuffer.allocate(clientHello.length);
+        helloData.put(clientHello, 0, clientHello.length);
+
+        hashFunction.reset();
+        byte[] helloHash = hashFunction.digest(helloData.array());
+
+        Logger.debug("Hello hash: " + bytesToHex(helloHash));
+        return helloHash;
     }
 
     private byte[] computeHandshakeMessagesHash(byte[] clientHello, byte[] serverHello) {
@@ -199,6 +211,10 @@ public class TlsState {
         } catch (NoSuchAlgorithmException | InvalidKeyException e) {
             throw new RuntimeException("Unsupported crypto: " + e);
         }
+    }
+
+    private void computeEarlyTrafficSecret(byte[] clientHelloHash) {
+        clientEarlyTrafficSecret = hkdfExpandLabel(earlySecret, "c e traffic", clientHelloHash, (short) 32);
     }
 
     private void computeHandshakeSecrets(byte[] helloHash, byte[] sharedSecret) {
@@ -395,6 +411,10 @@ public class TlsState {
         }
     }
 
+    public byte[] getClientEarlyTrafficSecret() {
+        return clientEarlyTrafficSecret;
+    }
+
     public byte[] getClientHandshakeTrafficSecret() {
         return clientHandshakeTrafficSecret;
     }
@@ -414,6 +434,7 @@ public class TlsState {
     public void clientHelloSend(PrivateKey clientPrivateKey, byte[] sentClientHello) {
         this.clientPrivateKey = clientPrivateKey;
         clientHello = sentClientHello;
+        computeEarlyTrafficSecret(computeClientHelloMessageHash(sentClientHello));
     }
 
     public void setPskSelected(int selectedIdentity) {
