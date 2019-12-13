@@ -4,6 +4,7 @@ import java.nio.ByteBuffer;
 import java.security.SecureRandom;
 import java.security.interfaces.ECPublicKey;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Random;
 
@@ -18,14 +19,14 @@ public class ClientHello extends HandshakeMessage {
     private final byte[] data;
 
     public ClientHello(String serverName, ECPublicKey publicKey) {
-        this(serverName, publicKey, true, SUPPORTED_CIPHERS, new Extension[0]);
+        this(serverName, publicKey, true, SUPPORTED_CIPHERS, Collections.emptyList());
     }
 
-    public ClientHello(String serverName, ECPublicKey publicKey, boolean compatibilityMode, Extension[] extraExtensions) {
+    public ClientHello(String serverName, ECPublicKey publicKey, boolean compatibilityMode, List<Extension> extraExtensions) {
         this(serverName, publicKey, compatibilityMode, SUPPORTED_CIPHERS, extraExtensions);
     }
 
-    public ClientHello(String serverName, ECPublicKey publicKey, boolean compatibilityMode, byte[][] supportedCiphers, Extension[] extraExtensions) {
+    public ClientHello(String serverName, ECPublicKey publicKey, boolean compatibilityMode, byte[][] supportedCiphers, List<Extension> extraExtensions) {
         ByteBuffer buffer = ByteBuffer.allocate(MAX_CLIENT_HELLO_SIZE);
 
         // HandshakeType client_hello(1),
@@ -79,7 +80,7 @@ public class ClientHello extends HandshakeMessage {
 
         List<Extension> extensions = new ArrayList<>();
         extensions.addAll(List.of(defaultExtensions));
-        extensions.addAll(List.of(extraExtensions));
+        extensions.addAll(extraExtensions);
 
         int pskExtensionStartPosition = 0;
         ClientHelloPreSharedKeyExtension pskExtension = null;

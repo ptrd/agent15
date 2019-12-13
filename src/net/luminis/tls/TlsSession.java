@@ -3,6 +3,7 @@ package net.luminis.tls;
 import java.io.*;
 import java.security.PrivateKey;
 import java.security.interfaces.ECPublicKey;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Consumer;
@@ -61,7 +62,7 @@ public class TlsSession {
     }
 
     private void sendClientHello(String serverName, Extension[] extensions) throws IOException {
-        ClientHello clientHello = new ClientHello(serverName, clientPublicKey, true, extensions);
+        ClientHello clientHello = new ClientHello(serverName, clientPublicKey, true, Arrays.asList(extensions));
 
         HandshakeRecord handshakeRecord = new HandshakeRecord(clientHello);
         output.write(handshakeRecord.getBytes());
