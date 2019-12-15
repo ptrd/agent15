@@ -11,6 +11,8 @@ public class NewSessionTicket {
     private long ticketAgeAdd;
     private byte[] ticket;
     private int ticketLifeTime;
+    private boolean hasEarlyDataExtension;
+    private long earlyDataMaxSize;
 
     public NewSessionTicket(TlsState state, NewSessionTicketMessage newSessionTicketMessage) {
         psk = state.computePSK(newSessionTicketMessage.getTicketNonce());
@@ -18,6 +20,10 @@ public class NewSessionTicket {
         ticketAgeAdd = newSessionTicketMessage.getTicketAgeAdd();
         ticket = newSessionTicketMessage.getTicket();
         ticketLifeTime = newSessionTicketMessage.getTicketLifetime();
+        hasEarlyDataExtension = newSessionTicketMessage.getEarlyDataExtension() != null;
+        if (hasEarlyDataExtension) {
+            earlyDataMaxSize = newSessionTicketMessage.getEarlyDataExtension().getMaxEarlyDataSize();
+        }
     }
 
     private NewSessionTicket(byte[] data) {
@@ -32,6 +38,9 @@ public class NewSessionTicket {
         buffer.get(psk);
         if (buffer.remaining() > 0) {
             ticketLifeTime = buffer.getInt();
+        }
+        if (buffer.remaining() > 0) {
+            earlyDataMaxSize = buffer.getLong();
         }
     }
 
@@ -48,6 +57,12 @@ public class NewSessionTicket {
         buffer.putInt(psk.length);
         buffer.put(psk);
         buffer.putInt(ticketLifeTime);
+        if (hasEarlyDataExtension) {
+            buffer.putLong(earlyDataMaxSize);
+        }
+        else {
+            buffer.putLong(0L);
+        }
 
         byte[] data = new byte[buffer.position()];
         buffer.flip();
@@ -74,6 +89,14 @@ public class NewSessionTicket {
 
     public byte[] getSessionTicketIdentity() {
         return ticket;
+    }
+
+    public boolean hasEarlyDataExtension() {
+        return hasEarlyDataExtension;
+    }
+
+    public long getEarlyDataMaxSize() {
+        return earlyDataMaxSize;
     }
 
     @Override
