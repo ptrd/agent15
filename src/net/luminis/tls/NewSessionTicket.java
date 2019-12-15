@@ -1,16 +1,10 @@
 package net.luminis.tls;
 
-import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.util.Date;
 
 
 public class NewSessionTicket {
-
-    private final TlsState state;
-    private NewSessionTicketMessage newSessionTicketMessage;
 
     private byte[] psk;
     private Date ticketCreationDate;
@@ -19,8 +13,11 @@ public class NewSessionTicket {
     private int ticketLifeTime;
 
     public NewSessionTicket(TlsState state, NewSessionTicketMessage newSessionTicketMessage) {
-        this.state = state;
-        this.newSessionTicketMessage = newSessionTicketMessage;
+        psk = state.computePSK(newSessionTicketMessage.getTicketNonce());
+        ticketCreationDate = new Date();
+        ticketAgeAdd = newSessionTicketMessage.getTicketAgeAdd();
+        ticket = newSessionTicketMessage.getTicket();
+        ticketLifeTime = newSessionTicketMessage.getTicketLifetime();
     }
 
     private NewSessionTicket(byte[] data) {
@@ -36,8 +33,6 @@ public class NewSessionTicket {
         if (buffer.remaining() > 0) {
             ticketLifeTime = buffer.getInt();
         }
-
-        state = null;
     }
 
     public static NewSessionTicket deserialize(byte[] data) {
@@ -45,16 +40,14 @@ public class NewSessionTicket {
     }
 
     public byte[] serialize() {
-        byte[] psk = state.computePSK(newSessionTicketMessage.getTicketNonce());
-
         ByteBuffer buffer = ByteBuffer.allocate(1000);
-        buffer.putLong(new Date().getTime());
-        buffer.putLong(newSessionTicketMessage.getTicketAgeAdd());
-        buffer.putInt(newSessionTicketMessage.getTicket().length);
-        buffer.put(newSessionTicketMessage.getTicket());
+        buffer.putLong(ticketCreationDate.getTime());
+        buffer.putLong(ticketAgeAdd);
+        buffer.putInt(ticket.length);
+        buffer.put(ticket);
         buffer.putInt(psk.length);
         buffer.put(psk);
-        buffer.putInt(newSessionTicketMessage.getTicketLifetime());
+        buffer.putInt(ticketLifeTime);
 
         byte[] data = new byte[buffer.position()];
         buffer.flip();
