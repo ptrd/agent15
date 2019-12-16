@@ -6,13 +6,16 @@ import java.util.Date;
 
 public class NewSessionTicket {
 
-    private byte[] psk;
-    private Date ticketCreationDate;
-    private long ticketAgeAdd;
-    private byte[] ticket;
-    private int ticketLifeTime;
-    private boolean hasEarlyDataExtension;
-    private long earlyDataMaxSize;
+    protected byte[] psk;
+    protected Date ticketCreationDate;
+    protected long ticketAgeAdd;
+    protected byte[] ticket;
+    protected int ticketLifeTime;
+    protected boolean hasEarlyDataExtension;
+    protected long earlyDataMaxSize;
+
+    protected NewSessionTicket() {
+    }
 
     public NewSessionTicket(TlsState state, NewSessionTicketMessage newSessionTicketMessage) {
         psk = state.computePSK(newSessionTicketMessage.getTicketNonce());
@@ -26,7 +29,7 @@ public class NewSessionTicket {
         }
     }
 
-    private NewSessionTicket(byte[] data) {
+    protected NewSessionTicket(byte[] data) {
         ByteBuffer buffer = ByteBuffer.wrap(data);
         ticketCreationDate = new Date(buffer.getLong());
         ticketAgeAdd = buffer.getLong();
