@@ -17,6 +17,7 @@ public class ClientHello extends HandshakeMessage {
     private static Random random = new Random();
     private static SecureRandom secureRandom = new SecureRandom();
     private final byte[] data;
+    private byte[] clientRandom;
 
     public ClientHello(String serverName, ECPublicKey publicKey) {
         this(serverName, publicKey, true, SUPPORTED_CIPHERS, Collections.emptyList());
@@ -41,7 +42,7 @@ public class ClientHello extends HandshakeMessage {
         buffer.put((byte) 0x03);
 
         // client random 32 bytes
-        byte[] clientRandom = new byte[32];
+        clientRandom = new byte[32];
         secureRandom.nextBytes(clientRandom);
         buffer.put(clientRandom);
 
@@ -114,5 +115,9 @@ public class ClientHello extends HandshakeMessage {
     @Override
     public byte[] getBytes() {
         return data;
+    }
+
+    public byte[] getClientRandom() {
+        return clientRandom;
     }
 }
