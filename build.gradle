@@ -17,7 +17,6 @@ sourceSets {
     main {
         java {
             srcDirs = ['src']
-            exclude 'net/luminis/tls/sample'
         }
     }
 }
