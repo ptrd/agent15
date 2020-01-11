@@ -1,6 +1,8 @@
 package net.luminis.tls;
 
 
+import net.luminis.tls.extension.Extension;
+
 import java.nio.ByteBuffer;
 
 public class SupportedVersionsExtension extends Extension {

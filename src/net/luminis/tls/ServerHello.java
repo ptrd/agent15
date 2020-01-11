@@ -1,5 +1,7 @@
 package net.luminis.tls;
 
+import net.luminis.tls.extension.Extension;
+
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.List;

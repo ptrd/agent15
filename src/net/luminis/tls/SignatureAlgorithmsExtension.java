@@ -1,5 +1,7 @@
 package net.luminis.tls;
 
+import net.luminis.tls.extension.Extension;
+
 import java.nio.ByteBuffer;
 
 import static net.luminis.tls.TlsConstants.SignatureScheme.*;
