@@ -1,5 +1,6 @@
 package net.luminis.tls.extension;
 
+import net.luminis.tls.DecodeErrorException;
 import net.luminis.tls.TlsConstants;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -19,16 +20,38 @@ public class SupportedGroupsExtension extends Extension {
         namedGroups.add(namedGroup);
     }
 
-    public SupportedGroupsExtension(ByteBuffer buffer) {
-        buffer.getShort();
+    protected int parseExtensionHeader(ByteBuffer buffer, TlsConstants.ExtensionType expectedType) throws DecodeErrorException {
+        if (buffer.limit() - buffer.position() < 4) {
+            throw new DecodeErrorException("extension underflow");
+        }
+        int extensionType = buffer.getShort() & 0xffff;
+        if (extensionType != expectedType.value) {
+            throw new IllegalStateException();  // i.e. programming error
+        }
         int extensionDataLength = buffer.getShort();
+        if (buffer.limit() - buffer.position() < extensionDataLength) {
+            throw new DecodeErrorException("extension underflow");
+        }
+        return extensionDataLength;
+    }
+
+    public SupportedGroupsExtension(ByteBuffer buffer) throws DecodeErrorException {
+        int extensionDataLength = parseExtensionHeader(buffer, TlsConstants.ExtensionType.supported_groups);
         int namedGroupsLength = buffer.getShort();
+        if (extensionDataLength != 2 + namedGroupsLength) {
+            throw new DecodeErrorException("inconsistent length");
+        }
+        if (namedGroupsLength % 2 != 0) {
+            throw new DecodeErrorException("invalid group length");
+        }
 
         for (int i = 0; i < namedGroupsLength; i += 2) {
-            int namedGroup = buffer.getShort();
-            Arrays.stream(TlsConstants.NamedGroup.values())
-                    .filter(item -> item.value == namedGroup)
-                    .forEach(group -> namedGroups.add(group));
+            int namedGroupBytes = buffer.getShort() % 0xffff;
+            TlsConstants.NamedGroup namedGroup = Arrays.stream(TlsConstants.NamedGroup.values())
+                    .filter(item -> item.value == namedGroupBytes)
+                    .findFirst()
+                    .orElseThrow(() -> new DecodeErrorException("invalid group value"));
+            namedGroups.add(namedGroup);
         }
     }
 
