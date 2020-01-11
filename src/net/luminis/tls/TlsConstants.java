@@ -73,7 +73,7 @@ public class TlsConstants {
     }
     
     
-    enum NamedGroup {
+    public enum NamedGroup {
 
           /* Elliptic Curve Groups (ECDHE) */
           secp256r1(0x0017), secp384r1(0x0018), secp521r1(0x0019),
