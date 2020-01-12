@@ -1,6 +1,9 @@
-package net.luminis.tls;
+package net.luminis.tls.extension;
 
-import net.luminis.tls.extension.Extension;
+import net.luminis.tls.ByteUtils;
+import net.luminis.tls.Logger;
+import net.luminis.tls.TlsConstants;
+import net.luminis.tls.TlsProtocolException;
 
 import java.nio.ByteBuffer;
 import java.security.interfaces.ECPublicKey;

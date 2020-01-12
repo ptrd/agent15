@@ -130,7 +130,7 @@ public class TlsConstants {
      }
 
 
-     enum PskKeyExchangeMode {
+     public enum PskKeyExchangeMode {
          psk_ke(0),
          psk_dhe_ke(1);
 

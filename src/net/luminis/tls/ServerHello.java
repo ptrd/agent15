@@ -1,6 +1,7 @@
 package net.luminis.tls;
 
 import net.luminis.tls.extension.Extension;
+import net.luminis.tls.extension.KeyShareExtension;
 import net.luminis.tls.extension.SupportedVersionsExtension;
 
 import java.nio.ByteBuffer;

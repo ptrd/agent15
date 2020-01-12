@@ -1,8 +1,6 @@
 package net.luminis.tls;
 
-import net.luminis.tls.extension.Extension;
-import net.luminis.tls.extension.SupportedGroupsExtension;
-import net.luminis.tls.extension.SupportedVersionsExtension;
+import net.luminis.tls.extension.*;
 
 import java.nio.ByteBuffer;
 import java.security.SecureRandom;

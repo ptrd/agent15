@@ -1,6 +1,6 @@
-package net.luminis.tls;
+package net.luminis.tls.extension;
 
-import net.luminis.tls.extension.Extension;
+import net.luminis.tls.TlsConstants;
 
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
