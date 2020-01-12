@@ -1,6 +1,7 @@
 package net.luminis.tls;
 
 import net.luminis.tls.extension.Extension;
+import net.luminis.tls.extension.SupportedVersionsExtension;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -44,7 +45,7 @@ public class EncryptedExtensions extends HandshakeMessage {
                 if (extensionType == TlsConstants.ExtensionType.key_share.value) {
                     extensions.add(new KeyShareExtension().parse(buffer));
                 } else if (extensionType == TlsConstants.ExtensionType.supported_versions.value) {
-                    extensions.add(new SupportedVersionsExtension().parse(buffer));
+                    extensions.add(new SupportedVersionsExtension(buffer, TlsConstants.HandshakeType.server_hello));
                 } else if (extensionType == TlsConstants.ExtensionType.pre_shared_key.value) {
                     extensions.add(new ServerPreSharedKeyExtension().parse(buffer));
                 } else if (extensionType == TlsConstants.ExtensionType.early_data.value) {

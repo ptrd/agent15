@@ -20,21 +20,6 @@ public class SupportedGroupsExtension extends Extension {
         namedGroups.add(namedGroup);
     }
 
-    protected int parseExtensionHeader(ByteBuffer buffer, TlsConstants.ExtensionType expectedType) throws DecodeErrorException {
-        if (buffer.limit() - buffer.position() < 4) {
-            throw new DecodeErrorException("extension underflow");
-        }
-        int extensionType = buffer.getShort() & 0xffff;
-        if (extensionType != expectedType.value) {
-            throw new IllegalStateException();  // i.e. programming error
-        }
-        int extensionDataLength = buffer.getShort();
-        if (buffer.limit() - buffer.position() < extensionDataLength) {
-            throw new DecodeErrorException("extension underflow");
-        }
-        return extensionDataLength;
-    }
-
     public SupportedGroupsExtension(ByteBuffer buffer) throws DecodeErrorException {
         int extensionDataLength = parseExtensionHeader(buffer, TlsConstants.ExtensionType.supported_groups);
         int namedGroupsLength = buffer.getShort();

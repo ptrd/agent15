@@ -2,6 +2,7 @@ package net.luminis.tls;
 
 import net.luminis.tls.extension.Extension;
 import net.luminis.tls.extension.SupportedGroupsExtension;
+import net.luminis.tls.extension.SupportedVersionsExtension;
 
 import java.nio.ByteBuffer;
 import java.security.SecureRandom;
@@ -75,7 +76,7 @@ public class ClientHello extends HandshakeMessage {
 
         Extension[] defaultExtensions = new Extension[] {
                 new ServerNameExtension(serverName),
-                new SupportedVersionsExtension(),
+                new SupportedVersionsExtension(TlsConstants.HandshakeType.client_hello),
                 new SupportedGroupsExtension(TlsConstants.NamedGroup.secp256r1),
                 new SignatureAlgorithmsExtension(),
                 new KeyShareExtension(publicKey, "secp256r1"),
