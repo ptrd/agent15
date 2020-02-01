@@ -78,7 +78,7 @@ public class ClientHello extends HandshakeMessage {
                 new SupportedGroupsExtension(TlsConstants.NamedGroup.secp256r1),
                 new SignatureAlgorithmsExtension(),
                 new KeyShareExtension(publicKey, "secp256r1"),
-                new PskKeyExchangeModesExtension()
+                new PskKeyExchangeModesExtension(TlsConstants.PskKeyExchangeMode.psk_dhe_ke)
         };
 
         List<Extension> extensions = new ArrayList<>();
