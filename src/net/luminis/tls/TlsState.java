@@ -136,7 +136,7 @@ public class TlsState {
         return helloHash;
     }
 
-    byte[] computeHandshakeFinishedHmac(boolean withClientFinished) {
+    protected byte[] computeHandshakeFinishedHmac(boolean withClientFinished) {
 
         hashFunction.reset();
         hashFunction.update(clientHello);
