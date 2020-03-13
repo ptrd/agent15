@@ -79,24 +79,35 @@ public class KeyShareExtension extends Extension {
         // See https://tools.ietf.org/html/rfc8446#section-4.2.8.2, "For secp256r1, secp384r1, and secp521r1, ..."
         buffer.put((byte) 4);
         byte[] affineX = publicKey.getW().getAffineX().toByteArray();
-        if (affineX.length == 33 && affineX[0] == 0) {
-            buffer.put(affineX, 1, 32);
-        }
-        else {
-            buffer.put(affineX);
-        }
+        writeAffine(buffer, affineX);
         byte[] affineY = publicKey.getW().getAffineY().toByteArray();
-        if (affineY.length == 33) {
-            buffer.put(affineY, 1, 32);
-        }
-        else {
-            buffer.put(affineY);
-        }
+        writeAffine(buffer, affineY);
 
         return buffer.array();
     }
 
     public byte[] getServerSharedKey() {
         return serverSharedKey;
+    }
+
+    private void writeAffine(ByteBuffer buffer, byte[] affine) {
+        if (affine.length == 32) {
+            buffer.put(affine);
+        }
+        else if (affine.length < 32) {
+            for (int i = 0; i < 32 - affine.length; i++) {
+                buffer.put((byte) 0);
+            }
+            buffer.put(affine, 0, affine.length);
+        }
+        else if (affine.length > 32) {
+            for (int i = 0; i < affine.length - 32; i++) {
+                if (affine[i] != 0) {
+                    throw new RuntimeException("W Affine more then 32 bytes, leading bytes not 0 "
+                            + ByteUtils.bytesToHex(affine));
+                }
+            }
+            buffer.put(affine, affine.length - 32, 32);
+        }
     }
 }
