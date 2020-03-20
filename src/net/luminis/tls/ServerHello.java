@@ -5,6 +5,7 @@ import net.luminis.tls.extension.KeyShareExtension;
 import net.luminis.tls.extension.SupportedVersionsExtension;
 
 import java.nio.ByteBuffer;
+import java.security.PublicKey;
 import java.util.Arrays;
 import java.util.List;
 
@@ -22,7 +23,7 @@ public class ServerHello extends HandshakeMessage {
     private byte[] random;
     private String cipherSuite;
     private String keyGroup;
-    private byte[] serverSharedKey;
+    private PublicKey serverSharedKey;
     private short tlsVersion;
 
     public ServerHello parse(ByteBuffer buffer, int length, TlsState state) throws TlsProtocolException {
@@ -70,7 +71,9 @@ public class ServerHello extends HandshakeMessage {
 
         extensions.stream().forEach( extension -> {
             if (extension instanceof KeyShareExtension) {
-                serverSharedKey = ((KeyShareExtension) extension).getServerSharedKey();
+                // In the context of a server hello, the key share extension contains exactly one key share entry
+                KeyShareExtension.KeyShareEntry keyShareEntry = ((KeyShareExtension) extension).getKeyShareEntries().get(0);
+                serverSharedKey = keyShareEntry.getKey();
             }
             else if (extension instanceof SupportedVersionsExtension) {
                 tlsVersion = ((SupportedVersionsExtension) extension).getTlsVersion();

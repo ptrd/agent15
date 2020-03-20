@@ -38,7 +38,7 @@ public class TlsState {
     private String labelPrefix;
     private boolean pskSelected;
     private byte[] serverHello;
-    private byte[] serverSharedKey;
+    private PublicKey serverSharedKey;
     private PrivateKey clientPrivateKey;
     private byte[] clientHello;
     private byte[] psk;
@@ -197,8 +197,8 @@ public class TlsState {
         }
     }
 
-    private byte[] computeSharedSecret(byte[] serverSharedKey) {
-        ECPublicKey serverPublicKey = convertP256Key(serverSharedKey);
+    private byte[] computeSharedSecret(PublicKey serverSharedKey) {
+        ECPublicKey serverPublicKey = (ECPublicKey) serverSharedKey;
 
         try {
             KeyAgreement keyAgreement = KeyAgreement.getInstance("ECDH");
@@ -441,7 +441,7 @@ public class TlsState {
         pskSelected = true;
     }
 
-    public void setServerSharedKey(byte[] serverHello, byte[] serverSharedKey) {
+    public void setServerSharedKey(byte[] serverHello, PublicKey serverSharedKey) {
         if (psk != null && !pskSelected) {
             // Recompute early secret, as psk is not accepted by server.
             // https://tools.ietf.org/html/rfc8446#section-7.1

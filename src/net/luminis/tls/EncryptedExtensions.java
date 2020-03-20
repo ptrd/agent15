@@ -44,7 +44,7 @@ public class EncryptedExtensions extends HandshakeMessage {
                 buffer.reset();
 
                 if (extensionType == TlsConstants.ExtensionType.key_share.value) {
-                    extensions.add(new KeyShareExtension().parse(buffer));
+                    extensions.add(new KeyShareExtension(buffer, TlsConstants.HandshakeType.server_hello));
                 } else if (extensionType == TlsConstants.ExtensionType.supported_versions.value) {
                     extensions.add(new SupportedVersionsExtension(buffer, TlsConstants.HandshakeType.server_hello));
                 } else if (extensionType == TlsConstants.ExtensionType.pre_shared_key.value) {
