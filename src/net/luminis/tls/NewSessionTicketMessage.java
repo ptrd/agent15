@@ -30,7 +30,7 @@ public class NewSessionTicketMessage extends HandshakeMessage {
         ticket = new byte[ticketSize];
         buffer.get(ticket);
 
-        List<Extension> extensions = EncryptedExtensions.parseExtensions(buffer);
+        List<Extension> extensions = EncryptedExtensions.parseExtensions(buffer, TlsConstants.HandshakeType.new_session_ticket);
         if (! extensions.isEmpty()) {
             if (extensions.get(0) instanceof EarlyDataExtension) {
                 earlyDataExtension = (EarlyDataExtension) extensions.get(0);

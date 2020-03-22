@@ -26,40 +26,9 @@ public class EncryptedExtensions extends HandshakeMessage {
 
         buffer.getInt();  // Skip message type and 3 bytes length
 
-        extensions = parseExtensions(buffer);
+        extensions = parseExtensions(buffer, TlsConstants.HandshakeType.server_hello);
 
         return this;
-    }
-
-    static List<Extension> parseExtensions(ByteBuffer buffer) throws TlsProtocolException {
-        List<Extension> extensions = new ArrayList<>();
-
-        int extensionsLength = buffer.getShort();
-        if (extensionsLength > 0) {
-            int startPosition = buffer.position();
-
-            while (buffer.position() - startPosition < extensionsLength) {
-                buffer.mark();
-                int extensionType = buffer.getShort() & 0xffff;
-                buffer.reset();
-
-                if (extensionType == TlsConstants.ExtensionType.key_share.value) {
-                    extensions.add(new KeyShareExtension(buffer, TlsConstants.HandshakeType.server_hello));
-                } else if (extensionType == TlsConstants.ExtensionType.supported_versions.value) {
-                    extensions.add(new SupportedVersionsExtension(buffer, TlsConstants.HandshakeType.server_hello));
-                } else if (extensionType == TlsConstants.ExtensionType.pre_shared_key.value) {
-                    extensions.add(new ServerPreSharedKeyExtension().parse(buffer));
-                } else if (extensionType == TlsConstants.ExtensionType.early_data.value) {
-                    extensions.add(new EarlyDataExtension().parse(buffer));
-                } else if (extensionType == TlsConstants.ExtensionType.application_layer_protocol_negotiation.value) {
-                    extensions.add(new ApplicationLayerProtocolNegotiationExtension().parse(buffer));
-                } else {
-                    Logger.debug("Unsupported extension, type is: " + extensionType);
-                    extensions.add(new UnknownExtension().parse(buffer));
-                }
-            }
-        }
-        return extensions;
     }
 
     public List<Extension> getExtensions() {

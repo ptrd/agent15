@@ -67,7 +67,7 @@ public class ServerHello extends HandshakeMessage {
 
         int legacyCompressionMethod = buffer.get();  // TODO: must match, see 4.1.3
 
-        List<Extension> extensions = EncryptedExtensions.parseExtensions(buffer);
+        List<Extension> extensions = EncryptedExtensions.parseExtensions(buffer, TlsConstants.HandshakeType.server_hello);
 
         extensions.stream().forEach( extension -> {
             if (extension instanceof KeyShareExtension) {
