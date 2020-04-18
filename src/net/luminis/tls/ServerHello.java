@@ -6,8 +6,10 @@ import net.luminis.tls.extension.SupportedVersionsExtension;
 
 import java.nio.ByteBuffer;
 import java.security.PublicKey;
+import java.security.SecureRandom;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Random;
 
 
 public class ServerHello extends HandshakeMessage {
@@ -19,12 +21,35 @@ public class ServerHello extends HandshakeMessage {
             (byte) 0x07, (byte) 0x9E, (byte) 0x09, (byte) 0xE2, (byte) 0xC8, (byte) 0xA8, (byte) 0x33, (byte) 0x9C
     };
 
+    private static SecureRandom secureRandom= new SecureRandom();
+
     private byte[] raw;
+
     private byte[] random;
-    private String cipherSuite;
+    private TlsConstants.CipherSuite cipherSuite;
     private String keyGroup;
     private PublicKey serverSharedKey;
     private short tlsVersion;
+
+    public ServerHello() {
+    }
+
+    public ServerHello(TlsConstants.CipherSuite cipher) {
+        random = new byte[32];
+        secureRandom.nextBytes(random);
+        cipherSuite = cipher;
+
+        int extensionsSize = 0;
+        raw = new byte[1 + 3 + 2 + 32 + 1 + 2 + 1 + 2 + extensionsSize];
+        ByteBuffer buffer = ByteBuffer.wrap(raw);
+        buffer.putInt(raw.length | 0x02000000);
+        buffer.putShort((short) 0x0303);
+        buffer.put(random);
+        buffer.put((byte) 0);
+        buffer.putShort(cipher.value);
+        buffer.put((byte) 0);
+        buffer.putShort((short) extensionsSize);
+    }
 
     public ServerHello parse(ByteBuffer buffer, int length, TlsState state) throws TlsProtocolException {
         buffer.getInt();  // Skip message type and 3 bytes length
@@ -45,24 +70,16 @@ public class ServerHello extends HandshakeMessage {
         buffer.get(legacySessionIdEcho);   // TODO: must match, see 4.1.3
 
         int cipherSuiteCode = buffer.getShort();
-        switch (cipherSuiteCode) {
-            case 0x1301:
-                cipherSuite = "TLS_AES_128_GCM_SHA256";
-                break;
-            case 0x1302:
-                cipherSuite = "TLS_AES_256_GCM_SHA384";
-                break;
-            case 0x1303:
-                cipherSuite = "TLS_CHACHA20_POLY1305_SHA256";
-                break;
-            case 0x1304:
-                cipherSuite = "TLS_AES_128_CCM_SHA256";
-                break;
-            case 0x1305:
-                cipherSuite = "TLS_AES_128_CCM_8_SHA256";
-                break;
-            default:
-                throw new TlsProtocolException("Unknown cipher suite (" + cipherSuiteCode + ")");
+        Arrays.stream(TlsConstants.CipherSuite.values())
+                .filter(item -> item.value == cipherSuiteCode)
+                .findFirst()
+                // https://tools.ietf.org/html/rfc8446#section-4.1.2
+                // "If the list contains cipher suites that the server does not recognize, support, or wish to use,
+                // the server MUST ignore those cipher suites and process the remaining ones as usual."
+                .ifPresent(item -> cipherSuite = item);
+
+        if (cipherSuite == null) {
+            throw new TlsProtocolException("Unknown cipher suite (" + cipherSuiteCode + ")");
         }
 
         int legacyCompressionMethod = buffer.get();  // TODO: must match, see 4.1.3
@@ -99,6 +116,16 @@ public class ServerHello extends HandshakeMessage {
 
     @Override
     public byte[] getBytes() {
-        return new byte[0];
+        return raw;
     }
+
+    public byte[] getRandom() {
+        return random;
+    }
+
+    public TlsConstants.CipherSuite getCipherSuite() {
+        return cipherSuite;
+    }
+
+
 }
