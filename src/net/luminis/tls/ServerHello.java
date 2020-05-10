@@ -21,6 +21,8 @@ public class ServerHello extends HandshakeMessage {
             (byte) 0x07, (byte) 0x9E, (byte) 0x09, (byte) 0xE2, (byte) 0xC8, (byte) 0xA8, (byte) 0x33, (byte) 0x9C
     };
 
+    private static final int MINIMAL_MESSAGE_LENGTH = 1 + 3 + 2 + 32 + 1 + 2 + 1 + 2;
+
     private static SecureRandom secureRandom= new SecureRandom();
 
     private byte[] raw;
@@ -30,6 +32,7 @@ public class ServerHello extends HandshakeMessage {
     private String keyGroup;
     private PublicKey serverSharedKey;
     private short tlsVersion;
+    private List<Extension> extensions;
 
     public ServerHello() {
     }
@@ -42,7 +45,9 @@ public class ServerHello extends HandshakeMessage {
         int extensionsSize = 0;
         raw = new byte[1 + 3 + 2 + 32 + 1 + 2 + 1 + 2 + extensionsSize];
         ByteBuffer buffer = ByteBuffer.wrap(raw);
-        buffer.putInt(raw.length | 0x02000000);
+        // https://tools.ietf.org/html/rfc8446#section-4
+        // "uint24 length;             /* remaining bytes in message */"
+        buffer.putInt((raw.length - 4) | 0x02000000);
         buffer.putShort((short) 0x0303);
         buffer.put(random);
         buffer.put((byte) 0);
@@ -52,12 +57,15 @@ public class ServerHello extends HandshakeMessage {
     }
 
     public ServerHello parse(ByteBuffer buffer, int length, TlsState state) throws TlsProtocolException {
+        if (buffer.remaining() < MINIMAL_MESSAGE_LENGTH) {
+            throw new DecodeErrorException("Message too short");
+        }
         buffer.getInt();  // Skip message type and 3 bytes length
 
         int versionHigh = buffer.get();
         int versionLow = buffer.get();
         if (versionHigh != 3 || versionLow != 3)
-            throw new TlsProtocolException("Invalid version number (should be 0x0303");
+            throw new IllegalParameterAlert("Invalid version number (should be 0x0303)");
 
         random = new byte[32];
         buffer.get(random);
@@ -65,7 +73,10 @@ public class ServerHello extends HandshakeMessage {
             Logger.debug("HelloRetryRequest!");
         }
 
-        int sessionIdLength = buffer.get();
+        int sessionIdLength = buffer.get() & 0xff;
+        if (sessionIdLength > 32) {
+            throw new DecodeErrorException("session id length exceeds 32");
+        }
         byte[] legacySessionIdEcho = new byte[sessionIdLength];
         buffer.get(legacySessionIdEcho);   // TODO: must match, see 4.1.3
 
@@ -79,14 +90,19 @@ public class ServerHello extends HandshakeMessage {
                 .ifPresent(item -> cipherSuite = item);
 
         if (cipherSuite == null) {
-            throw new TlsProtocolException("Unknown cipher suite (" + cipherSuiteCode + ")");
+            throw new DecodeErrorException("Unknown cipher suite (" + cipherSuiteCode + ")");
         }
 
-        int legacyCompressionMethod = buffer.get();  // TODO: must match, see 4.1.3
+        int legacyCompressionMethod = buffer.get();
+        if (legacyCompressionMethod != 0) {
+            // https://www.davidwong.fr/tls13/#section-4.1.3
+            // "legacy_compression_method: A single byte which MUST have the value 0."
+            throw new DecodeErrorException("Legacy compression method must have the value 0");
+        }
 
-        List<Extension> extensions = EncryptedExtensions.parseExtensions(buffer, TlsConstants.HandshakeType.server_hello);
+        extensions = EncryptedExtensions.parseExtensions(buffer, TlsConstants.HandshakeType.server_hello);
 
-        extensions.stream().forEach( extension -> {
+        extensions.stream().forEach(extension -> {
             if (extension instanceof KeyShareExtension) {
                 // In the context of a server hello, the key share extension contains exactly one key share entry
                 KeyShareExtension.KeyShareEntry keyShareEntry = ((KeyShareExtension) extension).getKeyShareEntries().get(0);
@@ -127,5 +143,7 @@ public class ServerHello extends HandshakeMessage {
         return cipherSuite;
     }
 
-
+    public List<Extension> getExtensions() {
+        return extensions;
+    }
 }

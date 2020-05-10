@@ -76,7 +76,7 @@ public class ClientHello extends HandshakeMessage {
         int legacyCompressionMethodsLength = buffer.get();
         int legacyCompressionMethod = buffer.get();
         if (legacyCompressionMethodsLength != 1 || legacyCompressionMethod != 0) {
-            throw new IllegalParameterAlert();
+            throw new IllegalParameterAlert("Invalid legacy compression method");
         }
 
         extensions = parseExtensions(buffer, TlsConstants.HandshakeType.client_hello);
