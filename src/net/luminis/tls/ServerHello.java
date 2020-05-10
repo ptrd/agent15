@@ -8,6 +8,7 @@ import java.nio.ByteBuffer;
 import java.security.PublicKey;
 import java.security.SecureRandom;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Random;
 
@@ -29,7 +30,6 @@ public class ServerHello extends HandshakeMessage {
 
     private byte[] random;
     private TlsConstants.CipherSuite cipherSuite;
-    private String keyGroup;
     private PublicKey serverSharedKey;
     private short tlsVersion;
     private List<Extension> extensions;
@@ -38,11 +38,16 @@ public class ServerHello extends HandshakeMessage {
     }
 
     public ServerHello(TlsConstants.CipherSuite cipher) {
+        this(cipher, Collections.emptyList());
+    }
+
+    public ServerHello(TlsConstants.CipherSuite cipher, List<Extension> extensions) {
         random = new byte[32];
         secureRandom.nextBytes(random);
         cipherSuite = cipher;
+        this.extensions = extensions;
 
-        int extensionsSize = 0;
+        int extensionsSize = extensions.stream().mapToInt(extension -> extension.getBytes().length).sum();
         raw = new byte[1 + 3 + 2 + 32 + 1 + 2 + 1 + 2 + extensionsSize];
         ByteBuffer buffer = ByteBuffer.wrap(raw);
         // https://tools.ietf.org/html/rfc8446#section-4
@@ -54,6 +59,7 @@ public class ServerHello extends HandshakeMessage {
         buffer.putShort(cipher.value);
         buffer.put((byte) 0);
         buffer.putShort((short) extensionsSize);
+        extensions.stream().forEach(extension -> buffer.put(extension.getBytes()));
     }
 
     public ServerHello parse(ByteBuffer buffer, int length, TlsState state) throws TlsProtocolException {
@@ -119,6 +125,9 @@ public class ServerHello extends HandshakeMessage {
         // Post processing after record is completely parsed
         if (tlsVersion != 0x0304) {
             throw new TlsProtocolException("Invalid TLS version");
+        }
+        if (serverSharedKey == null) {
+            throw new TlsProtocolException("Missing key share extension");
         }
 
         // Update state.

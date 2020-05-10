@@ -5,6 +5,7 @@ import net.luminis.tls.extension.SupportedVersionsExtension;
 import org.junit.jupiter.api.Test;
 
 import java.nio.ByteBuffer;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -128,6 +129,20 @@ class ServerHelloTest {
                 new ServerHello().parse(ByteBuffer.wrap(data), data.length, mock(TlsState.class))
         ).isInstanceOf(DecodeErrorException.class);
     }
+
+    @Test
+    void serializeServerHelloWithExtension() throws Exception {
+        ServerHello sh = new ServerHello(TlsConstants.CipherSuite.TLS_AES_128_GCM_SHA256, List.of(new SupportedVersionsExtension(TlsConstants.HandshakeType.server_hello)));
+        byte[] serializedData = sh.getBytes();
+
+        int length = 4 + (serializedData[1] << 16) + (serializedData[2] << 8) + serializedData[3];
+        assertThat(serializedData.length).isEqualTo(length);
+
+        String expectedExtensionBytesInHex = ("0006 002b00020304").replaceAll(" ", "");
+        String lastServerHelloBytesInHex = ("00" + "1301" + "00").replaceAll(" ", "");   // session length, cipher, compression
+        assertThat(serializedData).endsWith(ByteUtils.hexToBytes(lastServerHelloBytesInHex + expectedExtensionBytesInHex));
+    }
+
 
     private String addMandatoryExtensions(String shData) {
         //                            length supported versions  key share
