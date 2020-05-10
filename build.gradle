@@ -24,6 +24,9 @@ sourceSets {
         java {
             srcDirs = ['src']
         }
+        resources {
+            srcDir "${buildDir}/generated"
+        }
     }
     test {
         java {
@@ -45,3 +48,28 @@ test {
         }
     }
 }
+
+jar {
+    manifest {
+        attributes 'Main-Class': 'net.luminis.tls.Version'
+    }
+}
+task determineVersion {
+    doLast {
+        def proc = "git describe --always --dirty".execute()
+        proc.waitFor()
+        if (proc.exitValue()) {
+            logger.quiet("Building development version.")
+        } else {
+            def versionTag = proc.in.readLines()[0]
+            logger.quiet("Building version ${versionTag}.")
+
+            ext.versionDir = new File("${buildDir}", "generated/net/luminis/tls")
+            versionDir.mkdirs()
+
+            new File(versionDir, "version.properties").text = versionTag
+        }
+    }
+}
+
+compileJava.dependsOn determineVersion
