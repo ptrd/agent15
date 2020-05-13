@@ -12,7 +12,7 @@ import java.util.stream.Collectors;
 public class ClientHello extends HandshakeMessage {
 
     private static final int MAX_CLIENT_HELLO_SIZE = 3000;
-    public static final byte[][] SUPPORTED_CIPHERS = new byte[][]{TlsConstants.TLS_AES_128_GCM_SHA256, TlsConstants.TLS_AES_256_GCM_SHA384};
+    public static final List<TlsConstants.CipherSuite> SUPPORTED_CIPHERS = List.of(TlsConstants.CipherSuite.TLS_AES_128_GCM_SHA256, TlsConstants.CipherSuite.TLS_AES_256_GCM_SHA384);
     private static final int MINIMAL_MESSAGE_LENGTH = 1 + 3 + 2 + 32 + 1 + 2 + 2 + 2 + 2;
 
     private static Random random = new Random();
@@ -90,7 +90,7 @@ public class ClientHello extends HandshakeMessage {
         this(serverName, publicKey, compatibilityMode, SUPPORTED_CIPHERS, extraExtensions);
     }
 
-    public ClientHello(String serverName, ECPublicKey publicKey, boolean compatibilityMode, byte[][] supportedCiphers, List<Extension> extraExtensions) {
+    public ClientHello(String serverName, ECPublicKey publicKey, boolean compatibilityMode, List<TlsConstants.CipherSuite> supportedCiphers, List<Extension> extraExtensions) {
         ByteBuffer buffer = ByteBuffer.allocate(MAX_CLIENT_HELLO_SIZE);
 
         // HandshakeType client_hello(1),
@@ -121,9 +121,9 @@ public class ClientHello extends HandshakeMessage {
         if (sessionId.length > 0)
             buffer.put(sessionId);
 
-        buffer.putShort((short) (supportedCiphers.length * 2));
-        for (byte[] cipher: supportedCiphers) {
-            buffer.put(cipher);
+        buffer.putShort((short) (supportedCiphers.size() * 2));
+        for (TlsConstants.CipherSuite cipher: supportedCiphers) {
+            buffer.putShort(cipher.value);
         }
 
         // Compression
