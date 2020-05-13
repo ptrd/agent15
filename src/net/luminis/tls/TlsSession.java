@@ -1,5 +1,7 @@
 package net.luminis.tls;
 
+import net.luminis.tls.extension.Extension;
+
 import java.io.*;
 import java.security.PrivateKey;
 import java.security.interfaces.ECPublicKey;

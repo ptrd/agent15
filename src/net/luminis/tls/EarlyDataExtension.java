@@ -1,5 +1,7 @@
 package net.luminis.tls;
 
+import net.luminis.tls.extension.Extension;
+
 import java.nio.ByteBuffer;
 
 // https://tools.ietf.org/html/rfc8446#section-4.2.10

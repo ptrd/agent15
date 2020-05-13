@@ -73,7 +73,7 @@ public class TlsConstants {
     }
     
     
-    enum NamedGroup {
+    public enum NamedGroup {
 
           /* Elliptic Curve Groups (ECDHE) */
           secp256r1(0x0017), secp384r1(0x0018), secp521r1(0x0019),
@@ -92,68 +92,81 @@ public class TlsConstants {
     } ;
 
 
-     public enum SignatureScheme {
-          /* RSASSA-PKCS1-v1_5 algorithms */
-          rsa_pkcs1_sha256(0x0401),
-          rsa_pkcs1_sha384(0x0501),
-          rsa_pkcs1_sha512(0x0601),
+    public enum SignatureScheme {
+        /* RSASSA-PKCS1-v1_5 algorithms */
+        rsa_pkcs1_sha256(0x0401),
+        rsa_pkcs1_sha384(0x0501),
+        rsa_pkcs1_sha512(0x0601),
 
-          /* ECDSA algorithms */
-          ecdsa_secp256r1_sha256(0x0403),
-          ecdsa_secp384r1_sha384(0x0503),
-          ecdsa_secp521r1_sha512(0x0603),
+        /* ECDSA algorithms */
+        ecdsa_secp256r1_sha256(0x0403),
+        ecdsa_secp384r1_sha384(0x0503),
+        ecdsa_secp521r1_sha512(0x0603),
 
-          /* RSASSA-PSS algorithms with public key OID rsaEncryption */
-          rsa_pss_rsae_sha256(0x0804),
-          rsa_pss_rsae_sha384(0x0805),
-          rsa_pss_rsae_sha512(0x0806),
+        /* RSASSA-PSS algorithms with public key OID rsaEncryption */
+        rsa_pss_rsae_sha256(0x0804),
+        rsa_pss_rsae_sha384(0x0805),
+        rsa_pss_rsae_sha512(0x0806),
 
-          /* EdDSA algorithms */
-          ed25519(0x0807),
-          ed448(0x0808),
+        /* EdDSA algorithms */
+        ed25519(0x0807),
+        ed448(0x0808),
 
-          /* RSASSA-PSS algorithms with public key OID RSASSA-PSS */
-          rsa_pss_pss_sha256(0x0809),
-          rsa_pss_pss_sha384(0x080a),
-          rsa_pss_pss_sha512(0x080b),
+        /* RSASSA-PSS algorithms with public key OID RSASSA-PSS */
+        rsa_pss_pss_sha256(0x0809),
+        rsa_pss_pss_sha384(0x080a),
+        rsa_pss_pss_sha512(0x080b),
 
-          /* Legacy algorithms */
-          rsa_pkcs1_sha1(0x0201),
-          ecdsa_sha1(0x0203),
-         ;
+        /* Legacy algorithms */
+        rsa_pkcs1_sha1(0x0201),
+        ecdsa_sha1(0x0203),
+        ;
 
-         public final short value;
+        public final short value;
 
-         SignatureScheme(int value) {
-             this.value = (short) value;
+        SignatureScheme(int value) {
+            this.value = (short) value;
+        }
+    }
+
+
+    public enum PskKeyExchangeMode {
+        psk_ke(0),
+        psk_dhe_ke(1);
+
+        public final byte value;
+
+        PskKeyExchangeMode(int value) {
+             this.value = (byte) value;
          }
-     }
+    }
 
 
-     enum PskKeyExchangeMode {
-         psk_ke(0),
-         psk_dhe_ke(1);
+    public enum CertificateType {
+        X509(0),
+        RawPublicKey(2),
+        ;
 
-         public final byte value;
+        public final byte value;
 
-         PskKeyExchangeMode(int value) {
+        CertificateType(int value) {
              this.value = (byte) value;
          }
      }
 
+    public enum CipherSuite {
+        TLS_AES_128_GCM_SHA256(0x1301),
+        TLS_AES_256_GCM_SHA384(0x1302),
+        TLS_CHACHA20_POLY1305_SHA256(0x1303),
+        TLS_AES_128_CCM_SHA256(0x1304),
+        TLS_AES_128_CCM_8_SHA256(0x1305);
 
-     enum CertificateType {
-          X509(0),
-          RawPublicKey(2),
-         ;
+        public final short value;
 
-         public final byte value;
-
-         CertificateType(int value) {
-             this.value = (byte) value;
-         }
-     } ;
-
+        CipherSuite(int value) {
+            this.value = (short) value;
+        }
+    }
 
     // https://tools.ietf.org/html/rfc8446#appendix-B.4  Cipher Suites
     public static byte[] TLS_AES_128_GCM_SHA256 = new byte[]        { 0x13, 0x01};
