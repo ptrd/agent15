@@ -73,3 +73,8 @@ task determineVersion {
 }
 
 compileJava.dependsOn determineVersion
+
+tasks.withType(JavaCompile) {
+    options.debug = false
+}
+
