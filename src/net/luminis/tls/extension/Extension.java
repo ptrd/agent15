@@ -11,7 +11,7 @@ import java.nio.ByteBuffer;
  */
 public abstract class Extension {
 
-    protected int parseExtensionHeader(ByteBuffer buffer, TlsConstants.ExtensionType expectedType) throws DecodeErrorException {
+    protected int parseExtensionHeader(ByteBuffer buffer, TlsConstants.ExtensionType expectedType, int minimumExtensionSize) throws DecodeErrorException {
         if (buffer.limit() - buffer.position() < 4) {
             throw new DecodeErrorException("extension underflow");
         }
@@ -20,6 +20,9 @@ public abstract class Extension {
             throw new IllegalStateException();  // i.e. programming error
         }
         int extensionDataLength = buffer.getShort();
+        if (extensionDataLength < minimumExtensionSize) {
+            throw new DecodeErrorException(getClass().getSimpleName() + " can't be less than " + minimumExtensionSize + " bytes");
+        }
         if (buffer.limit() - buffer.position() < extensionDataLength) {
             throw new DecodeErrorException("extension underflow");
         }

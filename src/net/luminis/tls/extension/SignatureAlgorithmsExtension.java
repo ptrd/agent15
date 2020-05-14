@@ -39,7 +39,7 @@ public class SignatureAlgorithmsExtension extends Extension {
     }
 
     public SignatureAlgorithmsExtension(ByteBuffer buffer) throws DecodeErrorException {
-        int extensionDataLength = parseExtensionHeader(buffer, TlsConstants.ExtensionType.signature_algorithms);
+        int extensionDataLength = parseExtensionHeader(buffer, TlsConstants.ExtensionType.signature_algorithms, 2 + 2);
         int supportedAlgorithmsLength = buffer.getShort();
         if (extensionDataLength != 2 + supportedAlgorithmsLength) {
             throw new DecodeErrorException("inconsistent length");

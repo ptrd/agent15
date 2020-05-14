@@ -19,10 +19,7 @@ public class ServerNameExtension extends Extension {
     }
 
     public ServerNameExtension(ByteBuffer buffer) throws DecodeErrorException {
-        int extensionDataLength = parseExtensionHeader(buffer, TlsConstants.ExtensionType.server_name);
-        if (extensionDataLength == 0) {
-            throw new DecodeErrorException("server name extension can't be empty");
-        }
+        int extensionDataLength = parseExtensionHeader(buffer, TlsConstants.ExtensionType.server_name, 3);
 
         int serverNameListLength = buffer.getShort();
         if (extensionDataLength != serverNameListLength + 2) {

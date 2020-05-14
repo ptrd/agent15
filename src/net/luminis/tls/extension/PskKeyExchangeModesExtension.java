@@ -26,7 +26,7 @@ public class PskKeyExchangeModesExtension extends Extension {
     }
 
     public PskKeyExchangeModesExtension(ByteBuffer buffer) throws DecodeErrorException {
-        int extensionDataLength = parseExtensionHeader(buffer, TlsConstants.ExtensionType.psk_key_exchange_modes);
+        int extensionDataLength = parseExtensionHeader(buffer, TlsConstants.ExtensionType.psk_key_exchange_modes, 2);
         int pskKeyExchangeModesLength = buffer.get();
         if (extensionDataLength != 1 + pskKeyExchangeModesLength) {
             throw new DecodeErrorException("inconsistent length");

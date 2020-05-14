@@ -22,7 +22,7 @@ public class SupportedVersionsExtension extends Extension {
 
     public SupportedVersionsExtension(ByteBuffer buffer, TlsConstants.HandshakeType handshakeType) throws TlsProtocolException {
         this.handshakeType = handshakeType;
-        int extensionDataLength = parseExtensionHeader(buffer, TlsConstants.ExtensionType.supported_versions);
+        int extensionDataLength = parseExtensionHeader(buffer, TlsConstants.ExtensionType.supported_versions, 2);
 
         if (handshakeType == TlsConstants.HandshakeType.client_hello) {
             int versionsLength = buffer.get() & 0xff;
