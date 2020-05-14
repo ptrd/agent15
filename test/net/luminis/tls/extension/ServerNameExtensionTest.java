@@ -67,4 +67,12 @@ class ServerNameExtensionTest {
         ).isInstanceOf(DecodeErrorException.class);
     }
 
+    @Test
+    void parseEmptyServerNameExtension() throws Exception {
+        ByteBuffer buffer = ByteBuffer.wrap(ByteUtils.hexToBytes("00000000"));
+
+        assertThatThrownBy(() ->
+                new ServerNameExtension(buffer)
+        ).isInstanceOf(DecodeErrorException.class);
+    }
 }
