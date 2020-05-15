@@ -68,11 +68,21 @@ class ServerNameExtensionTest {
     }
 
     @Test
-    void parseEmptyServerNameExtension() throws Exception {
+    void parseEmptyExtension() throws Exception {
         ByteBuffer buffer = ByteBuffer.wrap(ByteUtils.hexToBytes("00000000"));
+
+        ServerNameExtension serverNameExtension = new ServerNameExtension(buffer);
+
+        assertThat(serverNameExtension.getHostName()).isNull();
+    }
+
+    @Test
+    void extensionShouldHaveAtLeastSizeTwoWhenNotEmpty() throws Exception {
+        ByteBuffer buffer = ByteBuffer.wrap(ByteUtils.hexToBytes("0000000100"));
 
         assertThatThrownBy(() ->
                 new ServerNameExtension(buffer)
         ).isInstanceOf(DecodeErrorException.class);
     }
+
 }

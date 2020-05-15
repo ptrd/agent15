@@ -19,17 +19,28 @@ public class ServerNameExtension extends Extension {
     }
 
     public ServerNameExtension(ByteBuffer buffer) throws DecodeErrorException {
-        int extensionDataLength = parseExtensionHeader(buffer, TlsConstants.ExtensionType.server_name, 3);
+        int extensionDataLength = parseExtensionHeader(buffer, TlsConstants.ExtensionType.server_name, 0);
+        if (extensionDataLength > 0) {
+            if (extensionDataLength < 2) {
+                throw new DecodeErrorException("incorrect extension length");
+            }
+            int serverNameListLength = buffer.getShort();
+            if (extensionDataLength != serverNameListLength + 2) {
+                throw new DecodeErrorException("inconsistent length");
+            }
 
-        int serverNameListLength = buffer.getShort();
-        if (extensionDataLength != serverNameListLength + 2) {
-            throw new DecodeErrorException("inconsistent length");
+            int startPosition = buffer.position();
+            serverName = parseServerName(buffer);
+            if (buffer.position() - startPosition != serverNameListLength) {
+                throw new DecodeErrorException("inconsistent length");
+            }
         }
-
-        int startPosition = buffer.position();
-        serverName = parseServerName(buffer);
-        if (buffer.position() - startPosition != serverNameListLength) {
-            throw new DecodeErrorException("inconsistent length");
+        else {
+            // https://tools.ietf.org/html/rfc6066#section-3
+            // " A server that receives a client hello containing the "server_name" extension (...). In this event,
+            // the server SHALL include an extension of type "server_name" in the (extended) server hello.
+            // The "extension_data" field of this extension SHALL be empty."
+            serverName = null;
         }
     }
 
