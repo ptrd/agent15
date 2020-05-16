@@ -36,8 +36,8 @@ public class TlsState {
     private final HKDF hkdf;
     private final byte[] emptyHash;
     private final short authenticationTagLength = 16;
-    private final short keyLength = 16;   // Assuming AES_128
-    private final short hashLength = 32;  // Assuming SHA-256
+    private final short keyLength = 16;   // Assuming AES-128, use 32 for AES-256
+    private final short hashLength = 32;  // Assuming SHA-256, use 48 for SHA-384
     private final short iv_length = 12;
     private Status status;
     private String labelPrefix;

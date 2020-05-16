@@ -12,7 +12,7 @@ import java.util.stream.Collectors;
 public class ClientHello extends HandshakeMessage {
 
     private static final int MAX_CLIENT_HELLO_SIZE = 3000;
-    public static final List<TlsConstants.CipherSuite> SUPPORTED_CIPHERS = List.of(TlsConstants.CipherSuite.TLS_AES_128_GCM_SHA256, TlsConstants.CipherSuite.TLS_AES_256_GCM_SHA384);
+    public static final List<TlsConstants.CipherSuite> SUPPORTED_CIPHERS = List.of(TlsConstants.CipherSuite.TLS_AES_128_GCM_SHA256);
     private static final int MINIMAL_MESSAGE_LENGTH = 1 + 3 + 2 + 32 + 1 + 2 + 2 + 2 + 2;
 
     private static Random random = new Random();
