@@ -1,6 +1,7 @@
 package net.luminis.tls;
 
 import at.favre.lib.crypto.HKDF;
+import at.favre.lib.crypto.HkdfMacFactory;
 
 import javax.crypto.*;
 import javax.crypto.spec.GCMParameterSpec;
@@ -34,6 +35,10 @@ public class TlsState {
     private final MessageDigest hashFunction;
     private final HKDF hkdf;
     private final byte[] emptyHash;
+    private final short authenticationTagLength = 16;
+    private final short keyLength = 16;   // Assuming AES_128
+    private final short hashLength = 32;  // Assuming SHA-256
+    private final short iv_length = 12;
     private Status status;
     private String labelPrefix;
     private boolean pskSelected;
@@ -79,12 +84,14 @@ public class TlsState {
 
         // https://tools.ietf.org/html/rfc8446#section-7.1
         // "The Hash function used by Transcript-Hash and HKDF is the cipher suite hash algorithm."
+        String hashAlgorithm = "SHA-" + (hashLength * 8);
         try {
-            hashFunction = MessageDigest.getInstance("SHA-256");
+            hashFunction = MessageDigest.getInstance(hashAlgorithm);
         } catch (NoSuchAlgorithmException e) {
-            throw new RuntimeException("Missing sha-256 support");
+            throw new RuntimeException("Missing " + hashAlgorithm + " support");
         }
-        hkdf = HKDF.fromHmacSha256();
+        String macAlgorithm = "HmacSHA" + (hashLength * 8);
+        hkdf = HKDF.from(new HkdfMacFactory.Default(macAlgorithm, null));
 
         emptyHash = hashFunction.digest(new byte[0]);
         Logger.debug("Empty hash: " + bytesToHex(emptyHash));
@@ -93,7 +100,7 @@ public class TlsState {
             // https://tools.ietf.org/html/rfc8446#section-7.1
             // "If a given secret is not available, then the 0-value consisting of a
             //   string of Hash.length bytes set to zeros is used."
-            psk = new byte[32];
+            psk = new byte[hashLength];
         }
         computeEarlySecret(psk);
     }
@@ -103,11 +110,11 @@ public class TlsState {
     }
 
     private byte[] computeEarlySecret(byte[] ikm) {
-        byte[] zeroSalt = new byte[32];
+        byte[] zeroSalt = new byte[hashLength];
         earlySecret = hkdf.extract(zeroSalt, ikm);
         Logger.debug("Early secret: " + bytesToHex(earlySecret));
 
-        binderKey = hkdfExpandLabel(earlySecret, "res binder", emptyHash, (short) 32);
+        binderKey = hkdfExpandLabel(earlySecret, "res binder", emptyHash, hashLength);
         Logger.debug("Binder key: " + bytesToHex(binderKey));
 
         return earlySecret;
@@ -160,38 +167,40 @@ public class TlsState {
             handshakeServerFinishedHash = hash;
         }
 
-        byte[] finishedKey = hkdfExpandLabel(clientHandshakeTrafficSecret, "finished", "", (short) 32);
-        SecretKeySpec hmacKey = new SecretKeySpec(finishedKey, "HmacSHA256");
+        byte[] finishedKey = hkdfExpandLabel(clientHandshakeTrafficSecret, "finished", "", hashLength);
+        String macAlgorithmName = "HmacSHA" + (hashLength * 8);
+        SecretKeySpec hmacKey = new SecretKeySpec(finishedKey, macAlgorithmName);
 
         try {
-            Mac hmacSHA256 = Mac.getInstance("HmacSHA256");
-            hmacSHA256.init(hmacKey);
-            hmacSHA256.update(handshakeServerFinishedHash);
-            byte[] hmac = hmacSHA256.doFinal();
+            Mac hmacAlgorithm = Mac.getInstance(macAlgorithmName);
+            hmacAlgorithm.init(hmacKey);
+            hmacAlgorithm.update(handshakeServerFinishedHash);
+            byte[] hmac = hmacAlgorithm.doFinal();
             return hmac;
         } catch (NoSuchAlgorithmException e) {
-            throw new RuntimeException("Missing (hmac) sha-256 support");
+            throw new RuntimeException("Missing " + macAlgorithmName + " support");
         } catch (InvalidKeyException e) {
             throw new RuntimeException();
         }
     }
 
     byte[] computePskBinder(byte[] partialClientHello) {
+        String macAlgorithmName = "HmacSHA" + (hashLength * 8);
         try {
             hashFunction.reset();
             hashFunction.update(partialClientHello);
             byte[] hash = hashFunction.digest();
 
-            byte[] finishedKey = hkdfExpandLabel(binderKey, "finished", "", (short) 32);
-            SecretKeySpec hmacKey = new SecretKeySpec(finishedKey, "HmacSHA256");
+            byte[] finishedKey = hkdfExpandLabel(binderKey, "finished", "", hashLength);
+            SecretKeySpec hmacKey = new SecretKeySpec(finishedKey, macAlgorithmName);
 
-            Mac hmacSHA256 = Mac.getInstance("HmacSHA256");         // TODO -> field member
-            hmacSHA256.init(hmacKey);
-            hmacSHA256.update(hash);
-            byte[] hmac = hmacSHA256.doFinal();
+            Mac hmacAlgorithm = Mac.getInstance(macAlgorithmName);
+            hmacAlgorithm.init(hmacKey);
+            hmacAlgorithm.update(hash);
+            byte[] hmac = hmacAlgorithm.doFinal();
             return hmac;
         } catch (NoSuchAlgorithmException e) {
-            throw new RuntimeException("Missing (hmac) sha-256 support");
+            throw new RuntimeException("Missing " + macAlgorithmName + " support");
         } catch (InvalidKeyException e) {
             throw new RuntimeException();
         }
@@ -214,35 +223,35 @@ public class TlsState {
     }
 
     private void computeEarlyTrafficSecret(byte[] clientHelloHash) {
-        clientEarlyTrafficSecret = hkdfExpandLabel(earlySecret, "c e traffic", clientHelloHash, (short) 32);
+        clientEarlyTrafficSecret = hkdfExpandLabel(earlySecret, "c e traffic", clientHelloHash, hashLength);
     }
 
     private void computeHandshakeSecrets(byte[] helloHash, byte[] sharedSecret) {
-        byte[] derivedSecret = hkdfExpandLabel(earlySecret, "derived", emptyHash, (short) 32);
+        byte[] derivedSecret = hkdfExpandLabel(earlySecret, "derived", emptyHash, hashLength);
         Logger.debug("Derived secret: " + bytesToHex(derivedSecret));
 
         handshakeSecret = hkdf.extract(derivedSecret, sharedSecret);
         Logger.debug("Handshake secret: " + bytesToHex(handshakeSecret));
 
-        clientHandshakeTrafficSecret = hkdfExpandLabel(handshakeSecret, "c hs traffic", helloHash, (short) 32);
+        clientHandshakeTrafficSecret = hkdfExpandLabel(handshakeSecret, "c hs traffic", helloHash, hashLength);
         Logger.debug("Client handshake traffic secret: " + bytesToHex(clientHandshakeTrafficSecret));
 
-        serverHandshakeTrafficSecret = hkdfExpandLabel(handshakeSecret, "s hs traffic", helloHash, (short) 32);
+        serverHandshakeTrafficSecret = hkdfExpandLabel(handshakeSecret, "s hs traffic", helloHash, hashLength);
         Logger.debug("Server handshake traffic secret: " + bytesToHex(serverHandshakeTrafficSecret));
 
-        clientHandshakeKey = hkdfExpandLabel(clientHandshakeTrafficSecret, "key", "", (short) 16);
+        clientHandshakeKey = hkdfExpandLabel(clientHandshakeTrafficSecret, "key", "", keyLength);
         Logger.debug("Client handshake key: " + bytesToHex(clientHandshakeKey));
         clientKey = clientHandshakeKey;
 
-        serverHandshakeKey = hkdfExpandLabel(serverHandshakeTrafficSecret, "key", "", (short) 16);
+        serverHandshakeKey = hkdfExpandLabel(serverHandshakeTrafficSecret, "key", "", keyLength);
         Logger.debug("Server handshake key: " + bytesToHex(serverHandshakeKey));
         serverKey = serverHandshakeKey;
 
-        clientHandshakeIV = hkdfExpandLabel(clientHandshakeTrafficSecret, "iv", "", (short) 12);
+        clientHandshakeIV = hkdfExpandLabel(clientHandshakeTrafficSecret, "iv", "", iv_length);
         Logger.debug("Client handshake iv: " + bytesToHex(clientHandshakeIV));
         clientIv = clientHandshakeIV;
 
-        serverHandshakeIV = hkdfExpandLabel(serverHandshakeTrafficSecret, "iv", "", (short) 12);
+        serverHandshakeIV = hkdfExpandLabel(serverHandshakeTrafficSecret, "iv", "", iv_length);
         Logger.debug("Server handshake iv: " + bytesToHex(serverHandshakeIV));
         serverIv = serverHandshakeIV;
     }
@@ -256,35 +265,35 @@ public class TlsState {
 
     void computeApplicationSecrets(byte[] handshakeSecret, byte[] handshakeHash) {
 
-        byte[] derivedSecret = hkdfExpandLabel(handshakeSecret, "derived", emptyHash, (short) 32);
+        byte[] derivedSecret = hkdfExpandLabel(handshakeSecret, "derived", emptyHash, hashLength);
         Logger.debug("Derived secret: " + bytesToHex(derivedSecret));
 
-        byte[] zeroKey = new byte[32];
+        byte[] zeroKey = new byte[hashLength];
         byte[] masterSecret = hkdf.extract(derivedSecret, zeroKey);
         Logger.debug("Master secret: "+ bytesToHex(masterSecret));
 
-        clientApplicationTrafficSecret = hkdfExpandLabel(masterSecret, "c ap traffic", handshakeHash, (short) 32);
+        clientApplicationTrafficSecret = hkdfExpandLabel(masterSecret, "c ap traffic", handshakeHash, hashLength);
         Logger.debug("Client application traffic secret: " + bytesToHex(clientApplicationTrafficSecret));
 
-        serverApplicationTrafficSecret = hkdfExpandLabel(masterSecret, "s ap traffic", handshakeHash, (short) 32);
+        serverApplicationTrafficSecret = hkdfExpandLabel(masterSecret, "s ap traffic", handshakeHash, hashLength);
         Logger.debug("Server application traffic secret: " + bytesToHex(serverApplicationTrafficSecret));
 
-        resumptionMasterSecret = hkdfExpandLabel(masterSecret, "res master", handshakeClientFinishedHash, (short) 32);
+        resumptionMasterSecret = hkdfExpandLabel(masterSecret, "res master", handshakeClientFinishedHash, hashLength);
         Logger.debug("Resumption master secret: " + bytesToHex(resumptionMasterSecret));
 
-        byte[] clientApplicationKey = hkdfExpandLabel(clientApplicationTrafficSecret, "key", "", (short) 16);
+        byte[] clientApplicationKey = hkdfExpandLabel(clientApplicationTrafficSecret, "key", "", keyLength);
         Logger.debug("Client application key: " + bytesToHex(clientApplicationKey));
         clientKey = clientApplicationKey;
 
-        byte[] serverApplicationKey = hkdfExpandLabel(serverApplicationTrafficSecret, "key", "", (short) 16);
+        byte[] serverApplicationKey = hkdfExpandLabel(serverApplicationTrafficSecret, "key", "", keyLength);
         Logger.debug("Server application key: " + bytesToHex(serverApplicationKey));
         serverKey = serverApplicationKey;
 
-        byte[] clientApplicationIv = hkdfExpandLabel(clientApplicationTrafficSecret, "iv", "", (short) 12);
+        byte[] clientApplicationIv = hkdfExpandLabel(clientApplicationTrafficSecret, "iv", "", iv_length);
         Logger.debug("Client application iv: " + bytesToHex(clientApplicationIv));
         clientIv = clientApplicationIv;
 
-        byte[] serverApplicationIv = hkdfExpandLabel(serverApplicationTrafficSecret, "iv", "", (short) 12);
+        byte[] serverApplicationIv = hkdfExpandLabel(serverApplicationTrafficSecret, "iv", "", iv_length);
         Logger.debug("Server application iv: " + bytesToHex(serverApplicationIv));
         serverIv = serverApplicationIv;
 
@@ -295,7 +304,7 @@ public class TlsState {
     // "The PSK associated with the ticket is computed as:
     //       HKDF-Expand-Label(resumption_master_secret, "resumption", ticket_nonce, Hash.length)"
     byte[] computePSK(byte[] ticketNonce) {
-        byte[] psk = hkdfExpandLabel(resumptionMasterSecret, "resumption", ticketNonce, (short) 32);
+        byte[] psk = hkdfExpandLabel(resumptionMasterSecret, "resumption", ticketNonce, hashLength);
         return psk;
     }
 
@@ -362,11 +371,11 @@ public class TlsState {
     }
 
     byte[] decryptPayload(byte[] message, byte[] associatedData, int recordNumber) {
-        ByteBuffer nonceInput = ByteBuffer.allocate(12);
+        ByteBuffer nonceInput = ByteBuffer.allocate(iv_length);
         nonceInput.putInt(0);
         nonceInput.putLong((long) recordNumber);
 
-        byte[] nonce = new byte[12];
+        byte[] nonce = new byte[iv_length];
         int i = 0;
         for (byte b : nonceInput.array())
             nonce[i] = (byte) (b ^ serverIv[i++]);
@@ -375,7 +384,7 @@ public class TlsState {
             SecretKeySpec secretKey = new SecretKeySpec(serverKey, "AES");
             String AES_GCM_NOPADDING = "AES/GCM/NoPadding";
             Cipher aeadCipher = Cipher.getInstance(AES_GCM_NOPADDING);
-            GCMParameterSpec parameterSpec = new GCMParameterSpec(128, nonce);   // https://tools.ietf.org/html/rfc5116  5.3
+            GCMParameterSpec parameterSpec = new GCMParameterSpec(authenticationTagLength * 8, nonce);
             aeadCipher.init(Cipher.DECRYPT_MODE, secretKey, parameterSpec);
 
             aeadCipher.updateAAD(associatedData);
@@ -387,11 +396,11 @@ public class TlsState {
     }
 
     byte[] encryptPayload(byte[] message, byte[] associatedData) {
-        ByteBuffer nonceInput = ByteBuffer.allocate(12);
+        ByteBuffer nonceInput = ByteBuffer.allocate(iv_length);
         nonceInput.putInt(0);
         nonceInput.putLong((long) clientRecordCount);
 
-        byte[] nonce = new byte[12];
+        byte[] nonce = new byte[iv_length];
         int i = 0;
         for (byte b : nonceInput.array())
             nonce[i] = (byte) (b ^ clientIv[i++]);
@@ -400,7 +409,7 @@ public class TlsState {
             SecretKeySpec secretKey = new SecretKeySpec(clientKey, "AES");
             String AES_GCM_NOPADDING = "AES/GCM/NoPadding";
             Cipher aeadCipher = Cipher.getInstance(AES_GCM_NOPADDING);
-            GCMParameterSpec parameterSpec = new GCMParameterSpec(128, nonce);   // https://tools.ietf.org/html/rfc5116  5.3
+            GCMParameterSpec parameterSpec = new GCMParameterSpec(authenticationTagLength * 8, nonce);
             aeadCipher.init(Cipher.ENCRYPT_MODE, secretKey, parameterSpec);
 
             aeadCipher.updateAAD(associatedData);
@@ -446,7 +455,7 @@ public class TlsState {
             // Recompute early secret, as psk is not accepted by server.
             // https://tools.ietf.org/html/rfc8446#section-7.1
             // "... if no PSK is selected, it will then need to compute the Early Secret corresponding to the zero PSK."
-            computeEarlySecret(new byte[32]);
+            computeEarlySecret(new byte[hashLength]);
         }
 
         this.serverHello = serverHello;
