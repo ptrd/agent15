@@ -57,7 +57,7 @@ public class ApplicationData {
         System.arraycopy(encryptedPayload, 0, recordBytes, 5, encryptedPayload.length);
     }
 
-    public ApplicationData parse(PushbackInputStream input, TlsState state) throws TlsProtocolException, IOException {
+    public ApplicationData parse(PushbackInputStream input, TlsState state, TlsClientEngine tlsClientEngine) throws TlsProtocolException, IOException {
         byte[] recordHeader = new byte[5];
         input.read(recordHeader);
         input.unread(recordHeader);
@@ -82,18 +82,18 @@ public class ApplicationData {
         Logger.debug("Decrypted: " + ByteUtils.bytesToHex(decryptedData));
 
         // TODO: remove padding, see https://tools.ietf.org/html/rfc8446#section-5.4
-        parseMessage(decryptedData, state);
+        parseMessage(decryptedData, state, tlsClientEngine);
 
         return this;
     }
 
-    private void parseMessage(byte[] message, TlsState state) throws TlsProtocolException {
+    private void parseMessage(byte[] message, TlsState state, TlsClientEngine tlsClientEngine) throws TlsProtocolException {
         int lastByte = message[message.length-1];
         if (lastByte == TlsConstants.ContentType.handshake.value) {
             Logger.debug("Decrypted Application Data content is Handshake record.");
             ByteBuffer buffer = ByteBuffer.wrap(message, 0, message.length - 1);
             while (buffer.remaining() > 0) {
-                HandshakeMessage handshakeMessage = HandshakeRecord.parseHandshakeMessage(buffer, state);
+                HandshakeMessage handshakeMessage = HandshakeRecord.parseHandshakeMessage(buffer, state, tlsClientEngine);
                 messages.add(handshakeMessage);
             }
         }

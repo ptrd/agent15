@@ -1,25 +1,23 @@
 package net.luminis.tls;
 
-import net.luminis.tls.extension.Extension;
-
 import java.io.*;
 import java.security.PrivateKey;
 import java.security.interfaces.ECPublicKey;
-import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Consumer;
 
 
-public class TlsSession {
+public class TlsSession implements ClientMessageSender {
 
     private final PrivateKey clientPrivateKey;
     private final ECPublicKey clientPublicKey;
     private final PushbackInputStream input;
     private final OutputStream output;
-    private final TlsState state;
+    private TlsState state;
     private List<NewSessionTicketMessage> newSessionTicketMessages;
     private Consumer<NewSessionTicket> newSessionTicketCallback;
+    private TlsClientEngine tlsClientEngine;
 
 
     public TlsSession(NewSessionTicket newSessionTicket, PrivateKey clientPrivateKey, ECPublicKey clientPublicKey, InputStream input, OutputStream output, String serverName) throws IOException, TlsProtocolException {
@@ -29,15 +27,19 @@ public class TlsSession {
         this.output = output;
         newSessionTicketMessages = new CopyOnWriteArrayList<>();
 
-        if (newSessionTicket == null) {
-            state = new TlsState();
-            sendClientHello(serverName, new Extension[0]);
-        }
-        else {
+        tlsClientEngine = new TlsClientEngine(this);
+        tlsClientEngine.setServerName(serverName);
+        tlsClientEngine.addSupportedCiphers(List.of(TlsConstants.CipherSuite.TLS_AES_128_GCM_SHA256));
+
+        if (newSessionTicket != null) {
+            // TODO
             state = new TlsState(newSessionTicket.getPSK());
-            sendClientHello(serverName, new Extension[]{ new ClientHelloPreSharedKeyExtension(state, newSessionTicket) });
+            // sendClientHello(serverName, new Extension[]{ new ClientHelloPreSharedKeyExtension(state, newSessionTicket) });
         }
-        parseServerMessages();
+        tlsClientEngine.startHandshake();
+
+        parseServerMessages(tlsClientEngine);
+        state = tlsClientEngine.getState();
 
         sendChangeCipherSpec(output);
         sendClientFinished(output);
@@ -54,7 +56,7 @@ public class TlsSession {
 
         state = new TlsState();
         state.clientHelloSend(clientPrivateKey, sentClientHello);
-        parseServerMessages();
+        parseServerMessages(tlsClientEngine);
 
         sendChangeCipherSpec(output);
         sendClientFinished(output);
@@ -63,13 +65,11 @@ public class TlsSession {
         sendApplicationData("GET / HTTP/1.1\r\n\r\n".getBytes());
     }
 
-    private void sendClientHello(String serverName, Extension[] extensions) throws IOException {
-        ClientHello clientHello = new ClientHello(serverName, clientPublicKey, true, Arrays.asList(extensions));
-
+    public void send(ClientHello clientHello) throws IOException {
         HandshakeRecord handshakeRecord = new HandshakeRecord(clientHello);
         output.write(handshakeRecord.getBytes());
         output.flush();
-        state.clientHelloSend(clientPrivateKey, clientHello.getBytes());
+
         Logger.debug("Sent Client Hello: " + ByteUtils.bytesToHex(clientHello.getBytes()));
     }
 
@@ -97,11 +97,11 @@ public class TlsSession {
         output.flush();
         Logger.debug("Application data sent: " + ByteUtils.bytesToHex(applicationDataRecord.getBytes()));
 
-        parseServerMessages();
+        parseServerMessages(tlsClientEngine);
     }
 
 
-    private void parseServerMessages() throws IOException, TlsProtocolException {
+    private void parseServerMessages(TlsClientEngine tlsClientEngine) throws IOException, TlsProtocolException {
         int contentType = input.read();
 
         while (contentType != -1) {
@@ -117,10 +117,11 @@ public class TlsSession {
                     new AlertRecord().parse(input);
                     break;
                 case 22:
-                    new HandshakeRecord().parse(input, state);
+                    new HandshakeRecord().parse(input, state, tlsClientEngine);
+                    state = tlsClientEngine.getState();
                     break;
                 case 23:
-                    List<Message> messages = new ApplicationData().parse(input, state).getMessages();
+                    List<Message> messages = new ApplicationData().parse(input, state, tlsClientEngine).getMessages();
                     messages.stream()
                             .filter(m -> m instanceof NewSessionTicketMessage)
                             .findAny()

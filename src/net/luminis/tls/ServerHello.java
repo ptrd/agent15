@@ -10,7 +10,6 @@ import java.security.SecureRandom;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.Random;
 
 
 public class ServerHello extends HandshakeMessage {
@@ -32,7 +31,7 @@ public class ServerHello extends HandshakeMessage {
     private TlsConstants.CipherSuite cipherSuite;
     private PublicKey serverSharedKey;
     private short tlsVersion;
-    private List<Extension> extensions;
+    private List<Extension> extensions = Collections.emptyList();
 
     public ServerHello() {
     }
@@ -62,7 +61,7 @@ public class ServerHello extends HandshakeMessage {
         extensions.stream().forEach(extension -> buffer.put(extension.getBytes()));
     }
 
-    public ServerHello parse(ByteBuffer buffer, int length, TlsState state) throws TlsProtocolException {
+    public ServerHello parse(ByteBuffer buffer, int length) throws TlsProtocolException {
         if (buffer.remaining() < MINIMAL_MESSAGE_LENGTH) {
             throw new DecodeErrorException("Message too short");
         }
@@ -107,34 +106,11 @@ public class ServerHello extends HandshakeMessage {
         }
 
         extensions = EncryptedExtensions.parseExtensions(buffer, TlsConstants.HandshakeType.server_hello);
-
-        extensions.stream().forEach(extension -> {
-            if (extension instanceof KeyShareExtension) {
-                // In the context of a server hello, the key share extension contains exactly one key share entry
-                KeyShareExtension.KeyShareEntry keyShareEntry = ((KeyShareExtension) extension).getKeyShareEntries().get(0);
-                serverSharedKey = keyShareEntry.getKey();
-            }
-            else if (extension instanceof SupportedVersionsExtension) {
-                tlsVersion = ((SupportedVersionsExtension) extension).getTlsVersion();
-            }
-            else if (extension instanceof ServerPreSharedKeyExtension) {
-                state.setPskSelected(((ServerPreSharedKeyExtension) extension).getSelectedIdentity());
-            }
-        });
-
-        // Post processing after record is completely parsed
-        if (tlsVersion != 0x0304) {
-            throw new TlsProtocolException("Invalid TLS version");
-        }
-        if (serverSharedKey == null) {
-            throw new TlsProtocolException("Missing key share extension");
-        }
-
+        
         // Update state.
         raw = new byte[length];
         buffer.rewind();
         buffer.get(raw);
-        state.setServerSharedKey(raw, serverSharedKey);
 
         return this;
     }
