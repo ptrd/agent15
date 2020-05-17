@@ -86,6 +86,12 @@ public class TlsClientEngine {
             throw new MissingExtensionAlert(" either the pre_shared_key extension or the key_share extension must be present");
         }
 
+        if (! supportedCiphers.contains(serverHello.getCipherSuite())) {
+            // https://tools.ietf.org/html/rfc8446#section-4.3.1
+            // "A client which receives a cipher suite that was not offered MUST abort the handshake with an "illegal_parameter" alert."
+            throw new IllegalParameterAlert("cipher suite does not match");
+        }
+
         state = new TlsState();
 
         state.clientHelloSend(privateKey, clientHello.getBytes());

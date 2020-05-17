@@ -6,6 +6,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.internal.util.reflection.FieldSetter;
 
+import java.io.IOException;
 import java.security.interfaces.ECPublicKey;
 import java.util.List;
 
@@ -70,10 +71,24 @@ class TlsClientEngineTest {
         // Given
         engine.startHandshake();
 
-        ServerHello serverHello = new ServerHello(TLS_AES_128_CCM_8_SHA256, List.of(
+        ServerHello serverHello = new ServerHello(TLS_AES_128_GCM_SHA256, List.of(
                 new SupportedVersionsExtension(TlsConstants.HandshakeType.server_hello),
                 new ServerPreSharedKeyExtension()));
 
         engine.received(serverHello);
+    }
+
+    @Test
+    void serverHelloShouldContainCipherThatClientOffered() throws Exception {
+        // Given
+        engine.startHandshake();
+
+        ServerHello serverHello = new ServerHello(TLS_AES_256_GCM_SHA384, List.of(
+                new SupportedVersionsExtension(TlsConstants.HandshakeType.server_hello),
+                new ServerPreSharedKeyExtension()));
+
+        assertThatThrownBy(() ->
+                engine.received(serverHello)
+        ).isInstanceOf(IllegalParameterAlert.class);
     }
 }

@@ -106,7 +106,7 @@ public class ServerHello extends HandshakeMessage {
         }
 
         extensions = EncryptedExtensions.parseExtensions(buffer, TlsConstants.HandshakeType.server_hello);
-        
+
         // Update state.
         raw = new byte[length];
         buffer.rewind();
