@@ -129,11 +129,15 @@ public class TlsClientEngine {
     }
 
     public void addSupportedCiphers(List<TlsConstants.CipherSuite> supportedCiphers) {
-        this.supportedCiphers = supportedCiphers;
+        this.supportedCiphers.addAll(supportedCiphers);
     }
 
     public void addExtensions(List<Extension> extensions) {
-        this.extensions = extensions;
+        this.extensions.addAll(extensions);
+    }
+
+    public void add(Extension extension) {
+        extensions.add(extension);
     }
 
     // TODO: remove this
