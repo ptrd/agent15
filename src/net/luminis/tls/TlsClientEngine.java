@@ -25,6 +25,7 @@ public class TlsClientEngine {
     private PrivateKey privateKey;
     private boolean compatibilityMode;
     private List<TlsConstants.CipherSuite> supportedCiphers;
+    private TlsConstants.CipherSuite selectedCipher;
     private List<Extension> extensions;
     private ClientHello clientHello;
     private TlsState state;
@@ -91,6 +92,7 @@ public class TlsClientEngine {
             // "A client which receives a cipher suite that was not offered MUST abort the handshake with an "illegal_parameter" alert."
             throw new IllegalParameterAlert("cipher suite does not match");
         }
+        selectedCipher = serverHello.getCipherSuite();
 
         state = new TlsState();
 
@@ -138,6 +140,15 @@ public class TlsClientEngine {
 
     public void add(Extension extension) {
         extensions.add(extension);
+    }
+
+    public TlsConstants.CipherSuite getSelectedCipher() {
+        if (selectedCipher != null) {
+            return selectedCipher;
+        }
+        else {
+            throw new IllegalStateException("No (valid) server hello received yet");
+        }
     }
 
     // TODO: remove this

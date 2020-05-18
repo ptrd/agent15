@@ -11,6 +11,7 @@ import java.security.interfaces.ECPublicKey;
 import java.util.List;
 
 import static net.luminis.tls.TlsConstants.CipherSuite.*;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 
@@ -91,4 +92,25 @@ class TlsClientEngineTest {
                 engine.received(serverHello)
         ).isInstanceOf(IllegalParameterAlert.class);
     }
+
+    @Test
+    void afterProperSserverHelloSelectedCipherIsAvailable() throws Exception {
+        // Given
+        engine.startHandshake();
+        assertThatThrownBy(() ->
+                engine.getSelectedCipher()
+        ).isInstanceOf(IllegalStateException.class);
+
+        // When
+        ServerHello serverHello = new ServerHello(TLS_AES_128_GCM_SHA256, List.of(
+                new SupportedVersionsExtension(TlsConstants.HandshakeType.server_hello),
+                new ServerPreSharedKeyExtension()));
+        engine.received(serverHello);
+
+        // Then
+        assertThat(engine.getSelectedCipher()).isEqualTo(TLS_AES_128_GCM_SHA256);
+    }
+
+
+
 }
