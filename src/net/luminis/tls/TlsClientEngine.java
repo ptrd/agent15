@@ -1,7 +1,6 @@
 package net.luminis.tls;
 
 import net.luminis.tls.exception.MissingExtensionAlert;
-import net.luminis.tls.exception.TlsAlertException;
 import net.luminis.tls.extension.Extension;
 import net.luminis.tls.extension.KeyShareExtension;
 import net.luminis.tls.extension.SupportedVersionsExtension;
@@ -16,13 +15,13 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-public class TlsClientEngine {
+public class TlsClientEngine implements TrafficSecrets {
 
     private final ClientMessageSender sender;
     private String serverName;
     private String ecCurve = "secp256r1";
     private ECPublicKey publicKey;
-    private PrivateKey privateKey;
+    private ECPrivateKey privateKey;
     private boolean compatibilityMode;
     private List<TlsConstants.CipherSuite> supportedCiphers;
     private TlsConstants.CipherSuite selectedCipher;
@@ -150,6 +149,52 @@ public class TlsClientEngine {
             throw new IllegalStateException("No (valid) server hello received yet");
         }
     }
+
+    public byte[] getClientEarlyTrafficSecret() {
+        if (state != null) {
+            return state.getClientEarlyTrafficSecret();
+        }
+        else {
+            throw new IllegalStateException("Traffic secret not yet available");
+        }
+    }
+
+    public byte[] getClientHandshakeTrafficSecret() {
+        if (state != null) {
+            return state.getClientHandshakeTrafficSecret();
+        }
+        else {
+            throw new IllegalStateException("Traffic secret not yet available");
+        }
+    }
+
+    public byte[] getServerHandshakeTrafficSecret() {
+        if (state != null) {
+            return state.getServerHandshakeTrafficSecret();
+        }
+        else {
+            throw new IllegalStateException("Traffic secret not yet available");
+        }
+    }
+
+    public byte[] getClientApplicationTrafficSecret() {
+        if (state != null) {
+            return state.getClientApplicationTrafficSecret();
+        }
+        else {
+            throw new IllegalStateException("Traffic secret not yet available");
+        }
+    }
+
+    public byte[] getServerApplicationTrafficSecret() {
+        if (state != null) {
+            return state.getServerApplicationTrafficSecret();
+        }
+        else {
+            throw new IllegalStateException("Traffic secret not yet available");
+        }
+    }
+
 
     // TODO: remove this
     public TlsState getState() {

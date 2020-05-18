@@ -1,13 +1,20 @@
 package net.luminis.tls;
 
 import net.luminis.tls.exception.MissingExtensionAlert;
+import net.luminis.tls.extension.KeyShareExtension;
 import net.luminis.tls.extension.SupportedVersionsExtension;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.internal.util.reflection.FieldSetter;
 
-import java.io.IOException;
+import java.security.InvalidAlgorithmParameterException;
+import java.security.KeyPair;
+import java.security.KeyPairGenerator;
+import java.security.NoSuchAlgorithmException;
+import java.security.interfaces.ECKey;
+import java.security.interfaces.ECPrivateKey;
 import java.security.interfaces.ECPublicKey;
+import java.security.spec.ECGenParameterSpec;
 import java.util.List;
 
 import static net.luminis.tls.TlsConstants.CipherSuite.*;
@@ -94,7 +101,7 @@ class TlsClientEngineTest {
     }
 
     @Test
-    void afterProperSserverHelloSelectedCipherIsAvailable() throws Exception {
+    void afterProperServerHelloSelectedCipherIsAvailable() throws Exception {
         // Given
         engine.startHandshake();
         assertThatThrownBy(() ->
@@ -111,6 +118,41 @@ class TlsClientEngineTest {
         assertThat(engine.getSelectedCipher()).isEqualTo(TLS_AES_128_GCM_SHA256);
     }
 
+    @Test
+    void afterProperServerHelloTrafficSecretsAreAvailable() throws Exception {
+        // Given
+        ECPublicKey publicKey = (ECPublicKey) generateKeys()[1];
+        engine.startHandshake();
+        assertThatThrownBy(() ->
+                engine.getClientHandshakeTrafficSecret()
+        ).isInstanceOf(IllegalStateException.class);
 
+        // When
+        ServerHello serverHello = new ServerHello(TLS_AES_128_GCM_SHA256, List.of(
+                new SupportedVersionsExtension(TlsConstants.HandshakeType.server_hello),
+                new KeyShareExtension(publicKey, TlsConstants.NamedGroup.secp256r1, TlsConstants.HandshakeType.server_hello)));
+        engine.received(serverHello);
+
+        // Then
+        assertThat(engine.getClientHandshakeTrafficSecret())
+                .isNotNull()
+                .hasSizeGreaterThan(12);
+    }
+
+    ECKey[] generateKeys() {
+        try {
+            KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance("EC");
+            keyPairGenerator.initialize(new ECGenParameterSpec("secp256r1"));
+
+            KeyPair keyPair = keyPairGenerator.genKeyPair();
+            return new ECKey[] { (ECPrivateKey) keyPair.getPrivate(), (ECPublicKey) keyPair.getPublic() };
+        } catch (NoSuchAlgorithmException e) {
+            // Invalid runtime
+            throw new RuntimeException("missing key pair generator algorithm EC");
+        } catch (InvalidAlgorithmParameterException e) {
+            // Impossible, would be programming error
+            throw new RuntimeException();
+        }
+    }
 
 }
