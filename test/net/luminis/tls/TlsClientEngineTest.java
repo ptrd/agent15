@@ -25,12 +25,16 @@ import static org.mockito.Mockito.mock;
 class TlsClientEngineTest {
 
     private TlsClientEngine engine;
+    private ECPublicKey publicKey;
+
 
     @BeforeEach
     private void initObjectUnderTest() {
         engine = new TlsClientEngine(mock(ClientMessageSender.class));
         engine.setServerName("server");
         engine.addSupportedCiphers(List.of(TLS_AES_128_GCM_SHA256));
+
+        publicKey = (ECPublicKey) generateKeys()[1];
     }
 
     @Test
@@ -81,7 +85,7 @@ class TlsClientEngineTest {
 
         ServerHello serverHello = new ServerHello(TLS_AES_128_GCM_SHA256, List.of(
                 new SupportedVersionsExtension(TlsConstants.HandshakeType.server_hello),
-                new ServerPreSharedKeyExtension()));
+                new KeyShareExtension(publicKey, TlsConstants.NamedGroup.secp256r1, TlsConstants.HandshakeType.server_hello)));
 
         engine.received(serverHello);
     }
@@ -111,7 +115,7 @@ class TlsClientEngineTest {
         // When
         ServerHello serverHello = new ServerHello(TLS_AES_128_GCM_SHA256, List.of(
                 new SupportedVersionsExtension(TlsConstants.HandshakeType.server_hello),
-                new ServerPreSharedKeyExtension()));
+                new KeyShareExtension(publicKey, TlsConstants.NamedGroup.secp256r1, TlsConstants.HandshakeType.server_hello)));
         engine.received(serverHello);
 
         // Then
@@ -121,7 +125,6 @@ class TlsClientEngineTest {
     @Test
     void afterProperServerHelloTrafficSecretsAreAvailable() throws Exception {
         // Given
-        ECPublicKey publicKey = (ECPublicKey) generateKeys()[1];
         engine.startHandshake();
         assertThatThrownBy(() ->
                 engine.getClientHandshakeTrafficSecret()

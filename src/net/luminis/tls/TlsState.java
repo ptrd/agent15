@@ -450,16 +450,18 @@ public class TlsState {
         pskSelected = true;
     }
 
-    public void setServerSharedKey(byte[] serverHello, PublicKey serverSharedKey) {
+    public void setServerSharedKey(PublicKey serverSharedKey) {
         if (psk != null && !pskSelected) {
             // Recompute early secret, as psk is not accepted by server.
             // https://tools.ietf.org/html/rfc8446#section-7.1
             // "... if no PSK is selected, it will then need to compute the Early Secret corresponding to the zero PSK."
             computeEarlySecret(new byte[hashLength]);
         }
-
-        this.serverHello = serverHello;
         this.serverSharedKey = serverSharedKey;
+    }
+
+    public void serverHelloReceived(byte[] serverHello) {
+        this.serverHello = serverHello;
 
         byte[] handshakeHash = computeHandshakeMessagesHash(clientHello, serverHello);
 

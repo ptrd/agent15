@@ -28,6 +28,8 @@ public class TlsClientEngine implements TrafficSecrets {
     private List<Extension> extensions;
     private ClientHello clientHello;
     private TlsState state;
+    private byte[] psk;
+    private NewSessionTicket newSessionTicket;
 
     public TlsClientEngine(ClientMessageSender clientMessageSender) {
         sender = clientMessageSender;
@@ -41,6 +43,10 @@ public class TlsClientEngine implements TrafficSecrets {
             throw new IllegalStateException("not all mandatory properties are set");
         }
 
+        if (newSessionTicket != null) {
+            TlsState tlsState = new TlsState(newSessionTicket.getPSK());
+            extensions.add(new ClientHelloPreSharedKeyExtension(tlsState, newSessionTicket));
+        }
         clientHello = new ClientHello(serverName, publicKey, compatibilityMode, supportedCiphers, extensions);
         sender.send(clientHello);
     }
@@ -93,15 +99,17 @@ public class TlsClientEngine implements TrafficSecrets {
         }
         selectedCipher = serverHello.getCipherSuite();
 
-        state = new TlsState();
+        state = (newSessionTicket == null)? new TlsState(): new TlsState(newSessionTicket.psk);
 
         state.clientHelloSend(privateKey, clientHello.getBytes());
-        if (serverKey.isPresent()) {
-            state.setServerSharedKey(serverHello.getBytes(), serverKey.get().getKey());
-        }
         if (preSharedKey.isPresent()) {
             state.setPskSelected(((ServerPreSharedKeyExtension) preSharedKey.get()).getSelectedIdentity());
+            Logger.debug("Server has accepted PSK key establishment");
         }
+        if (serverKey.isPresent()) {
+            state.setServerSharedKey(serverKey.get().getKey());
+        }
+        state.serverHelloReceived(serverHello.getBytes());
     }
 
     private void generateKeys() {
@@ -139,6 +147,10 @@ public class TlsClientEngine implements TrafficSecrets {
 
     public void add(Extension extension) {
         extensions.add(extension);
+    }
+
+    public void setNewSessionTicket(NewSessionTicket newSessionTicket) {
+        this.newSessionTicket = newSessionTicket;
     }
 
     public TlsConstants.CipherSuite getSelectedCipher() {

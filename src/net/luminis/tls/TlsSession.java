@@ -32,9 +32,7 @@ public class TlsSession implements ClientMessageSender {
         tlsClientEngine.addSupportedCiphers(List.of(TlsConstants.CipherSuite.TLS_AES_128_GCM_SHA256));
 
         if (newSessionTicket != null) {
-            // TODO
-            state = new TlsState(newSessionTicket.getPSK());
-            // sendClientHello(serverName, new Extension[]{ new ClientHelloPreSharedKeyExtension(state, newSessionTicket) });
+            tlsClientEngine.setNewSessionTicket(newSessionTicket);
         }
         tlsClientEngine.startHandshake();
 
