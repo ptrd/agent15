@@ -2,6 +2,7 @@ package net.luminis.tls;
 
 import net.luminis.tls.exception.MissingExtensionAlert;
 import net.luminis.tls.extension.KeyShareExtension;
+import net.luminis.tls.extension.ServerNameExtension;
 import net.luminis.tls.extension.SupportedVersionsExtension;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -76,6 +77,21 @@ class TlsClientEngineTest {
         assertThatThrownBy(() ->
                 engine.received(serverHello)
         ).isInstanceOf(TlsProtocolException.class);
+    }
+
+    @Test
+    void serverHelloShouldNotContainOtherExtensions() throws Exception {
+        // Given
+        engine.startHandshake();
+
+        ServerHello serverHello = new ServerHello(TLS_AES_128_GCM_SHA256, List.of(
+                new SupportedVersionsExtension(TlsConstants.HandshakeType.server_hello),
+                new KeyShareExtension(publicKey, TlsConstants.NamedGroup.secp256r1, TlsConstants.HandshakeType.server_hello),
+                new ServerNameExtension("server")));
+
+        assertThatThrownBy(() ->
+                engine.received(serverHello)
+        ).isInstanceOf(IllegalParameterAlert.class);
     }
 
     @Test

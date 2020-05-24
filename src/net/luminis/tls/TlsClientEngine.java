@@ -28,7 +28,6 @@ public class TlsClientEngine implements TrafficSecrets {
     private List<Extension> extensions;
     private ClientHello clientHello;
     private TlsState state;
-    private byte[] psk;
     private NewSessionTicket newSessionTicket;
 
     public TlsClientEngine(ClientMessageSender clientMessageSender) {
@@ -78,7 +77,17 @@ public class TlsClientEngine implements TrafficSecrets {
             throw new IllegalParameterAlert("invalid tls version");
         }
 
-        Optional<KeyShareExtension.KeyShareEntry> serverKey = serverHello.getExtensions().stream()
+        // https://tools.ietf.org/html/rfc8446#section-4.2
+        // "If an implementation receives an extension which it recognizes and which is not specified for the message in
+        // which it appears, it MUST abort the handshake with an "illegal_parameter" alert."
+        if (serverHello.getExtensions().stream()
+            .anyMatch(ext -> ! (ext instanceof SupportedVersionsExtension) &&
+                    ! (ext instanceof PreSharedKeyExtension) &&
+                    ! (ext instanceof KeyShareExtension))) {
+            throw new IllegalParameterAlert("illegal extension in server hello");
+        }
+
+        Optional<KeyShareExtension.KeyShareEntry> keyShare = serverHello.getExtensions().stream()
                 .filter(extension -> extension instanceof KeyShareExtension)
                 // In the context of a server hello, the key share extension contains exactly one key share entry
                 .map(extension -> ((KeyShareExtension) extension).getKeyShareEntries().get(0))
@@ -88,7 +97,10 @@ public class TlsClientEngine implements TrafficSecrets {
                 .filter(extension -> extension instanceof ServerPreSharedKeyExtension)
                 .findFirst();
 
-        if (serverKey.isEmpty() && preSharedKey.isEmpty()) {
+        // https://tools.ietf.org/html/rfc8446#section-4.1.3
+        // "ServerHello messages additionally contain either the "pre_shared_key" extension or the "key_share" extension,
+        // or both (when using a PSK with (EC)DHE key establishment)."
+        if (keyShare.isEmpty() && preSharedKey.isEmpty()) {
             throw new MissingExtensionAlert(" either the pre_shared_key extension or the key_share extension must be present");
         }
 
@@ -106,8 +118,8 @@ public class TlsClientEngine implements TrafficSecrets {
             state.setPskSelected(((ServerPreSharedKeyExtension) preSharedKey.get()).getSelectedIdentity());
             Logger.debug("Server has accepted PSK key establishment");
         }
-        if (serverKey.isPresent()) {
-            state.setServerSharedKey(serverKey.get().getKey());
+        if (keyShare.isPresent()) {
+            state.setServerSharedKey(keyShare.get().getKey());
         }
         state.serverHelloReceived(serverHello.getBytes());
     }
