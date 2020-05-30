@@ -6,16 +6,27 @@ import net.luminis.tls.extension.KeyShareExtension;
 import net.luminis.tls.extension.SupportedVersionsExtension;
 
 import java.io.IOException;
-import java.security.*;
-import java.security.interfaces.ECKey;
+import java.security.InvalidAlgorithmParameterException;
+import java.security.KeyPair;
+import java.security.KeyPairGenerator;
+import java.security.NoSuchAlgorithmException;
 import java.security.interfaces.ECPrivateKey;
 import java.security.interfaces.ECPublicKey;
 import java.security.spec.ECGenParameterSpec;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
+
 
 public class TlsClientEngine implements TrafficSecrets {
+
+    enum Status {
+        Initial,
+        ClientHelloSent,
+        ServerHelloReceived,
+        EncryptedExtensionsReceived
+    }
 
     private final ClientMessageSender sender;
     private String serverName;
@@ -26,6 +37,7 @@ public class TlsClientEngine implements TrafficSecrets {
     private List<TlsConstants.CipherSuite> supportedCiphers;
     private TlsConstants.CipherSuite selectedCipher;
     private List<Extension> extensions;
+    private Status status = Status.Initial;
     private ClientHello clientHello;
     private TlsState state;
     private NewSessionTicket newSessionTicket;
@@ -48,6 +60,7 @@ public class TlsClientEngine implements TrafficSecrets {
         }
         clientHello = new ClientHello(serverName, publicKey, compatibilityMode, supportedCiphers, extensions);
         sender.send(clientHello);
+        status = Status.ClientHelloSent;
     }
 
     /**
@@ -105,7 +118,7 @@ public class TlsClientEngine implements TrafficSecrets {
         }
 
         if (! supportedCiphers.contains(serverHello.getCipherSuite())) {
-            // https://tools.ietf.org/html/rfc8446#section-4.3.1
+            // https://tools.ietf.org/html/rfc8446#section-4.1.3
             // "A client which receives a cipher suite that was not offered MUST abort the handshake with an "illegal_parameter" alert."
             throw new IllegalParameterAlert("cipher suite does not match");
         }
@@ -122,7 +135,41 @@ public class TlsClientEngine implements TrafficSecrets {
             state.setServerSharedKey(keyShare.get().getKey());
         }
         state.serverHelloReceived(serverHello.getBytes());
+        status = Status.ServerHelloReceived;
     }
+
+    public void received(EncryptedExtensions encryptedExtensions) throws TlsProtocolException {
+        if (status != Status.ServerHelloReceived) {
+            // https://tools.ietf.org/html/rfc8446#section-4.3.1
+            // "the server MUST send the EncryptedExtensions message immediately after the ServerHello message"
+            throw new UnexpectedMessageAlert("unexpected encrypted extensions message");
+        }
+
+        List<Class> clientExtensionTypes = extensions.stream()
+                .map(extension -> extension.getClass()).collect(Collectors.toList());
+        boolean allClientResponses = encryptedExtensions.getExtensions().stream()
+                .allMatch(ext -> clientExtensionTypes.contains(ext.getClass()));
+        if (! allClientResponses) {
+            // https://tools.ietf.org/html/rfc8446#section-4.2
+            // "Implementations MUST NOT send extension responses if the remote endpoint did not send the corresponding
+            // extension requests, with the exception of the "cookie" extension in the HelloRetryRequest. Upon receiving
+            // such an extension, an endpoint MUST abort the handshake with an "unsupported_extension" alert."
+            throw new UnsupportedExtensionAlert("extension response to missing request");
+        }
+
+        int uniqueExtensions = encryptedExtensions.getExtensions().stream()
+                .map(extension -> extension.getClass())
+                .collect(Collectors.toSet())
+                .size();
+        if (uniqueExtensions != encryptedExtensions.getExtensions().size()) {
+            // "There MUST NOT be more than one extension of the same type in a given extension block."
+            throw new UnsupportedExtensionAlert("duplicate extensions not allowed");
+        }
+
+        state.encryptedExtensionsReceived(encryptedExtensions.getBytes());
+        status = Status.EncryptedExtensionsReceived;
+    }
+
 
     private void generateKeys() {
         try {

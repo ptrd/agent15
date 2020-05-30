@@ -1,6 +1,7 @@
 package net.luminis.tls;
 
 import net.luminis.tls.exception.MissingExtensionAlert;
+import net.luminis.tls.extension.Extension;
 import net.luminis.tls.extension.KeyShareExtension;
 import net.luminis.tls.extension.ServerNameExtension;
 import net.luminis.tls.extension.SupportedVersionsExtension;
@@ -16,6 +17,7 @@ import java.security.interfaces.ECKey;
 import java.security.interfaces.ECPrivateKey;
 import java.security.interfaces.ECPublicKey;
 import java.security.spec.ECGenParameterSpec;
+import java.util.Collections;
 import java.util.List;
 
 import static net.luminis.tls.TlsConstants.CipherSuite.*;
@@ -158,6 +160,51 @@ class TlsClientEngineTest {
                 .hasSizeGreaterThan(12);
     }
 
+    @Test
+    void encryptedExtensionsShouldNotBeReceivedBeforeServerHello() throws Exception {
+        // Given
+        engine.startHandshake();
+
+        assertThatThrownBy(() ->
+                engine.received(new EncryptedExtensions(Collections.emptyList()))
+        ).isInstanceOf(UnexpectedMessageAlert.class);
+    }
+
+    @Test
+    void encryptedExtensionsShouldNotContainExtensionNotOfferedByClient() throws Exception {
+        // Given
+        engine.startHandshake();
+
+        ServerHello serverHello = new ServerHello(TLS_AES_128_GCM_SHA256, List.of(
+                new SupportedVersionsExtension(TlsConstants.HandshakeType.server_hello),
+                new KeyShareExtension(publicKey, TlsConstants.NamedGroup.secp256r1, TlsConstants.HandshakeType.server_hello)));
+
+        engine.received(serverHello);
+
+        assertThatThrownBy(() ->
+                engine.received(new EncryptedExtensions(List.of(new DummyExtension())))
+        ).isInstanceOf(UnsupportedExtensionAlert.class);
+    }
+
+    @Test
+    void encryptedExtensionsShouldNotContainDuplicateTypes() throws Exception {
+        // Given
+        engine.startHandshake();
+
+        ServerHello serverHello = new ServerHello(TLS_AES_128_GCM_SHA256, List.of(
+                new SupportedVersionsExtension(TlsConstants.HandshakeType.server_hello),
+                new KeyShareExtension(publicKey, TlsConstants.NamedGroup.secp256r1, TlsConstants.HandshakeType.server_hello)));
+
+        engine.received(serverHello);
+
+        assertThatThrownBy(() ->
+                engine.received(new EncryptedExtensions(List.of(
+                        new ServerNameExtension("server"),
+                        new ServerNameExtension("server")
+                )))
+        ).isInstanceOf(UnsupportedExtensionAlert.class);
+    }
+
     ECKey[] generateKeys() {
         try {
             KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance("EC");
@@ -174,4 +221,11 @@ class TlsClientEngineTest {
         }
     }
 
+    static class DummyExtension extends Extension {
+
+        @Override
+        public byte[] getBytes() {
+            return new byte[0];
+        }
+    }
 }

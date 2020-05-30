@@ -17,6 +17,10 @@ public abstract class HandshakeMessage extends Message {
         List<Extension> extensions = new ArrayList<>();
 
         int extensionsLength = buffer.getShort();
+        if (buffer.remaining() < extensionsLength) {
+            throw new DecodeErrorException("Extensions too short");
+        }
+
         if (extensionsLength > 0) {
             int startPosition = buffer.position();
 

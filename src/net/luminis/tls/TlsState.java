@@ -470,7 +470,7 @@ public class TlsState {
         computeHandshakeSecrets(handshakeHash, sharedSecret);
     }
 
-    public void setEncryptedExtensions(byte[] raw) {
+    public void encryptedExtensionsReceived(byte[] raw) {
         encryptedExtensionsMessage = raw;
     }
 
