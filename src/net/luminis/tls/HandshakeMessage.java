@@ -8,6 +8,24 @@ import java.util.List;
 
 public abstract class HandshakeMessage extends Message {
 
+    protected int parseHandshakeHeader(ByteBuffer buffer, TlsConstants.HandshakeType expectedType, int minimumMessageSize) throws DecodeErrorException {
+        if (buffer.remaining() < 4) {
+            throw new DecodeErrorException("handshake message underflow");
+        }
+        int handshakeType = buffer.get() & 0xff;
+        if (handshakeType != expectedType.value) {
+            throw new IllegalStateException();  // i.e. programming error
+        }
+        int messageDataLength = ((buffer.get() & 0xff) << 16) | ((buffer.get() & 0xff) << 8) | (buffer.get() & 0xff);
+        if (4 + messageDataLength < minimumMessageSize) {
+            throw new DecodeErrorException(getClass().getSimpleName() + " can't be less than " + minimumMessageSize + " bytes");
+        }
+        if (buffer.remaining() < messageDataLength) {
+            throw new DecodeErrorException("handshake message underflow");
+        }
+        return messageDataLength;
+    }
+
     public abstract byte[] getBytes();
 
     static List<Extension> parseExtensions(ByteBuffer buffer, TlsConstants.HandshakeType context) throws TlsProtocolException {

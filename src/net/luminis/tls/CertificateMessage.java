@@ -1,56 +1,85 @@
 package net.luminis.tls;
 
+import java.io.ByteArrayInputStream;
+import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
+import java.security.cert.CertificateException;
+import java.security.cert.CertificateFactory;
+import java.security.cert.X509Certificate;
+import java.util.ArrayList;
+import java.util.List;
 
 // https://tools.ietf.org/html/rfc8446#section-4.4.2
 public class CertificateMessage extends HandshakeMessage {
 
-    public CertificateMessage parse(ByteBuffer buffer, int length, TlsState state) {
+    private static final int MINIMUM_MESSAGE_SIZE = 1 + 3 + 1 + 3 + 3 + 2;
+    private X509Certificate endEntityCertificate;
+    private List<X509Certificate> certificateChain = new ArrayList<>();
+
+    public CertificateMessage parse(ByteBuffer buffer, TlsState state) throws DecodeErrorException, BadCertificateAlert {
         int startPosition = buffer.position();
+        int remainingLength = parseHandshakeHeader(buffer, TlsConstants.HandshakeType.certificate, MINIMUM_MESSAGE_SIZE);
 
-        Logger.debug("Certificate message:\n" + ByteUtils.byteToHexBlock(buffer, buffer.position(), Math.min(length, buffer.remaining())));
-        if (length > buffer.remaining()) {
-            Logger.debug("Underflow: expecting " + length + " bytes, but only " + buffer.remaining() + " left!");
+        try {
+            int certificateRequestContextSize = buffer.get() & 0xff;
+            if (certificateRequestContextSize > 0) {
+                buffer.get(new byte[certificateRequestContextSize]);
+            }
+            parseCertificateEntries(buffer);
+
+            // Update state.
+            byte[] raw = new byte[4 + remainingLength];
+            buffer.position(startPosition);
+            buffer.get(raw);
+            state.setCertificate(raw);
+
+            return this;
         }
-
-        int handshakeType = buffer.get();  // Should be certificate.value
-        int remainingLength = ((buffer.get() & 0xff) << 16) | ((buffer.get() & 0xff) << 8) | (buffer.get() & 0xff);  // Length parameter is derived from this value....)
-
-        int certificateRequestContextSize = buffer.get();
-        if (certificateRequestContextSize > 0) {
-            byte[] certificateRequestContext = new byte[certificateRequestContextSize];
-            buffer.get(certificateRequestContext);
+        catch (BufferUnderflowException notEnoughBytes) {
+            throw new DecodeErrorException("message underflow");
         }
-
-        int certificateListSize = ((buffer.get() & 0xff) << 16) | ((buffer.get() & 0xff) << 8) | (buffer.get() & 0xff);
-
-        int certCount = parseCertificateEntry(buffer, certificateListSize);
-
-        Logger.debug("Got Certificate message (" + length + " bytes), contains " + certCount + " certificate" + (certCount == 1? ".": "s."));
-
-        // Update state.
-        byte[] raw = new byte[length];
-        buffer.position(startPosition);
-        buffer.get(raw);
-        state.setCertificate(raw);
-
-        return this;
     }
 
-    private int parseCertificateEntry(ByteBuffer buffer, int certificateListSize) {
+    private int parseCertificateEntries(ByteBuffer buffer) throws BadCertificateAlert {
+        int certificateListSize = ((buffer.get() & 0xff) << 16) | ((buffer.get() & 0xff) << 8) | (buffer.get() & 0xff);
         int remainingCertificateBytes = certificateListSize;
         int certCount = 0;
 
         while (remainingCertificateBytes > 0) {
             int certSize = ((buffer.get() & 0xff) << 16) | ((buffer.get() & 0xff) << 8) | (buffer.get() & 0xff);
-            byte[] cert_data = new byte[certSize];
-            buffer.get(cert_data);
+            byte[] certificateData = new byte[certSize];
+            buffer.get(certificateData);
+
+            // https://tools.ietf.org/html/rfc8446#section-4.4.2
+            // "If the corresponding certificate type extension ("server_certificate_type" or "client_certificate_type")
+            // was not negotiated in EncryptedExtensions, or the X.509 certificate type was negotiated, then each
+            // CertificateEntry contains a DER-encoded X.509 certificate."
+            // This implementation does not support raw-public-key certificates, so the only type supported is X509.
+            try {
+                CertificateFactory cf = CertificateFactory.getInstance("X.509");
+                X509Certificate certificate = (X509Certificate) cf.generateCertificate(new ByteArrayInputStream(certificateData));
+                if (certCount == 0) {
+                    // https://tools.ietf.org/html/rfc8446#section-4.4.2
+                    // "The sender's certificate MUST come in the first CertificateEntry in the list. "
+                    endEntityCertificate = certificate;
+                }
+                certificateChain.add(certificate);
+            }
+            catch (CertificateException e) {
+                throw new BadCertificateAlert("could not parse certificate");
+            }
+
             remainingCertificateBytes -= (3 + certSize);
             certCount++;
-            // TODO: when processing the certificate data, the type (X509 or RawPublicKey) was negotiated in EncryptedExtensions!
             int extensionsSize = buffer.getShort();
-            if (extensionsSize > 0)
-                buffer.get(new byte[extensionsSize]);
+            if (extensionsSize > 0) {
+                // https://tools.ietf.org/html/rfc8446#section-4.4.2
+                // "Valid extensions for server certificates at present include the OCSP Status extension [RFC6066]
+                // and the SignedCertificateTimestamp extension [RFC6962];..."
+                // None of them is (yet) supported by this implementation.
+                byte[] extensionData = new byte[extensionsSize];
+                buffer.get(extensionData);
+            }
             remainingCertificateBytes -= (2 + extensionsSize);
         }
         return certCount;
@@ -59,5 +88,13 @@ public class CertificateMessage extends HandshakeMessage {
     @Override
     public byte[] getBytes() {
         return new byte[0];
+    }
+
+    public X509Certificate getEndEntityCertificate() {
+        return endEntityCertificate;
+    }
+
+    public List<X509Certificate> getCertificateChain() {
+        return certificateChain;
     }
 }
