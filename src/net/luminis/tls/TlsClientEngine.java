@@ -6,26 +6,34 @@ import net.luminis.tls.extension.KeyShareExtension;
 import net.luminis.tls.extension.SupportedVersionsExtension;
 
 import java.io.IOException;
-import java.security.InvalidAlgorithmParameterException;
-import java.security.KeyPair;
-import java.security.KeyPairGenerator;
-import java.security.NoSuchAlgorithmException;
+import java.nio.ByteBuffer;
+import java.nio.charset.Charset;
+import java.security.*;
+import java.security.cert.Certificate;
 import java.security.interfaces.ECPrivateKey;
 import java.security.interfaces.ECPublicKey;
 import java.security.spec.ECGenParameterSpec;
+import java.security.spec.MGF1ParameterSpec;
+import java.security.spec.PSSParameterSpec;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import static net.luminis.tls.TlsConstants.SignatureScheme.rsa_pss_rsae_sha256;
+
 
 public class TlsClientEngine implements TrafficSecrets {
+
+    private static final Charset ISO_8859_1 = Charset.forName("ISO-8859-1");
 
     enum Status {
         Initial,
         ClientHelloSent,
         ServerHelloReceived,
-        EncryptedExtensionsReceived
+        EncryptedExtensionsReceived,
+        CertificateReceived,
+        CertificateVerifyReceived,
     }
 
     private final ClientMessageSender sender;
@@ -170,6 +178,27 @@ public class TlsClientEngine implements TrafficSecrets {
         status = Status.EncryptedExtensionsReceived;
     }
 
+    public void received(CertificateMessage certificateMessage) throws TlsProtocolException {
+        if (status != Status.EncryptedExtensionsReceived) {
+            // https://tools.ietf.org/html/rfc8446#section-4.4
+            // "TLS generally uses a common set of messages for authentication, key confirmation, and handshake
+            //   integrity: Certificate, CertificateVerify, and Finished.  (...)  These three messages are always
+            //   sent as the last messages in their handshake flight."
+            throw new UnexpectedMessageAlert("unexpected certificate message");
+        }
+        status = Status.CertificateReceived;
+    }
+
+    public void received(CertificateVerifyMessage certificateVerifyMessage) throws TlsProtocolException {
+        if (status != Status.CertificateReceived) {
+            // https://tools.ietf.org/html/rfc8446#section-4.4.3
+            // "When sent, this message MUST appear immediately after the Certificate message and immediately prior to
+            // the Finished message."
+            throw new UnexpectedMessageAlert("unexpected certificate verify message");
+        }
+        status = Status.CertificateVerifyReceived;
+    }
+
 
     private void generateKeys() {
         try {
@@ -186,6 +215,58 @@ public class TlsClientEngine implements TrafficSecrets {
             // Impossible, would be programming error
             throw new RuntimeException();
         }
+    }
+
+    protected boolean verifySignature(byte[] signatureToVerify, TlsConstants.SignatureScheme signatureScheme, Certificate certificate, byte[] transcriptHash) {
+        // https://tools.ietf.org/html/rfc8446#section-4.4.3
+        // "The digital signature is then computed over the concatenation of:
+        //   -  A string that consists of octet 32 (0x20) repeated 64 times
+        //   -  The context string
+        //   -  A single 0 byte which serves as the separator
+        //   -  The content to be signed"
+        ByteBuffer contentToSign = ByteBuffer.allocate(64 + "TLS 1.3, server CertificateVerify".getBytes(ISO_8859_1).length + 1 + transcriptHash.length);
+        for (int i = 0; i < 64; i++) {
+            contentToSign.put((byte) 0x20);
+        }
+        // "The context string for a server signature is
+        //   "TLS 1.3, server CertificateVerify". "
+        contentToSign.put("TLS 1.3, server CertificateVerify".getBytes(ISO_8859_1));
+        contentToSign.put((byte) 0x00);
+        // "The content that is covered
+        //   under the signature is the hash output as described in Section 4.4.1,
+        //   namely:
+        //      Transcript-Hash(Handshake Context, Certificate)"
+        contentToSign.put(transcriptHash);
+
+        Signature signatureAlgorithm = null;
+        // https://tools.ietf.org/html/rfc8446#section-9.1
+        // "A TLS-compliant application MUST support digital signatures with rsa_pkcs1_sha256 (for certificates),
+        // rsa_pss_rsae_sha256 (for CertificateVerify and certificates), and ecdsa_secp256r1_sha256."
+        if (signatureScheme.equals(rsa_pss_rsae_sha256)) {
+            try {
+                signatureAlgorithm = Signature.getInstance("RSASSA-PSS");
+                signatureAlgorithm.setParameter(new PSSParameterSpec("SHA-256", "MGF1", new MGF1ParameterSpec("SHA-256"), 32, 1));
+            } catch (NoSuchAlgorithmException e) {
+                throw new RuntimeException("Missing RSASSA-PSS support");
+            } catch (InvalidAlgorithmParameterException e) {
+                // Fairly impossible (because the parameters is hard coded)
+                throw new RuntimeException(e);
+            }
+        } else {
+            // Bad lock, not yet supported.
+            throw new RuntimeException("Signature algorithm (verification) not supported " + signatureScheme);
+        }
+        boolean verified = false;
+        try {
+            signatureAlgorithm.initVerify(certificate);
+            signatureAlgorithm.update(contentToSign.array());
+            verified = signatureAlgorithm.verify(signatureToVerify);
+        } catch (InvalidKeyException e) {
+            Logger.debug("Certificate verify: invalid key.");
+        } catch (SignatureException e) {
+            Logger.debug("Certificate verify: invalid signature.");
+        }
+        return verified;
     }
 
     public void setServerName(String serverName) {
