@@ -26,6 +26,7 @@ import static net.luminis.tls.TlsConstants.SignatureScheme.rsa_pss_rsae_sha256;
 public class TlsClientEngine implements TrafficSecrets {
 
     private static final Charset ISO_8859_1 = Charset.forName("ISO-8859-1");
+    private List<TlsConstants.SignatureScheme> supportedSignatures = List.of(rsa_pss_rsae_sha256);
 
     enum Status {
         Initial,
@@ -66,7 +67,7 @@ public class TlsClientEngine implements TrafficSecrets {
             TlsState tlsState = new TlsState(newSessionTicket.getPSK());
             extensions.add(new ClientHelloPreSharedKeyExtension(tlsState, newSessionTicket));
         }
-        clientHello = new ClientHello(serverName, publicKey, compatibilityMode, supportedCiphers, extensions);
+        clientHello = new ClientHello(serverName, publicKey, compatibilityMode, supportedCiphers, supportedSignatures, extensions);
         sender.send(clientHello);
         status = Status.ClientHelloSent;
     }

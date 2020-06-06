@@ -14,6 +14,7 @@ public class ClientHello extends HandshakeMessage {
     private static final int MAX_CLIENT_HELLO_SIZE = 3000;
     public static final List<TlsConstants.CipherSuite> SUPPORTED_CIPHERS = List.of(TlsConstants.CipherSuite.TLS_AES_128_GCM_SHA256);
     private static final int MINIMAL_MESSAGE_LENGTH = 1 + 3 + 2 + 32 + 1 + 2 + 2 + 2 + 2;
+    private static final List<TlsConstants.SignatureScheme> SUPPORTED_SIGNATURES = List.of(TlsConstants.SignatureScheme.rsa_pss_rsae_sha256);
 
     private static Random random = new Random();
     private static SecureRandom secureRandom = new SecureRandom();
@@ -83,14 +84,15 @@ public class ClientHello extends HandshakeMessage {
     }
 
     public ClientHello(String serverName, ECPublicKey publicKey) {
-        this(serverName, publicKey, true, SUPPORTED_CIPHERS, Collections.emptyList());
+        this(serverName, publicKey, true, SUPPORTED_CIPHERS, SUPPORTED_SIGNATURES, Collections.emptyList());
     }
 
     public ClientHello(String serverName, ECPublicKey publicKey, boolean compatibilityMode, List<Extension> extraExtensions) {
-        this(serverName, publicKey, compatibilityMode, SUPPORTED_CIPHERS, extraExtensions);
+        this(serverName, publicKey, compatibilityMode, SUPPORTED_CIPHERS, SUPPORTED_SIGNATURES, extraExtensions);
     }
 
-    public ClientHello(String serverName, ECPublicKey publicKey, boolean compatibilityMode, List<TlsConstants.CipherSuite> supportedCiphers, List<Extension> extraExtensions) {
+    public ClientHello(String serverName, ECPublicKey publicKey, boolean compatibilityMode, List<TlsConstants.CipherSuite> supportedCiphers,
+                       List<TlsConstants.SignatureScheme> supportedSignatures, List<Extension> extraExtensions) {
         ByteBuffer buffer = ByteBuffer.allocate(MAX_CLIENT_HELLO_SIZE);
 
         // HandshakeType client_hello(1),
@@ -137,7 +139,7 @@ public class ClientHello extends HandshakeMessage {
                 new ServerNameExtension(serverName),
                 new SupportedVersionsExtension(TlsConstants.HandshakeType.client_hello),
                 new SupportedGroupsExtension(TlsConstants.NamedGroup.secp256r1),
-                new SignatureAlgorithmsExtension(),
+                new SignatureAlgorithmsExtension(supportedSignatures),
                 new KeyShareExtension(publicKey, TlsConstants.NamedGroup.secp256r1, TlsConstants.HandshakeType.client_hello),
                 new PskKeyExchangeModesExtension(TlsConstants.PskKeyExchangeMode.psk_dhe_ke)
         };

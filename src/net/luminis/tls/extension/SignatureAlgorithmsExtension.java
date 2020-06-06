@@ -6,6 +6,7 @@ import net.luminis.tls.TlsConstants;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 import static net.luminis.tls.TlsConstants.SignatureScheme.*;
@@ -21,17 +22,11 @@ public class SignatureAlgorithmsExtension extends Extension {
     private List<TlsConstants.SignatureScheme> algorithms = new ArrayList<>();
 
     public SignatureAlgorithmsExtension() {
-        algorithms = List.of(new TlsConstants.SignatureScheme[] {
-                ecdsa_secp256r1_sha256,
-                rsa_pss_rsae_sha256,
-                rsa_pkcs1_sha256,
-                ecdsa_secp384r1_sha384,
-                rsa_pss_rsae_sha384,
-                rsa_pkcs1_sha384,
-                rsa_pss_rsae_sha512,
-                rsa_pkcs1_sha512,
-                rsa_pkcs1_sha1
-        });
+        algorithms = Collections.emptyList();
+    }
+
+    public SignatureAlgorithmsExtension(List<TlsConstants.SignatureScheme> signatureSchemes) {
+        algorithms = signatureSchemes;
     }
 
     public SignatureAlgorithmsExtension(TlsConstants.SignatureScheme... signatureAlgorithms) {
