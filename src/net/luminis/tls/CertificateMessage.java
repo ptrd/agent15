@@ -3,6 +3,7 @@ package net.luminis.tls;
 import java.io.ByteArrayInputStream;
 import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
+import java.security.cert.CertificateEncodingException;
 import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
@@ -16,21 +17,24 @@ public class CertificateMessage extends HandshakeMessage {
     private byte[] requestContext;
     private X509Certificate endEntityCertificate;
     private List<X509Certificate> certificateChain = new ArrayList<>();
+    private byte[] raw;
 
     public CertificateMessage(X509Certificate certificate) {
         this.requestContext = new byte[0];
         endEntityCertificate = certificate;
+        serialize();
     }
 
     public CertificateMessage(byte[] requestContext, X509Certificate certificate) {
         this.requestContext = requestContext;
         endEntityCertificate = certificate;
+        serialize();
     }
 
     public CertificateMessage() {
     }
 
-    public CertificateMessage parse(ByteBuffer buffer, TlsState state) throws DecodeErrorException, BadCertificateAlert {
+    public CertificateMessage parse(ByteBuffer buffer) throws DecodeErrorException, BadCertificateAlert {
         int startPosition = buffer.position();
         int remainingLength = parseHandshakeHeader(buffer, TlsConstants.HandshakeType.certificate, MINIMUM_MESSAGE_SIZE);
 
@@ -46,10 +50,9 @@ public class CertificateMessage extends HandshakeMessage {
             parseCertificateEntries(buffer);
 
             // Update state.
-            byte[] raw = new byte[4 + remainingLength];
+            raw = new byte[4 + remainingLength];
             buffer.position(startPosition);
             buffer.get(raw);
-            state.setCertificate(raw);
 
             return this;
         }
@@ -104,9 +107,41 @@ public class CertificateMessage extends HandshakeMessage {
         return certCount;
     }
 
+    private void serialize() {
+        try {
+            byte[] certBytes = new byte[0];
+            if (endEntityCertificate != null) {
+                certBytes = endEntityCertificate.getEncoded();
+                if (certBytes.length > 0xfff0) {
+                    throw new RuntimeException("Certificate size not supported");
+                }
+            }
+            short certLength = (short) certBytes.length;
+            ByteBuffer buffer = ByteBuffer.allocate(4 + 1 + 3 + 3 + certLength + 1);
+            buffer.putInt((TlsConstants.HandshakeType.certificate.value << 24) | (1 + 3 + 3 + certLength + 1));
+            // cert request context size
+            buffer.put((byte) 0x00);
+            // certificate_list size (3 bytes)
+            buffer.put((byte) 0);
+            buffer.put((byte) (3 + certLength + 1));
+            // certificate size
+            buffer.put((byte) 0);
+            buffer.putShort(certLength);
+            // certificate
+            buffer.put(certBytes);
+            // extensions size
+            buffer.putShort((short) 0);
+            raw = buffer.array();
+        }
+        catch (CertificateEncodingException e) {
+            // Impossible with valid certificate
+            throw new RuntimeException(e);
+        }
+    }
+
     @Override
     public byte[] getBytes() {
-        return new byte[0];
+        return raw;
     }
 
     public byte[] getRequestContext() {

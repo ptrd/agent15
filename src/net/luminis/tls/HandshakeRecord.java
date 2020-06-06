@@ -71,11 +71,12 @@ public class HandshakeRecord {
             tlsClientEngine.received((EncryptedExtensions) msg);
         }
         else if (messageType == certificate.value) {
-            msg = new CertificateMessage().parse(buffer, state);
+            msg = new CertificateMessage().parse(buffer);
             tlsClientEngine.received((CertificateMessage) msg);
         }
         else if (messageType == certificate_verify.value) {
             msg = new CertificateVerifyMessage().parse(buffer, length + 4, state);
+            tlsClientEngine.received((CertificateVerifyMessage) msg);
         }
         else if (messageType == finished.value) {
             msg = new FinishedMessage().parse(buffer, length + 4, state);

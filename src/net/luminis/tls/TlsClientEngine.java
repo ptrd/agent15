@@ -202,6 +202,7 @@ public class TlsClientEngine implements TrafficSecrets {
 
         serverCertificate = certificateMessage.getEndEntityCertificate();
 
+        state.setCertificate(certificateMessage.getBytes());
         status = Status.CertificateReceived;
     }
 

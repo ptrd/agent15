@@ -27,6 +27,7 @@ import static net.luminis.tls.TlsConstants.CipherSuite.*;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 class TlsClientEngineTest {
 
@@ -229,7 +230,9 @@ class TlsClientEngineTest {
     void serverCertificateMessageRequestContextShouldBeEmpty() throws Exception {
         handshakeUpToCertificate();
 
-        CertificateMessage certificateMessage = new CertificateMessage(new byte[4], mock(X509Certificate.class));
+        X509Certificate cert = mock(X509Certificate.class);
+        when(cert.getEncoded()).thenReturn(new byte[300]);
+        CertificateMessage certificateMessage = new CertificateMessage(new byte[4], cert);
 
         assertThatThrownBy(() ->
                 engine.received(certificateMessage)
