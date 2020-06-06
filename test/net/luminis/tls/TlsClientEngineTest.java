@@ -13,6 +13,7 @@ import java.io.ByteArrayInputStream;
 import java.security.*;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateFactory;
+import java.security.cert.X509Certificate;
 import java.security.interfaces.ECKey;
 import java.security.interfaces.ECPrivateKey;
 import java.security.interfaces.ECPublicKey;
@@ -225,15 +226,31 @@ class TlsClientEngineTest {
     }
 
     @Test
+    void serverCertificateMessageRequestContextShouldBeEmpty() throws Exception {
+        handshakeUpToCertificate();
+
+        CertificateMessage certificateMessage = new CertificateMessage(new byte[4], mock(X509Certificate.class));
+
+        assertThatThrownBy(() ->
+                engine.received(certificateMessage)
+        ).isInstanceOf(IllegalParameterAlert.class);
+    }
+
+    @Test
+    void serverCertificateMessageShouldAlwaysContainAtLeastOneCertificate() throws Exception {
+        handshakeUpToCertificate();
+
+        CertificateMessage certificateMessage = new CertificateMessage(null);
+
+        assertThatThrownBy(() ->
+                engine.received(certificateMessage)
+        ).isInstanceOf(IllegalParameterAlert.class);
+    }
+
+    @Test
     void certificateVerifyShouldNotBeReceivedBeforeCertificateMessage() throws Exception {
         // Given
-        engine.startHandshake();
-
-        ServerHello serverHello = new ServerHello(TLS_AES_128_GCM_SHA256, List.of(
-                new SupportedVersionsExtension(TlsConstants.HandshakeType.server_hello),
-                new KeyShareExtension(publicKey, TlsConstants.NamedGroup.secp256r1, TlsConstants.HandshakeType.server_hello)));
-        engine.received(serverHello);
-        engine.received(new EncryptedExtensions());
+        handshakeUpToCertificate();
 
         // When, no Certificate Message received
         // Then
@@ -258,6 +275,15 @@ class TlsClientEngineTest {
     }
 
 
+    private void handshakeUpToCertificate() throws Exception {
+        engine.startHandshake();
+
+        ServerHello serverHello = new ServerHello(TLS_AES_128_GCM_SHA256, List.of(
+                new SupportedVersionsExtension(TlsConstants.HandshakeType.server_hello),
+                new KeyShareExtension(publicKey, TlsConstants.NamedGroup.secp256r1, TlsConstants.HandshakeType.server_hello)));
+        engine.received(serverHello);
+        engine.received(new EncryptedExtensions());
+    }
 
     private byte[] createServerSignature() throws Exception {
         // https://tools.ietf.org/html/rfc8446#section-4.4.3

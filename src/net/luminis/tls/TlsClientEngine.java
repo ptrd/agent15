@@ -10,6 +10,7 @@ import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.security.*;
 import java.security.cert.Certificate;
+import java.security.cert.X509Certificate;
 import java.security.interfaces.ECPrivateKey;
 import java.security.interfaces.ECPublicKey;
 import java.security.spec.ECGenParameterSpec;
@@ -27,6 +28,7 @@ public class TlsClientEngine implements TrafficSecrets {
 
     private static final Charset ISO_8859_1 = Charset.forName("ISO-8859-1");
     private List<TlsConstants.SignatureScheme> supportedSignatures = List.of(rsa_pss_rsae_sha256);
+    private X509Certificate serverCertificate;
 
     enum Status {
         Initial,
@@ -187,6 +189,19 @@ public class TlsClientEngine implements TrafficSecrets {
             //   sent as the last messages in their handshake flight."
             throw new UnexpectedMessageAlert("unexpected certificate message");
         }
+
+        if (certificateMessage.getRequestContext().length > 0) {
+            // https://tools.ietf.org/html/rfc8446#section-4.4.2
+            // "If this message is in response to a CertificateRequest, the value of certificate_request_context in that
+            // message. Otherwise (in the case of server authentication), this field SHALL be zero length."
+            throw new IllegalParameterAlert("certificate request context should be zero length");
+        }
+        if (certificateMessage.getEndEntityCertificate() == null) {
+            throw new IllegalParameterAlert("missing certificate");
+        }
+
+        serverCertificate = certificateMessage.getEndEntityCertificate();
+
         status = Status.CertificateReceived;
     }
 

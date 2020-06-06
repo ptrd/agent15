@@ -66,6 +66,15 @@ public class CertificateMessageTest {
     }
 
     @Test
+    void parseMessageWithoutCertificate() throws Exception {
+        byte[] rawData = ByteUtils.hexToBytes("0b000009" + "00" + "000005" + "000000" + "0000");
+
+        CertificateMessage cm = new CertificateMessage().parse(ByteBuffer.wrap(rawData), new TlsState());
+
+        assertThat(cm.getCertificateChain()).hasSize(0);
+    }
+
+    @Test
     void parseCertificateMessageWithIncorrectCertificateRequestContextLength() throws Exception {
         byte[] rawData = ByteUtils.hexToBytes("0b00001d" + "ff"
                 // cert list size cert data size

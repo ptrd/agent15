@@ -13,8 +13,22 @@ import java.util.List;
 public class CertificateMessage extends HandshakeMessage {
 
     private static final int MINIMUM_MESSAGE_SIZE = 1 + 3 + 1 + 3 + 3 + 2;
+    private byte[] requestContext;
     private X509Certificate endEntityCertificate;
     private List<X509Certificate> certificateChain = new ArrayList<>();
+
+    public CertificateMessage(X509Certificate certificate) {
+        this.requestContext = new byte[0];
+        endEntityCertificate = certificate;
+    }
+
+    public CertificateMessage(byte[] requestContext, X509Certificate certificate) {
+        this.requestContext = requestContext;
+        endEntityCertificate = certificate;
+    }
+
+    public CertificateMessage() {
+    }
 
     public CertificateMessage parse(ByteBuffer buffer, TlsState state) throws DecodeErrorException, BadCertificateAlert {
         int startPosition = buffer.position();
@@ -23,7 +37,11 @@ public class CertificateMessage extends HandshakeMessage {
         try {
             int certificateRequestContextSize = buffer.get() & 0xff;
             if (certificateRequestContextSize > 0) {
-                buffer.get(new byte[certificateRequestContextSize]);
+                requestContext = new byte[certificateRequestContextSize];
+                buffer.get(requestContext);
+            }
+            else {
+                requestContext = new byte[0];
             }
             parseCertificateEntries(buffer);
 
@@ -50,23 +68,24 @@ public class CertificateMessage extends HandshakeMessage {
             byte[] certificateData = new byte[certSize];
             buffer.get(certificateData);
 
-            // https://tools.ietf.org/html/rfc8446#section-4.4.2
-            // "If the corresponding certificate type extension ("server_certificate_type" or "client_certificate_type")
-            // was not negotiated in EncryptedExtensions, or the X.509 certificate type was negotiated, then each
-            // CertificateEntry contains a DER-encoded X.509 certificate."
-            // This implementation does not support raw-public-key certificates, so the only type supported is X509.
-            try {
-                CertificateFactory cf = CertificateFactory.getInstance("X.509");
-                X509Certificate certificate = (X509Certificate) cf.generateCertificate(new ByteArrayInputStream(certificateData));
-                if (certCount == 0) {
-                    // https://tools.ietf.org/html/rfc8446#section-4.4.2
-                    // "The sender's certificate MUST come in the first CertificateEntry in the list. "
-                    endEntityCertificate = certificate;
+            if (certSize > 0) {
+                // https://tools.ietf.org/html/rfc8446#section-4.4.2
+                // "If the corresponding certificate type extension ("server_certificate_type" or "client_certificate_type")
+                // was not negotiated in EncryptedExtensions, or the X.509 certificate type was negotiated, then each
+                // CertificateEntry contains a DER-encoded X.509 certificate."
+                // This implementation does not support raw-public-key certificates, so the only type supported is X509.
+                try {
+                    CertificateFactory cf = CertificateFactory.getInstance("X.509");
+                    X509Certificate certificate = (X509Certificate) cf.generateCertificate(new ByteArrayInputStream(certificateData));
+                    if (certCount == 0) {
+                        // https://tools.ietf.org/html/rfc8446#section-4.4.2
+                        // "The sender's certificate MUST come in the first CertificateEntry in the list. "
+                        endEntityCertificate = certificate;
+                    }
+                    certificateChain.add(certificate);
+                } catch (CertificateException e) {
+                    throw new BadCertificateAlert("could not parse certificate");
                 }
-                certificateChain.add(certificate);
-            }
-            catch (CertificateException e) {
-                throw new BadCertificateAlert("could not parse certificate");
             }
 
             remainingCertificateBytes -= (3 + certSize);
@@ -88,6 +107,10 @@ public class CertificateMessage extends HandshakeMessage {
     @Override
     public byte[] getBytes() {
         return new byte[0];
+    }
+
+    public byte[] getRequestContext() {
+        return requestContext;
     }
 
     public X509Certificate getEndEntityCertificate() {
