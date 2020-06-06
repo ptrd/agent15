@@ -27,7 +27,7 @@ import static net.luminis.tls.TlsConstants.SignatureScheme.rsa_pss_rsae_sha256;
 public class TlsClientEngine implements TrafficSecrets {
 
     private static final Charset ISO_8859_1 = Charset.forName("ISO-8859-1");
-    private List<TlsConstants.SignatureScheme> supportedSignatures = List.of(rsa_pss_rsae_sha256);
+    private List<TlsConstants.SignatureScheme> supportedSignatures;
     private X509Certificate serverCertificate;
 
     enum Status {
@@ -60,6 +60,11 @@ public class TlsClientEngine implements TrafficSecrets {
     }
 
     public void startHandshake() throws IOException {
+        startHandshake(List.of(rsa_pss_rsae_sha256));
+    }
+
+    public void startHandshake(List<TlsConstants.SignatureScheme> signatureSchemes) throws IOException {
+        supportedSignatures = signatureSchemes;
         generateKeys();
         if (serverName == null || supportedCiphers.isEmpty()) {
             throw new IllegalStateException("not all mandatory properties are set");
@@ -213,6 +218,22 @@ public class TlsClientEngine implements TrafficSecrets {
             // the Finished message."
             throw new UnexpectedMessageAlert("unexpected certificate verify message");
         }
+
+        TlsConstants.SignatureScheme signatureScheme = certificateVerifyMessage.getSignatureScheme();
+        if (!supportedSignatures.contains(signatureScheme)) {
+            // https://tools.ietf.org/html/rfc8446#section-4.4.3
+            // "If the CertificateVerify message is sent by a server, the signature algorithm MUST be one offered in
+            // the client's "signature_algorithms" extension"
+            throw new IllegalParameterAlert("signature scheme does not match");
+        }
+
+        byte[] signature = certificateVerifyMessage.getSignature();
+        byte[] transcriptHash = state.getHandshakeServerCertificateHash();
+        if (!verifySignature(signature, signatureScheme, serverCertificate, transcriptHash)) {
+            throw new DecryptErrorAlert("signature verification fails");
+        }
+
+        state.setCertificateVerify(certificateVerifyMessage.getBytes());
         status = Status.CertificateVerifyReceived;
     }
 

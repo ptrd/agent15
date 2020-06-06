@@ -75,7 +75,7 @@ public class HandshakeRecord {
             tlsClientEngine.received((CertificateMessage) msg);
         }
         else if (messageType == certificate_verify.value) {
-            msg = new CertificateVerifyMessage().parse(buffer, length + 4, state);
+            msg = new CertificateVerifyMessage().parse(buffer, length + 4);
             tlsClientEngine.received((CertificateVerifyMessage) msg);
         }
         else if (messageType == finished.value) {

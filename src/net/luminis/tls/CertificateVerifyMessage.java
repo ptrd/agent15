@@ -15,8 +15,17 @@ public class CertificateVerifyMessage extends HandshakeMessage {
     private static final int MINIMUM_MESSAGE_SIZE = 1 + 3 + 2 + 2 + 1;
     private TlsConstants.SignatureScheme signatureScheme;
     private byte[] signature;
+    private byte[] raw;
 
-    public CertificateVerifyMessage parse(ByteBuffer buffer, int length, TlsState state) throws TlsProtocolException {
+    public CertificateVerifyMessage(TlsConstants.SignatureScheme signatureScheme, byte[] signature) {
+        this.signatureScheme = signatureScheme;
+        this.signature = signature;
+    }
+
+    public CertificateVerifyMessage() {
+    }
+
+    public CertificateVerifyMessage parse(ByteBuffer buffer, int length) throws TlsProtocolException {
         int startPosition = buffer.position();
         int remainingLength = parseHandshakeHeader(buffer, TlsConstants.HandshakeType.certificate_verify, MINIMUM_MESSAGE_SIZE);
 
@@ -35,10 +44,9 @@ public class CertificateVerifyMessage extends HandshakeMessage {
             }
 
             // Update state.
-            byte[] raw = new byte[length];
+            raw = new byte[length];
             buffer.position(startPosition);
             buffer.get(raw);
-            state.setCertificateVerify(raw);
 
             return this;
         }
@@ -49,7 +57,7 @@ public class CertificateVerifyMessage extends HandshakeMessage {
 
     @Override
     public byte[] getBytes() {
-        return new byte[0];
+        return raw;
     }
 
     public TlsConstants.SignatureScheme getSignatureScheme() {

@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.internal.util.reflection.FieldSetter;
 
 import java.io.ByteArrayInputStream;
+import java.nio.ByteBuffer;
 import java.security.*;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateFactory;
@@ -24,8 +25,8 @@ import java.util.Collections;
 import java.util.List;
 
 import static net.luminis.tls.TlsConstants.CipherSuite.*;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static net.luminis.tls.TlsConstants.SignatureScheme.ecdsa_secp521r1_sha512;
+import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -263,6 +264,56 @@ class TlsClientEngineTest {
     }
 
     @Test
+    void certificateVerifySignatureSchemeShouldMatch() throws Exception {
+        // Given
+        handshakeUpToCertificate(List.of(TlsConstants.SignatureScheme.ecdsa_secp256r1_sha256));
+        CertificateFactory certificateFactory = CertificateFactory.getInstance("X.509");
+        Certificate certificate = certificateFactory.generateCertificate(new ByteArrayInputStream(Base64.getDecoder().decode(encodedCertificate.getBytes())));
+        engine.received(new CertificateMessage((X509Certificate) certificate));
+
+        assertThatThrownBy(() ->
+                // When
+                engine.received(new CertificateVerifyMessage(TlsConstants.SignatureScheme.rsa_pss_rsae_sha256, new byte[0])))
+                // Then
+                .isInstanceOf(IllegalParameterAlert.class);
+    }
+
+    @Test
+    void validSignatureShouldPassValidation() throws Exception {
+        // Given
+        TlsState state = mock(TlsState.class);
+        when(state.getHandshakeServerCertificateHash()).thenReturn(ByteUtils.hexToBytes("0101010101010101010101010101010101010101010101010101010101010101"));
+        CertificateFactory certificateFactory = CertificateFactory.getInstance("X.509");
+        Certificate certificate = certificateFactory.generateCertificate(new ByteArrayInputStream(Base64.getDecoder().decode(encodedCertificate.getBytes())));
+        byte[] validSignature = createServerSignature();
+
+        handshakeUpToCertificate();
+        FieldSetter.setField(engine, engine.getClass().getDeclaredField("state"), state);
+        engine.received(new CertificateMessage((X509Certificate) certificate));
+
+        // When
+        engine.received(new CertificateVerifyMessage(TlsConstants.SignatureScheme.rsa_pss_rsae_sha256, validSignature));
+        // Then
+        // Ok
+    }
+
+    @Test
+    void whenSignatureVerificationFailsHandshakeShouldBeTerminatedWithDecryptError() throws Exception {
+        // Given
+        CertificateFactory certificateFactory = CertificateFactory.getInstance("X.509");
+        Certificate certificate = certificateFactory.generateCertificate(new ByteArrayInputStream(Base64.getDecoder().decode(encodedCertificate.getBytes())));
+
+        handshakeUpToCertificate();
+        engine.received(new CertificateMessage((X509Certificate) certificate));
+
+        assertThatThrownBy(() ->
+                // When
+                engine.received(new CertificateVerifyMessage(TlsConstants.SignatureScheme.rsa_pss_rsae_sha256, new byte[256])))
+                // Then
+                .isInstanceOf(DecryptErrorAlert.class);
+    }
+
+    @Test
     void testVerifySignature() throws Exception {
         byte[] signature = createServerSignature();
 
@@ -277,9 +328,12 @@ class TlsClientEngineTest {
         assertThat(verified).isTrue();
     }
 
-
     private void handshakeUpToCertificate() throws Exception {
-        engine.startHandshake();
+        handshakeUpToCertificate(List.of(TlsConstants.SignatureScheme.rsa_pss_rsae_sha256));
+    }
+
+    private void handshakeUpToCertificate(List<TlsConstants.SignatureScheme> signatureSchemes) throws Exception {
+        engine.startHandshake(signatureSchemes);
 
         ServerHello serverHello = new ServerHello(TLS_AES_128_GCM_SHA256, List.of(
                 new SupportedVersionsExtension(TlsConstants.HandshakeType.server_hello),

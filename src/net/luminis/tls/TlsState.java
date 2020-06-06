@@ -63,6 +63,7 @@ public class TlsState {
     private byte[] clientHandshakeKey;
     private byte[] clientHandshakeIV;
     private byte[] handshakeSecret;
+    private byte[] handshakeServerCertificateHash;
     private byte[] handshakeServerFinishedHash;
     private byte[] handshakeClientFinishedHash;
     private byte[] clientApplicationTrafficSecret;
@@ -476,6 +477,17 @@ public class TlsState {
 
     public void setCertificate(byte[] raw) {
         certificateMessage = raw;
+
+        hashFunction.reset();
+        hashFunction.update(clientHello);
+        hashFunction.update(serverHello);
+        hashFunction.update(encryptedExtensionsMessage);
+        hashFunction.update(this.certificateMessage);
+        handshakeServerCertificateHash = hashFunction.digest();
+    }
+
+    public byte[] getHandshakeServerCertificateHash() {
+        return handshakeServerCertificateHash;
     }
 
     public void setCertificateVerify(byte[] raw) {
