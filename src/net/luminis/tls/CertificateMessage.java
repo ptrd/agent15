@@ -22,6 +22,9 @@ public class CertificateMessage extends HandshakeMessage {
     public CertificateMessage(X509Certificate certificate) {
         this.requestContext = new byte[0];
         endEntityCertificate = certificate;
+        if (certificate != null) {
+            certificateChain = List.of(certificate);
+        }
         serialize();
     }
 

@@ -5,11 +5,15 @@ import net.luminis.tls.extension.Extension;
 import net.luminis.tls.extension.KeyShareExtension;
 import net.luminis.tls.extension.SupportedVersionsExtension;
 
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.TrustManagerFactory;
+import javax.net.ssl.X509TrustManager;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.security.*;
 import java.security.cert.Certificate;
+import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.security.interfaces.ECPrivateKey;
 import java.security.interfaces.ECPublicKey;
@@ -29,6 +33,8 @@ public class TlsClientEngine implements TrafficSecrets {
     private static final Charset ISO_8859_1 = Charset.forName("ISO-8859-1");
     private List<TlsConstants.SignatureScheme> supportedSignatures;
     private X509Certificate serverCertificate;
+    private List<X509Certificate> serverCertificateChain;
+    private X509TrustManager customTrustManager;
 
     enum Status {
         Initial,
@@ -206,7 +212,7 @@ public class TlsClientEngine implements TrafficSecrets {
         }
 
         serverCertificate = certificateMessage.getEndEntityCertificate();
-
+        serverCertificateChain = certificateMessage.getCertificateChain();
         state.setCertificate(certificateMessage.getBytes());
         status = Status.CertificateReceived;
     }
@@ -232,6 +238,9 @@ public class TlsClientEngine implements TrafficSecrets {
         if (!verifySignature(signature, signatureScheme, serverCertificate, transcriptHash)) {
             throw new DecryptErrorAlert("signature verification fails");
         }
+
+        // Now the certificate signature has been validated, check the certificate validity
+        checkCertificateValidity(serverCertificateChain);
 
         state.setCertificateVerify(certificateVerifyMessage.getBytes());
         status = Status.CertificateVerifyReceived;
@@ -307,6 +316,32 @@ public class TlsClientEngine implements TrafficSecrets {
         return verified;
     }
 
+    protected void checkCertificateValidity(List<X509Certificate> certificates) throws BadCertificateAlert {
+        try {
+            if (customTrustManager != null) {
+                customTrustManager.checkServerTrusted(certificates.toArray(X509Certificate[]::new), "RSA");
+            }
+            else {
+                // https://docs.oracle.com/en/java/javase/11/docs/specs/security/standard-names.html#trustmanagerfactory-algorithms
+                // "...that validate certificate chains according to the rules defined by the IETF PKIX working group in RFC 5280 or its successor"
+                TrustManagerFactory trustManagerFactory = TrustManagerFactory.getInstance("PKIX");
+                trustManagerFactory.init((KeyStore) null);
+                X509TrustManager trustMgr = (X509TrustManager) trustManagerFactory.getTrustManagers()[0];
+                trustMgr.checkServerTrusted(certificates.toArray(X509Certificate[]::new), "RSA");
+                // If it gets here, the certificates are ok.
+            }
+        } catch (NoSuchAlgorithmException e) {
+            // Impossible, as we're using the trust managers default algorithm
+            throw new RuntimeException("unsupported trust manager algorithm");
+        } catch (KeyStoreException e) {
+            // Impossible, as we're using the default (JVM) keystore
+            throw new RuntimeException("keystore exception");
+        } catch (CertificateException e) {
+            Logger.debug("Certificate verification failed: " + e.getMessage());
+            throw new BadCertificateAlert("certificate validation failed");
+        }
+    }
+
     public void setServerName(String serverName) {
         this.serverName = serverName;
     }
@@ -325,6 +360,10 @@ public class TlsClientEngine implements TrafficSecrets {
 
     public void add(Extension extension) {
         extensions.add(extension);
+    }
+
+    public void setTrustManager(X509TrustManager customTrustManager) {
+        this.customTrustManager = customTrustManager;
     }
 
     public void setNewSessionTicket(NewSessionTicket newSessionTicket) {

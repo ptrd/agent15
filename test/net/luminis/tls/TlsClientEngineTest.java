@@ -9,8 +9,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.internal.util.reflection.FieldSetter;
 
+import javax.net.ssl.X509TrustManager;
 import java.io.ByteArrayInputStream;
-import java.nio.ByteBuffer;
 import java.security.*;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateFactory;
@@ -18,15 +18,18 @@ import java.security.cert.X509Certificate;
 import java.security.interfaces.ECKey;
 import java.security.interfaces.ECPrivateKey;
 import java.security.interfaces.ECPublicKey;
-import java.security.spec.*;
+import java.security.spec.ECGenParameterSpec;
+import java.security.spec.MGF1ParameterSpec;
+import java.security.spec.PKCS8EncodedKeySpec;
+import java.security.spec.PSSParameterSpec;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.Collections;
 import java.util.List;
 
 import static net.luminis.tls.TlsConstants.CipherSuite.*;
-import static net.luminis.tls.TlsConstants.SignatureScheme.ecdsa_secp521r1_sha512;
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -285,6 +288,7 @@ class TlsClientEngineTest {
         when(state.getHandshakeServerCertificateHash()).thenReturn(ByteUtils.hexToBytes("0101010101010101010101010101010101010101010101010101010101010101"));
         CertificateFactory certificateFactory = CertificateFactory.getInstance("X.509");
         Certificate certificate = certificateFactory.generateCertificate(new ByteArrayInputStream(Base64.getDecoder().decode(encodedCertificate.getBytes())));
+        engine.setTrustManager(createNoOpTrustManager());
         byte[] validSignature = createServerSignature();
 
         handshakeUpToCertificate();
@@ -326,6 +330,27 @@ class TlsClientEngineTest {
         boolean verified = engine.verifySignature(signature, TlsConstants.SignatureScheme.rsa_pss_rsae_sha256, certificate, hash);
 
         assertThat(verified).isTrue();
+    }
+
+    @Test
+    void unknownCertificateShouldAbortTls() throws Exception {
+        // Given
+        TlsState state = mock(TlsState.class);
+        when(state.getHandshakeServerCertificateHash()).thenReturn(ByteUtils.hexToBytes("0101010101010101010101010101010101010101010101010101010101010101"));
+        CertificateFactory certificateFactory = CertificateFactory.getInstance("X.509");
+        Certificate certificate = certificateFactory.generateCertificate(new ByteArrayInputStream(Base64.getDecoder().decode(encodedCertificate.getBytes())));
+        byte[] validSignature = createServerSignature();
+
+        handshakeUpToCertificate();
+        FieldSetter.setField(engine, engine.getClass().getDeclaredField("state"), state);
+        engine.received(new CertificateMessage((X509Certificate) certificate));
+
+        assertThatThrownBy(() ->
+                // When
+                // When
+                engine.received(new CertificateVerifyMessage(TlsConstants.SignatureScheme.rsa_pss_rsae_sha256, validSignature)))
+                // Then
+                .isInstanceOf(BadCertificateAlert.class);
     }
 
     private void handshakeUpToCertificate() throws Exception {
@@ -378,6 +403,22 @@ class TlsClientEngineTest {
             // Impossible, would be programming error
             throw new RuntimeException();
         }
+    }
+
+    X509TrustManager createNoOpTrustManager() {
+        return new X509TrustManager() {
+            public java.security.cert.X509Certificate[] getAcceptedIssuers() {
+                return new X509Certificate[0];
+            }
+
+            public void checkClientTrusted(
+                    java.security.cert.X509Certificate[] certs, String authType) {
+            }
+
+            public void checkServerTrusted(
+                    java.security.cert.X509Certificate[] certs, String authType) {
+            }
+        };
     }
 
     static class DummyExtension extends Extension {
