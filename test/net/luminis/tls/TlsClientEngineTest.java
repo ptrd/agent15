@@ -270,8 +270,7 @@ class TlsClientEngineTest {
     void certificateVerifySignatureSchemeShouldMatch() throws Exception {
         // Given
         handshakeUpToCertificate(List.of(TlsConstants.SignatureScheme.ecdsa_secp256r1_sha256));
-        CertificateFactory certificateFactory = CertificateFactory.getInstance("X.509");
-        Certificate certificate = certificateFactory.generateCertificate(new ByteArrayInputStream(Base64.getDecoder().decode(encodedCertificate.getBytes())));
+        Certificate certificate = CertificateUtils.inflateCertificate(encodedCertificate);
         engine.received(new CertificateMessage((X509Certificate) certificate));
 
         assertThatThrownBy(() ->
@@ -284,10 +283,10 @@ class TlsClientEngineTest {
     @Test
     void validSignatureShouldPassValidation() throws Exception {
         // Given
+        engine.setHostnameVerifier(createNoOpHostnameVerifier());
         TlsState state = mock(TlsState.class);
         when(state.getHandshakeServerCertificateHash()).thenReturn(ByteUtils.hexToBytes("0101010101010101010101010101010101010101010101010101010101010101"));
-        CertificateFactory certificateFactory = CertificateFactory.getInstance("X.509");
-        Certificate certificate = certificateFactory.generateCertificate(new ByteArrayInputStream(Base64.getDecoder().decode(encodedCertificate.getBytes())));
+        Certificate certificate = CertificateUtils.inflateCertificate(encodedCertificate);
         engine.setTrustManager(createNoOpTrustManager());
         byte[] validSignature = createServerSignature();
 
@@ -353,6 +352,50 @@ class TlsClientEngineTest {
                 .isInstanceOf(BadCertificateAlert.class);
     }
 
+    @Test
+    void certificateWithoutMatchingServerNameShouldAbortTls() throws Exception {
+        // Given
+        engine.setHostnameVerifier(createAlwaysRefusingVerifier());
+        TlsState state = mock(TlsState.class);
+        when(state.getHandshakeServerCertificateHash()).thenReturn(ByteUtils.hexToBytes("0101010101010101010101010101010101010101010101010101010101010101"));
+        Certificate certificate = CertificateUtils.inflateCertificate(encodedCertificate);
+        engine.setTrustManager(createNoOpTrustManager());
+        byte[] validSignature = createServerSignature();
+
+        handshakeUpToCertificate();
+        FieldSetter.setField(engine, engine.getClass().getDeclaredField("state"), state);
+        engine.received(new CertificateMessage((X509Certificate) certificate));
+
+        assertThatThrownBy(() ->
+                // When
+                engine.received(new CertificateVerifyMessage(TlsConstants.SignatureScheme.rsa_pss_rsae_sha256, validSignature)))
+                // Then
+                .isInstanceOf(CertificateUnknownAlert.class);
+    }
+
+    @Test
+    void clearingHostnameVerifierDoesNotBypassDefaultVerification() throws Exception {
+        // Given
+        TlsState state = mock(TlsState.class);
+        when(state.getHandshakeServerCertificateHash()).thenReturn(ByteUtils.hexToBytes("0101010101010101010101010101010101010101010101010101010101010101"));
+        Certificate certificate = CertificateUtils.inflateCertificate(encodedCertificate);
+        engine.setTrustManager(createNoOpTrustManager());
+        byte[] validSignature = createServerSignature();
+
+        engine.setHostnameVerifier(null);
+
+        handshakeUpToCertificate();
+        FieldSetter.setField(engine, engine.getClass().getDeclaredField("state"), state);
+        engine.received(new CertificateMessage((X509Certificate) certificate));
+
+        assertThatThrownBy(() ->
+                // When
+                engine.received(new CertificateVerifyMessage(TlsConstants.SignatureScheme.rsa_pss_rsae_sha256, validSignature)))
+                // Then
+                .isInstanceOf(CertificateUnknownAlert.class);
+
+    }
+
     private void handshakeUpToCertificate() throws Exception {
         handshakeUpToCertificate(List.of(TlsConstants.SignatureScheme.rsa_pss_rsae_sha256));
     }
@@ -388,6 +431,23 @@ class TlsClientEngineTest {
         return digitalSignature;
     }
 
+    private HostnameVerifier createNoOpHostnameVerifier() {
+        return new HostnameVerifier() {
+            @Override
+            public boolean verify(String hostname, X509Certificate serverCertificate) {
+                return true;
+            }
+        };
+    }
+
+    private HostnameVerifier createAlwaysRefusingVerifier() {
+        return new HostnameVerifier() {
+            @Override
+            public boolean verify(String hostname, X509Certificate serverCertificate) {
+                return false;
+            }
+        };
+    }
 
     ECKey[] generateKeys() {
         try {

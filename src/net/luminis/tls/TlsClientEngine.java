@@ -14,6 +14,7 @@ import java.nio.charset.Charset;
 import java.security.*;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateException;
+import java.security.cert.CertificateParsingException;
 import java.security.cert.X509Certificate;
 import java.security.interfaces.ECPrivateKey;
 import java.security.interfaces.ECPublicKey;
@@ -21,6 +22,7 @@ import java.security.spec.ECGenParameterSpec;
 import java.security.spec.MGF1ParameterSpec;
 import java.security.spec.PSSParameterSpec;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -31,10 +33,6 @@ import static net.luminis.tls.TlsConstants.SignatureScheme.rsa_pss_rsae_sha256;
 public class TlsClientEngine implements TrafficSecrets {
 
     private static final Charset ISO_8859_1 = Charset.forName("ISO-8859-1");
-    private List<TlsConstants.SignatureScheme> supportedSignatures;
-    private X509Certificate serverCertificate;
-    private List<X509Certificate> serverCertificateChain;
-    private X509TrustManager customTrustManager;
 
     enum Status {
         Initial,
@@ -57,12 +55,20 @@ public class TlsClientEngine implements TrafficSecrets {
     private Status status = Status.Initial;
     private ClientHello clientHello;
     private TlsState state;
+    private List<TlsConstants.SignatureScheme> supportedSignatures;
+    private X509Certificate serverCertificate;
+    private List<X509Certificate> serverCertificateChain;
+    private X509TrustManager customTrustManager;
     private NewSessionTicket newSessionTicket;
+
+    private HostnameVerifier hostnameVerifier;
+
 
     public TlsClientEngine(ClientMessageSender clientMessageSender) {
         sender = clientMessageSender;
         supportedCiphers = new ArrayList<>();
         extensions = new ArrayList<>();
+        hostnameVerifier = new DefaultHostnameVerifier();
     }
 
     public void startHandshake() throws IOException {
@@ -241,6 +247,9 @@ public class TlsClientEngine implements TrafficSecrets {
 
         // Now the certificate signature has been validated, check the certificate validity
         checkCertificateValidity(serverCertificateChain);
+        if (!hostnameVerifier.verify(serverName, serverCertificate)) {
+            throw new CertificateUnknownAlert("servername does not match");
+        }
 
         state.setCertificateVerify(certificateVerifyMessage.getBytes());
         status = Status.CertificateVerifyReceived;
@@ -423,6 +432,13 @@ public class TlsClientEngine implements TrafficSecrets {
             throw new IllegalStateException("Traffic secret not yet available");
         }
     }
+
+    public void setHostnameVerifier(HostnameVerifier hostnameVerifier) {
+        if (hostnameVerifier != null) {
+            this.hostnameVerifier = hostnameVerifier;
+        }
+    }
+
 
 
     // TODO: remove this
