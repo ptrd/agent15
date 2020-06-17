@@ -28,6 +28,11 @@ public class EncryptedExtensions extends HandshakeMessage {
         serialize();
     }
 
+    @Override
+    TlsConstants.HandshakeType getType() {
+        return TlsConstants.HandshakeType.encrypted_extensions;
+    }
+
     private void serialize() {
         List<byte[]> extensionBytes = extensions.stream().map(extension -> extension.getBytes()).collect(Collectors.toList());
         int extensionsSize = extensionBytes.stream().mapToInt(data -> data.length).sum();

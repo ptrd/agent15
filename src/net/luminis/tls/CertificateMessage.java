@@ -37,6 +37,11 @@ public class CertificateMessage extends HandshakeMessage {
     public CertificateMessage() {
     }
 
+    @Override
+    TlsConstants.HandshakeType getType() {
+        return TlsConstants.HandshakeType.certificate;
+    }
+
     public CertificateMessage parse(ByteBuffer buffer) throws DecodeErrorException, BadCertificateAlert {
         int startPosition = buffer.position();
         int remainingLength = parseHandshakeHeader(buffer, TlsConstants.HandshakeType.certificate, MINIMUM_MESSAGE_SIZE);

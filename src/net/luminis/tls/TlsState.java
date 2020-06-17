@@ -21,6 +21,8 @@ public class TlsState {
     private static final Charset ISO_8859_1 = Charset.forName("ISO-8859-1");
     private static byte[] P256_HEAD = Base64.getDecoder().decode("MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE");
 
+    private static String labelPrefix = "tls13 ";
+
     enum Status {
         keyExchangeClient,
         keyExchangeServer,
@@ -40,7 +42,6 @@ public class TlsState {
     private final short hashLength = 32;  // Assuming SHA-256, use 48 for SHA-384
     private final short iv_length = 12;
     private Status status;
-    private String labelPrefix;
     private boolean pskSelected;
     private byte[] serverHello;
     private PublicKey serverSharedKey;
@@ -74,14 +75,11 @@ public class TlsState {
     private byte[] clientIv;
     private int serverRecordCount = 0;
     private int clientRecordCount = 0;
+    private TranscriptHash transcriptHash = new TranscriptHash(hashLength);
 
-    public TlsState(byte[] psk) {
-        this("tls13 ", psk);
-    }
-
-    public TlsState(String alternativeLabelPrefix, byte[] psk) {
-        labelPrefix = alternativeLabelPrefix;
+    public TlsState(TranscriptHash transcriptHash, byte[] psk) {
         this.psk = psk;
+        this.transcriptHash = transcriptHash;
 
         // https://tools.ietf.org/html/rfc8446#section-7.1
         // "The Hash function used by Transcript-Hash and HKDF is the cipher suite hash algorithm."
@@ -106,8 +104,8 @@ public class TlsState {
         computeEarlySecret(psk);
     }
 
-    public TlsState() {
-        this("tls13 ", null);
+    public TlsState(TranscriptHash transcriptHash) {
+        this(transcriptHash, null);
     }
 
     private byte[] computeEarlySecret(byte[] ikm) {
@@ -119,29 +117,6 @@ public class TlsState {
         Logger.debug("Binder key: " + bytesToHex(binderKey));
 
         return earlySecret;
-    }
-
-    private byte[] computeClientHelloMessageHash(byte[] clientHello) {
-        ByteBuffer helloData = ByteBuffer.allocate(clientHello.length);
-        helloData.put(clientHello, 0, clientHello.length);
-
-        hashFunction.reset();
-        byte[] helloHash = hashFunction.digest(helloData.array());
-
-        Logger.debug("Hello hash: " + bytesToHex(helloHash));
-        return helloHash;
-    }
-
-    private byte[] computeHandshakeMessagesHash(byte[] clientHello, byte[] serverHello) {
-        ByteBuffer helloData = ByteBuffer.allocate(clientHello.length + serverHello.length);
-        helloData.put(clientHello, 0, clientHello.length);
-        helloData.put(serverHello, 0, serverHello.length);
-
-        hashFunction.reset();
-        byte[] helloHash = hashFunction.digest(helloData.array());
-
-        Logger.debug("Hello hash: " + bytesToHex(helloHash));
-        return helloHash;
     }
 
     protected byte[] computeHandshakeFinishedHmac(boolean withClientFinished) {
@@ -444,7 +419,8 @@ public class TlsState {
     public void clientHelloSend(PrivateKey clientPrivateKey, byte[] sentClientHello) {
         this.clientPrivateKey = clientPrivateKey;
         clientHello = sentClientHello;
-        computeEarlyTrafficSecret(computeClientHelloMessageHash(sentClientHello));
+        byte[] clientHelloHash = transcriptHash.getHash(TlsConstants.HandshakeType.client_hello);
+        computeEarlyTrafficSecret(clientHelloHash);
     }
 
     public void setPskSelected(int selectedIdentity) {
@@ -464,7 +440,7 @@ public class TlsState {
     public void serverHelloReceived(byte[] serverHello) {
         this.serverHello = serverHello;
 
-        byte[] handshakeHash = computeHandshakeMessagesHash(clientHello, serverHello);
+        byte[] handshakeHash = transcriptHash.getHash(TlsConstants.HandshakeType.server_hello);
 
         byte[] sharedSecret = computeSharedSecret(serverSharedKey);
 
@@ -477,13 +453,7 @@ public class TlsState {
 
     public void setCertificate(byte[] raw) {
         certificateMessage = raw;
-
-        hashFunction.reset();
-        hashFunction.update(clientHello);
-        hashFunction.update(serverHello);
-        hashFunction.update(encryptedExtensionsMessage);
-        hashFunction.update(this.certificateMessage);
-        handshakeServerCertificateHash = hashFunction.digest();
+        handshakeServerCertificateHash = transcriptHash.getHash(TlsConstants.HandshakeType.certificate);
     }
 
     public byte[] getHandshakeServerCertificateHash() {

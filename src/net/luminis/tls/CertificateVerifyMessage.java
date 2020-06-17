@@ -25,6 +25,11 @@ public class CertificateVerifyMessage extends HandshakeMessage {
     public CertificateVerifyMessage() {
     }
 
+    @Override
+    TlsConstants.HandshakeType getType() {
+        return TlsConstants.HandshakeType.certificate_verify;
+    }
+
     public CertificateVerifyMessage parse(ByteBuffer buffer, int length) throws TlsProtocolException {
         int startPosition = buffer.position();
         int remainingLength = parseHandshakeHeader(buffer, TlsConstants.HandshakeType.certificate_verify, MINIMUM_MESSAGE_SIZE);

@@ -61,6 +61,11 @@ public class ServerHello extends HandshakeMessage {
         extensions.stream().forEach(extension -> buffer.put(extension.getBytes()));
     }
 
+    @Override
+    TlsConstants.HandshakeType getType() {
+        return TlsConstants.HandshakeType.server_hello;
+    }
+
     public ServerHello parse(ByteBuffer buffer, int length) throws TlsProtocolException {
         if (buffer.remaining() < MINIMAL_MESSAGE_LENGTH) {
             throw new DecodeErrorException("Message too short");

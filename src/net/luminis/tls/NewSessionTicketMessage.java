@@ -44,6 +44,11 @@ public class NewSessionTicketMessage extends HandshakeMessage {
     }
 
     @Override
+    TlsConstants.HandshakeType getType() {
+        return TlsConstants.HandshakeType.new_session_ticket;
+    }
+
+    @Override
     public byte[] getBytes() {
         return new byte[0];
     }

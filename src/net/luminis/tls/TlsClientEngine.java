@@ -21,10 +21,7 @@ import java.security.interfaces.ECPublicKey;
 import java.security.spec.ECGenParameterSpec;
 import java.security.spec.MGF1ParameterSpec;
 import java.security.spec.PSSParameterSpec;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import static net.luminis.tls.TlsConstants.SignatureScheme.rsa_pss_rsae_sha256;
@@ -55,6 +52,7 @@ public class TlsClientEngine implements TrafficSecrets {
     private Status status = Status.Initial;
     private ClientHello clientHello;
     private TlsState state;
+    private TranscriptHash transcriptHash;
     private List<TlsConstants.SignatureScheme> supportedSignatures;
     private X509Certificate serverCertificate;
     private List<X509Certificate> serverCertificateChain;
@@ -83,7 +81,7 @@ public class TlsClientEngine implements TrafficSecrets {
         }
 
         if (newSessionTicket != null) {
-            TlsState tlsState = new TlsState(newSessionTicket.getPSK());
+            TlsState tlsState = new TlsState(transcriptHash, newSessionTicket.getPSK());
             extensions.add(new ClientHelloPreSharedKeyExtension(tlsState, newSessionTicket));
         }
         clientHello = new ClientHello(serverName, publicKey, compatibilityMode, supportedCiphers, supportedSignatures, extensions);
@@ -152,8 +150,10 @@ public class TlsClientEngine implements TrafficSecrets {
         }
         selectedCipher = serverHello.getCipherSuite();
 
-        state = (newSessionTicket == null)? new TlsState(): new TlsState(newSessionTicket.psk);
+        transcriptHash = new TranscriptHash(32);
+        state = (newSessionTicket == null)? new TlsState(transcriptHash): new TlsState(transcriptHash, newSessionTicket.psk);
 
+        transcriptHash.record(clientHello);
         state.clientHelloSend(privateKey, clientHello.getBytes());
         if (preSharedKey.isPresent()) {
             state.setPskSelected(((ServerPreSharedKeyExtension) preSharedKey.get()).getSelectedIdentity());
@@ -162,6 +162,7 @@ public class TlsClientEngine implements TrafficSecrets {
         if (keyShare.isPresent()) {
             state.setServerSharedKey(keyShare.get().getKey());
         }
+        transcriptHash.record(serverHello);
         state.serverHelloReceived(serverHello.getBytes());
         status = Status.ServerHelloReceived;
     }
@@ -194,6 +195,7 @@ public class TlsClientEngine implements TrafficSecrets {
             throw new UnsupportedExtensionAlert("duplicate extensions not allowed");
         }
 
+        transcriptHash.record(encryptedExtensions);
         state.encryptedExtensionsReceived(encryptedExtensions.getBytes());
         status = Status.EncryptedExtensionsReceived;
     }
@@ -219,6 +221,7 @@ public class TlsClientEngine implements TrafficSecrets {
 
         serverCertificate = certificateMessage.getEndEntityCertificate();
         serverCertificateChain = certificateMessage.getCertificateChain();
+        transcriptHash.record(certificateMessage);
         state.setCertificate(certificateMessage.getBytes());
         status = Status.CertificateReceived;
     }
@@ -240,8 +243,7 @@ public class TlsClientEngine implements TrafficSecrets {
         }
 
         byte[] signature = certificateVerifyMessage.getSignature();
-        byte[] transcriptHash = state.getHandshakeServerCertificateHash();
-        if (!verifySignature(signature, signatureScheme, serverCertificate, transcriptHash)) {
+        if (!verifySignature(signature, signatureScheme, serverCertificate, state.getHandshakeServerCertificateHash())) {
             throw new DecryptErrorAlert("signature verification fails");
         }
 
@@ -251,6 +253,7 @@ public class TlsClientEngine implements TrafficSecrets {
             throw new CertificateUnknownAlert("servername does not match");
         }
 
+        transcriptHash.record(certificateVerifyMessage);
         state.setCertificateVerify(certificateVerifyMessage.getBytes());
         status = Status.CertificateVerifyReceived;
     }

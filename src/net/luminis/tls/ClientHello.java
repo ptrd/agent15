@@ -178,6 +178,11 @@ public class ClientHello extends HandshakeMessage {
     }
 
     @Override
+    TlsConstants.HandshakeType getType() {
+        return TlsConstants.HandshakeType.client_hello;
+    }
+
+    @Override
     public byte[] getBytes() {
         return data;
     }

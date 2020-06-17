@@ -29,6 +29,11 @@ public class FinishedMessage extends HandshakeMessage {
         state.setClientFinished(data);
     }
 
+    @Override
+    TlsConstants.HandshakeType getType() {
+        return TlsConstants.HandshakeType.finished;
+    }
+
     public FinishedMessage parse(ByteBuffer buffer, int length, TlsState state) {
         Logger.debug("Got Finished message (" + length + " bytes)");
 

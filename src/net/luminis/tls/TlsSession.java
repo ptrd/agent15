@@ -52,7 +52,7 @@ public class TlsSession implements ClientMessageSender {
         this.input = new PushbackInputStream(input, 16);
         this.output = output;
 
-        state = new TlsState();
+        state = new TlsState(null);
         state.clientHelloSend(clientPrivateKey, sentClientHello);
         parseServerMessages(tlsClientEngine);
 
