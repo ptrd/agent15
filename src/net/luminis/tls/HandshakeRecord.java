@@ -79,7 +79,8 @@ public class HandshakeRecord {
             tlsClientEngine.received((CertificateVerifyMessage) msg);
         }
         else if (messageType == finished.value) {
-            msg = new FinishedMessage().parse(buffer, length + 4, state);
+            msg = new FinishedMessage().parse(buffer, length + 4);
+            tlsClientEngine.received((FinishedMessage) msg);
         }
         else if (messageType == new_session_ticket.value) {
             msg = new NewSessionTicketMessage().parse(buffer, length + 4, state);

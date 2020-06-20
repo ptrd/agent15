@@ -5,7 +5,8 @@ import net.luminis.tls.extension.Extension;
 import net.luminis.tls.extension.KeyShareExtension;
 import net.luminis.tls.extension.SupportedVersionsExtension;
 
-import javax.net.ssl.TrustManager;
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
 import javax.net.ssl.TrustManagerFactory;
 import javax.net.ssl.X509TrustManager;
 import java.io.IOException;
@@ -14,7 +15,6 @@ import java.nio.charset.Charset;
 import java.security.*;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateException;
-import java.security.cert.CertificateParsingException;
 import java.security.cert.X509Certificate;
 import java.security.interfaces.ECPrivateKey;
 import java.security.interfaces.ECPublicKey;
@@ -58,9 +58,8 @@ public class TlsClientEngine implements TrafficSecrets {
     private List<X509Certificate> serverCertificateChain;
     private X509TrustManager customTrustManager;
     private NewSessionTicket newSessionTicket;
-
     private HostnameVerifier hostnameVerifier;
-
+    private boolean pskAccepted = false;
 
     public TlsClientEngine(ClientMessageSender clientMessageSender) {
         sender = clientMessageSender;
@@ -141,6 +140,13 @@ public class TlsClientEngine implements TrafficSecrets {
         // or both (when using a PSK with (EC)DHE key establishment)."
         if (keyShare.isEmpty() && preSharedKey.isEmpty()) {
             throw new MissingExtensionAlert(" either the pre_shared_key extension or the key_share extension must be present");
+        }
+
+        if (preSharedKey.isPresent()) {
+            // https://tools.ietf.org/html/rfc8446#section-4.2.11
+            // "In order to accept PSK key establishment, the server sends a "pre_shared_key" extension indicating the selected identity."
+            pskAccepted = true;
+            System.out.println("JOH! PSK accepted!");
         }
 
         if (! supportedCiphers.contains(serverHello.getCipherSuite())) {
@@ -258,6 +264,37 @@ public class TlsClientEngine implements TrafficSecrets {
         status = Status.CertificateVerifyReceived;
     }
 
+    public void received(FinishedMessage finishedMessage) throws DecryptErrorAlert, UnexpectedMessageAlert {
+        Status expectedStatus;
+        if (pskAccepted) {
+            expectedStatus = Status.EncryptedExtensionsReceived;
+        }
+        else {
+            expectedStatus = Status.CertificateVerifyReceived;
+        }
+        if (status != expectedStatus) {
+            throw new UnexpectedMessageAlert("unexpected finished message");
+        }
+
+        transcriptHash.recordServer(finishedMessage);
+        state.setServerFinished(finishedMessage.getBytes());
+
+        // https://tools.ietf.org/html/rfc8446#section-4.4
+        // "   | Mode      | Handshake Context       | Base Key                    |
+        //     +-----------+-------------------------+-----------------------------+
+        //     | Server    | ClientHello ... later   | server_handshake_traffic_   |
+        //     |           | of EncryptedExtensions/ | secret                      |
+        //     |           | CertificateRequest      |                             |"
+        byte[] hmac = computeCertificateVerifyHmac(TlsConstants.HandshakeType.certificate_verify, state.getServerHandshakeTrafficSecret());
+        // https://tools.ietf.org/html/rfc8446#section-4.4
+        // "Recipients of Finished messages MUST verify that the contents are correct and if incorrect MUST terminate the connection with a "decrypt_error" alert."
+        if (!Arrays.equals(finishedMessage.getVerifyData(), hmac)) {
+            throw new DecryptErrorAlert("incorrect finished message");
+        }
+    }
+
+
+
 
     private void generateKeys() {
         try {
@@ -351,6 +388,26 @@ public class TlsClientEngine implements TrafficSecrets {
         } catch (CertificateException e) {
             Logger.debug("Certificate verification failed: " + e.getMessage());
             throw new BadCertificateAlert("certificate validation failed");
+        }
+    }
+
+    // https://tools.ietf.org/html/rfc8446#section-4.4.4
+    protected byte[] computeCertificateVerifyHmac(TlsConstants.HandshakeType handshakeContext, byte[] baseKey) {
+        short hashLength = state.getHashLength();
+        byte[] finishedKey = state.hkdfExpandLabel(baseKey, "finished", "", hashLength);
+        String macAlgorithmName = "HmacSHA" + (hashLength * 8);
+        SecretKeySpec hmacKey = new SecretKeySpec(finishedKey, macAlgorithmName);
+
+        try {
+            Mac hmacAlgorithm = Mac.getInstance(macAlgorithmName);
+            hmacAlgorithm.init(hmacKey);
+            hmacAlgorithm.update(transcriptHash.getHash(handshakeContext));
+            byte[] hmac = hmacAlgorithm.doFinal();
+            return hmac;
+        } catch (NoSuchAlgorithmException e) {
+            throw new RuntimeException("Missing " + macAlgorithmName + " support");
+        } catch (InvalidKeyException e) {
+            throw new RuntimeException();
         }
     }
 

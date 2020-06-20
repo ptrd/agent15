@@ -4,7 +4,13 @@ import java.nio.ByteBuffer;
 
 public class FinishedMessage extends HandshakeMessage {
 
-    private byte[] data;
+    private byte[] verifyData;
+    private byte[] raw;
+
+    public FinishedMessage(byte[] hmac) {
+        verifyData = hmac;
+        serialize();
+    }
 
     public FinishedMessage() {
     }
@@ -23,10 +29,10 @@ public class FinishedMessage extends HandshakeMessage {
         buffer.putShort((short) remainingLength);
 
         buffer.put(hmac);
-        data = buffer.array();
+        raw = buffer.array();
 
         // Make the client finished message available for computing the transcript hash
-        state.setClientFinished(data);
+        state.setClientFinished(raw);   // TODO: remove
     }
 
     @Override
@@ -34,19 +40,33 @@ public class FinishedMessage extends HandshakeMessage {
         return TlsConstants.HandshakeType.finished;
     }
 
-    public FinishedMessage parse(ByteBuffer buffer, int length, TlsState state) {
+    public FinishedMessage parse(ByteBuffer buffer, int length) throws DecodeErrorException {
         Logger.debug("Got Finished message (" + length + " bytes)");
+        buffer.mark();
+        int remainingLength = parseHandshakeHeader(buffer, TlsConstants.HandshakeType.finished, 4 + 32);
+        verifyData = new byte[remainingLength];
+        buffer.get(verifyData);
 
-        // Update state.
-        byte[] raw = new byte[length];
+        buffer.reset();
+        raw = new byte[length];
         buffer.get(raw);
-        state.setServerFinished(raw);
 
         return this;
     }
 
+    private void serialize() {
+        ByteBuffer buffer = ByteBuffer.allocate(4 + verifyData.length);
+        buffer.putInt((TlsConstants.HandshakeType.finished.value << 24) | verifyData.length);
+        buffer.put(verifyData);
+        raw = buffer.array();
+    }
+
     @Override
     public byte[] getBytes() {
-        return data;
+        return raw;
+    }
+
+    public byte[] getVerifyData() {
+        return verifyData;
     }
 }

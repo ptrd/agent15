@@ -20,6 +20,7 @@ public class CertificateVerifyMessage extends HandshakeMessage {
     public CertificateVerifyMessage(TlsConstants.SignatureScheme signatureScheme, byte[] signature) {
         this.signatureScheme = signatureScheme;
         this.signature = signature;
+        serialize();
     }
 
     public CertificateVerifyMessage() {
@@ -48,7 +49,6 @@ public class CertificateVerifyMessage extends HandshakeMessage {
                 throw new DecodeErrorException("Incorrect message length");
             }
 
-            // Update state.
             raw = new byte[length];
             buffer.position(startPosition);
             buffer.get(raw);
@@ -63,6 +63,16 @@ public class CertificateVerifyMessage extends HandshakeMessage {
     @Override
     public byte[] getBytes() {
         return raw;
+    }
+
+    private void serialize() {
+        int signatureLength = signature.length;
+        ByteBuffer buffer = ByteBuffer.allocate(4 + 2 + 2 + signatureLength);
+        buffer.putInt((TlsConstants.HandshakeType.certificate_verify.value << 24) | (2 + 2 + signatureLength));
+        buffer.putShort(signatureScheme.value);
+        buffer.putShort((short) signatureLength);
+        buffer.put(signature);
+        raw = buffer.array();
     }
 
     public TlsConstants.SignatureScheme getSignatureScheme() {

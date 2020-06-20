@@ -30,8 +30,7 @@ import java.util.List;
 import static net.luminis.tls.TlsConstants.CipherSuite.*;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 class TlsClientEngineTest {
 
@@ -396,18 +395,93 @@ class TlsClientEngineTest {
 
     }
 
-    private void handshakeUpToCertificate() throws Exception {
-        handshakeUpToCertificate(List.of(TlsConstants.SignatureScheme.rsa_pss_rsae_sha256));
+    @Test
+    void finisedMessageShouldNotBeReceivedBeforeCertificateVerify() throws Exception {
+        // Given
+        handshakeUpToCertificate();
+        engine.received(new CertificateMessage((X509Certificate) CertificateUtils.inflateCertificate(encodedCertificate)));
+
+        // When, no Certificate Verify Message received
+        // Then
+        assertThatThrownBy(() ->
+                engine.received(new FinishedMessage(new byte[256]))
+        ).isInstanceOf(UnexpectedMessageAlert.class);
     }
 
-    private void handshakeUpToCertificate(List<TlsConstants.SignatureScheme> signatureSchemes) throws Exception {
+    @Test
+    void withPskAcceptedFinisedMessageShouldFollowEncryptedExentions() throws Exception {
+        // Given
+        handshakeUpToCertificate();
+        FieldSetter.setField(engine, engine.getClass().getDeclaredField("pskAccepted"), true);
+
+        assertThatThrownBy(() ->
+                // When
+                engine.received(new FinishedMessage(new byte[256])))
+                // Then
+        .isInstanceOf(DecryptErrorAlert.class);  // And not UnexpectedMessageAlert
+    }
+
+    @Test
+    void withPskAcceptedFinisedMessageShouldNotBeReceivedBeforeEncryptedExentions() throws Exception {
+        // Given
+        handshakeUpToEncryptedExtensions();
+        FieldSetter.setField(engine, engine.getClass().getDeclaredField("pskAccepted"), true);
+
+        assertThatThrownBy(() ->
+                // When
+                engine.received(new FinishedMessage(new byte[256])))
+                // Then
+        .isInstanceOf(UnexpectedMessageAlert.class);
+    }
+
+    @Test
+    void incorrectServerFinishedShouldAbortTls() throws Exception {
+        handshakeUpToFinished();
+        when(engine.getState().getServerHandshakeTrafficSecret()).thenReturn(new byte[32]);
+        when(engine.getState().getHashLength()).thenReturn((short) 32);
+
+        FinishedMessage finishedMessage = new FinishedMessage(new byte[256]);
+
+        assertThatThrownBy(() ->
+                // When
+                engine.received(finishedMessage))
+                // Then
+        .isInstanceOf(DecryptErrorAlert.class);
+    }
+
+    private void handshakeUpToEncryptedExtensions() throws Exception {
+        handshakeUpToEncryptedExtensions(List.of(TlsConstants.SignatureScheme.rsa_pss_rsae_sha256));
+    }
+
+    private void handshakeUpToEncryptedExtensions(List<TlsConstants.SignatureScheme> signatureSchemes) throws Exception {
         engine.startHandshake(signatureSchemes);
 
         ServerHello serverHello = new ServerHello(TLS_AES_128_GCM_SHA256, List.of(
                 new SupportedVersionsExtension(TlsConstants.HandshakeType.server_hello),
                 new KeyShareExtension(publicKey, TlsConstants.NamedGroup.secp256r1, TlsConstants.HandshakeType.server_hello)));
         engine.received(serverHello);
+    }
+
+    private void handshakeUpToCertificate() throws Exception {
+        handshakeUpToCertificate(List.of(TlsConstants.SignatureScheme.rsa_pss_rsae_sha256));
+    }
+
+    private void handshakeUpToCertificate(List<TlsConstants.SignatureScheme> signatureSchemes) throws Exception {
+        handshakeUpToEncryptedExtensions(signatureSchemes);
         engine.received(new EncryptedExtensions());
+    }
+
+    private void handshakeUpToFinished() throws Exception {
+        handshakeUpToCertificate(List.of(TlsConstants.SignatureScheme.rsa_pss_rsae_sha256));
+        TlsState state = spy(engine.getState());
+        when(state.getHandshakeServerCertificateHash()).thenReturn(ByteUtils.hexToBytes("0101010101010101010101010101010101010101010101010101010101010101"));
+        FieldSetter.setField(engine, engine.getClass().getDeclaredField("state"), state);
+        X509Certificate certificate = CertificateUtils.inflateCertificate(encodedCertificate);
+        byte[] validSignature = createServerSignature();
+        engine.setTrustManager(createNoOpTrustManager());
+        engine.setHostnameVerifier(createNoOpHostnameVerifier());
+        engine.received(new CertificateMessage(certificate));
+        engine.received(new CertificateVerifyMessage(TlsConstants.SignatureScheme.rsa_pss_rsae_sha256, validSignature));
     }
 
     private byte[] createServerSignature() throws Exception {

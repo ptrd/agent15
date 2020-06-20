@@ -58,4 +58,15 @@ class CertificateVerifyMessageTest {
                 msg.parse(ByteBuffer.wrap(rawData), 0)
         ).isInstanceOf(DecodeErrorException.class);
     }
+
+    @Test
+    void testSerialize() throws Exception {
+        byte[] signature = new byte[256];
+
+        CertificateVerifyMessage msg = new CertificateVerifyMessage(rsa_pss_rsae_sha256, signature);
+        byte[] data = msg.getBytes();
+
+        CertificateVerifyMessage parsedMsg = msg.parse(ByteBuffer.wrap(data), data.length);
+        assertThat(parsedMsg.getSignature()).isEqualTo(signature);
+    }
 }

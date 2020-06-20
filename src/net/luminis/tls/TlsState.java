@@ -396,6 +396,10 @@ public class TlsState {
         }
     }
 
+    public short getHashLength() {
+        return hashLength;
+    }
+
     public byte[] getClientEarlyTrafficSecret() {
         return clientEarlyTrafficSecret;
     }
