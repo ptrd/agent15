@@ -55,7 +55,7 @@ public class HandshakeRecord {
         return this;
     }
 
-    public static HandshakeMessage parseHandshakeMessage(ByteBuffer buffer, TlsState state, TlsClientEngine tlsClientEngine) throws TlsProtocolException {
+    public static HandshakeMessage parseHandshakeMessage(ByteBuffer buffer, TlsState state, TlsClientEngine tlsClientEngine) throws TlsProtocolException, IOException {
         buffer.mark();
         int messageType = buffer.get();
         int length = ((buffer.get() & 0xff) << 16) | ((buffer.get() & 0xff) << 8) | (buffer.get() & 0xff);

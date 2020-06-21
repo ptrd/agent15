@@ -233,7 +233,7 @@ public class TlsState {
     }
 
     public void computeApplicationSecrets() {
-        computeApplicationSecrets(handshakeSecret, handshakeServerFinishedHash);
+        computeApplicationSecrets(handshakeSecret, transcriptHash.getServerHash(TlsConstants.HandshakeType.finished));
         // Reset record counters
         serverRecordCount = 0;
         clientRecordCount = 0;

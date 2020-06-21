@@ -87,7 +87,7 @@ public class ApplicationData {
         return this;
     }
 
-    private void parseMessage(byte[] message, TlsState state, TlsClientEngine tlsClientEngine) throws TlsProtocolException {
+    private void parseMessage(byte[] message, TlsState state, TlsClientEngine tlsClientEngine) throws TlsProtocolException, IOException {
         int lastByte = message[message.length-1];
         if (lastByte == TlsConstants.ContentType.handshake.value) {
             Logger.debug("Decrypted Application Data content is Handshake record.");

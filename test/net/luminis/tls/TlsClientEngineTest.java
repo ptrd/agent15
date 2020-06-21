@@ -36,11 +36,13 @@ class TlsClientEngineTest {
 
     private TlsClientEngine engine;
     private ECPublicKey publicKey;
+    private ClientMessageSender messageSender;
 
 
     @BeforeEach
     private void initObjectUnderTest() {
-        engine = new TlsClientEngine(mock(ClientMessageSender.class));
+        messageSender = mock(ClientMessageSender.class);
+        engine = new TlsClientEngine(messageSender);
         engine.setServerName("server");
         engine.addSupportedCiphers(List.of(TLS_AES_128_GCM_SHA256));
 
@@ -449,6 +451,22 @@ class TlsClientEngineTest {
         .isInstanceOf(DecryptErrorAlert.class);
     }
 
+    @Test
+    void engineShouldSendClientFinishedWhenHandshakeDone() throws Exception {
+        handshakeUpToFinished();
+
+        when(engine.getState().getServerHandshakeTrafficSecret()).thenReturn(new byte[32]);
+        when(engine.getState().getHashLength()).thenReturn((short) 32);
+
+        FinishedMessage finishedMessage = new FinishedMessage(new byte[32]);
+        TlsClientEngine stubbedEngine = spy(engine);
+        doReturn(new byte[32]).when(stubbedEngine).computeHmac(any(), any());
+        stubbedEngine.received(finishedMessage);
+
+        verify(messageSender).send(any(FinishedMessage.class));
+    }
+
+
     private void handshakeUpToEncryptedExtensions() throws Exception {
         handshakeUpToEncryptedExtensions(List.of(TlsConstants.SignatureScheme.rsa_pss_rsae_sha256));
     }
@@ -460,6 +478,7 @@ class TlsClientEngineTest {
                 new SupportedVersionsExtension(TlsConstants.HandshakeType.server_hello),
                 new KeyShareExtension(publicKey, TlsConstants.NamedGroup.secp256r1, TlsConstants.HandshakeType.server_hello)));
         engine.received(serverHello);
+        clearInvocations(messageSender);
     }
 
     private void handshakeUpToCertificate() throws Exception {

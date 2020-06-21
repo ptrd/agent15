@@ -39,9 +39,6 @@ public class TlsSession implements ClientMessageSender {
         parseServerMessages(tlsClientEngine);
         state = tlsClientEngine.getState();
 
-        sendChangeCipherSpec(output);
-        sendClientFinished(output);
-
         state.computeApplicationSecrets();
     }
 
@@ -56,13 +53,11 @@ public class TlsSession implements ClientMessageSender {
         state.clientHelloSend(clientPrivateKey, sentClientHello);
         parseServerMessages(tlsClientEngine);
 
-        sendChangeCipherSpec(output);
-        sendClientFinished(output);
-
         state.computeApplicationSecrets();
         sendApplicationData("GET / HTTP/1.1\r\n\r\n".getBytes());
     }
 
+    @Override
     public void send(ClientHello clientHello) throws IOException {
         HandshakeRecord handshakeRecord = new HandshakeRecord(clientHello);
         output.write(handshakeRecord.getBytes());
@@ -71,19 +66,12 @@ public class TlsSession implements ClientMessageSender {
         Logger.debug("Sent Client Hello: " + ByteUtils.bytesToHex(clientHello.getBytes()));
     }
 
-    private void sendChangeCipherSpec(OutputStream output) throws IOException {
-        byte[] changeCipherSpec = new byte[] {
-                0x14, 0x03, 0x03, 0x00, 0x01, 0x01
-        };
-        output.write(changeCipherSpec);
-        output.flush();
-        Logger.debug("Sent (legacy) Change Cipher Spec: " + ByteUtils.bytesToHex(changeCipherSpec));
-    }
-
-    private void sendClientFinished(OutputStream output) throws IOException {
-        ApplicationData applicationDataRecord = new ApplicationData(new FinishedMessage(state), state);
+    @Override
+    public void send(FinishedMessage finishedMessage) throws IOException {
+        ApplicationData applicationDataRecord = new ApplicationData(finishedMessage, state);
         output.write(applicationDataRecord.getBytes());
         output.flush();
+
         Logger.debug("Sent Finished: " + ByteUtils.bytesToHex(applicationDataRecord.getBytes()));
         Logger.debug("Handshake done!");
     }

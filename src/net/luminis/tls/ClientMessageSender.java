@@ -6,4 +6,6 @@ public interface ClientMessageSender {
 
     void send(ClientHello sh) throws IOException;
 
+    void send(FinishedMessage fm) throws IOException;
+
 }
