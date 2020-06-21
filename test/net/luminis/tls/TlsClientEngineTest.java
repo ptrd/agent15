@@ -7,13 +7,12 @@ import net.luminis.tls.extension.ServerNameExtension;
 import net.luminis.tls.extension.SupportedVersionsExtension;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.internal.util.reflection.FieldReader;
 import org.mockito.internal.util.reflection.FieldSetter;
 
 import javax.net.ssl.X509TrustManager;
-import java.io.ByteArrayInputStream;
 import java.security.*;
 import java.security.cert.Certificate;
-import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.security.interfaces.ECKey;
 import java.security.interfaces.ECPrivateKey;
@@ -285,15 +284,12 @@ class TlsClientEngineTest {
     void validSignatureShouldPassValidation() throws Exception {
         // Given
         engine.setHostnameVerifier(createNoOpHostnameVerifier());
-        TlsState state = mock(TlsState.class);
-        when(state.getHandshakeServerCertificateHash()).thenReturn(ByteUtils.hexToBytes("0101010101010101010101010101010101010101010101010101010101010101"));
-        Certificate certificate = CertificateUtils.inflateCertificate(encodedCertificate);
         engine.setTrustManager(createNoOpTrustManager());
         byte[] validSignature = createServerSignature();
 
         handshakeUpToCertificate();
-        FieldSetter.setField(engine, engine.getClass().getDeclaredField("state"), state);
-        engine.received(new CertificateMessage((X509Certificate) certificate));
+
+        engine.received(new CertificateMessage(CertificateUtils.inflateCertificate(encodedCertificate)));
 
         // When
         engine.received(new CertificateVerifyMessage(TlsConstants.SignatureScheme.rsa_pss_rsae_sha256, validSignature));
@@ -304,11 +300,8 @@ class TlsClientEngineTest {
     @Test
     void whenSignatureVerificationFailsHandshakeShouldBeTerminatedWithDecryptError() throws Exception {
         // Given
-        CertificateFactory certificateFactory = CertificateFactory.getInstance("X.509");
-        Certificate certificate = certificateFactory.generateCertificate(new ByteArrayInputStream(Base64.getDecoder().decode(encodedCertificate.getBytes())));
-
         handshakeUpToCertificate();
-        engine.received(new CertificateMessage((X509Certificate) certificate));
+        engine.received(new CertificateMessage(CertificateUtils.inflateCertificate(encodedCertificate)));
 
         assertThatThrownBy(() ->
                 // When
@@ -321,8 +314,7 @@ class TlsClientEngineTest {
     void testVerifySignature() throws Exception {
         byte[] signature = createServerSignature();
 
-        CertificateFactory certificateFactory = CertificateFactory.getInstance("X.509");
-        Certificate certificate = certificateFactory.generateCertificate(new ByteArrayInputStream(Base64.getDecoder().decode(encodedCertificate.getBytes())));
+        Certificate certificate = CertificateUtils.inflateCertificate(encodedCertificate);
 
         byte[] hash = new byte[32];
         Arrays.fill(hash, (byte) 0x01);
@@ -335,18 +327,11 @@ class TlsClientEngineTest {
     @Test
     void unknownCertificateShouldAbortTls() throws Exception {
         // Given
-        TlsState state = mock(TlsState.class);
-        when(state.getHandshakeServerCertificateHash()).thenReturn(ByteUtils.hexToBytes("0101010101010101010101010101010101010101010101010101010101010101"));
-        CertificateFactory certificateFactory = CertificateFactory.getInstance("X.509");
-        Certificate certificate = certificateFactory.generateCertificate(new ByteArrayInputStream(Base64.getDecoder().decode(encodedCertificate.getBytes())));
         byte[] validSignature = createServerSignature();
-
         handshakeUpToCertificate();
-        FieldSetter.setField(engine, engine.getClass().getDeclaredField("state"), state);
-        engine.received(new CertificateMessage((X509Certificate) certificate));
+        engine.received(new CertificateMessage(CertificateUtils.inflateCertificate(encodedCertificate)));
 
         assertThatThrownBy(() ->
-                // When
                 // When
                 engine.received(new CertificateVerifyMessage(TlsConstants.SignatureScheme.rsa_pss_rsae_sha256, validSignature)))
                 // Then
@@ -357,16 +342,12 @@ class TlsClientEngineTest {
     void certificateWithoutMatchingServerNameShouldAbortTls() throws Exception {
         // Given
         engine.setHostnameVerifier(createAlwaysRefusingVerifier());
-        TlsState state = mock(TlsState.class);
-        when(state.getHandshakeServerCertificateHash()).thenReturn(ByteUtils.hexToBytes("0101010101010101010101010101010101010101010101010101010101010101"));
-        Certificate certificate = CertificateUtils.inflateCertificate(encodedCertificate);
         engine.setTrustManager(createNoOpTrustManager());
-        byte[] validSignature = createServerSignature();
 
         handshakeUpToCertificate();
-        FieldSetter.setField(engine, engine.getClass().getDeclaredField("state"), state);
-        engine.received(new CertificateMessage((X509Certificate) certificate));
+        engine.received(new CertificateMessage(CertificateUtils.inflateCertificate(encodedCertificate)));
 
+        byte[] validSignature = createServerSignature();
         assertThatThrownBy(() ->
                 // When
                 engine.received(new CertificateVerifyMessage(TlsConstants.SignatureScheme.rsa_pss_rsae_sha256, validSignature)))
@@ -377,31 +358,25 @@ class TlsClientEngineTest {
     @Test
     void clearingHostnameVerifierDoesNotBypassDefaultVerification() throws Exception {
         // Given
-        TlsState state = mock(TlsState.class);
-        when(state.getHandshakeServerCertificateHash()).thenReturn(ByteUtils.hexToBytes("0101010101010101010101010101010101010101010101010101010101010101"));
-        Certificate certificate = CertificateUtils.inflateCertificate(encodedCertificate);
         engine.setTrustManager(createNoOpTrustManager());
         byte[] validSignature = createServerSignature();
 
-        engine.setHostnameVerifier(null);
-
         handshakeUpToCertificate();
-        FieldSetter.setField(engine, engine.getClass().getDeclaredField("state"), state);
-        engine.received(new CertificateMessage((X509Certificate) certificate));
+        engine.received(new CertificateMessage(CertificateUtils.inflateCertificate(encodedCertificate)));
 
+        // When
+        engine.setHostnameVerifier(null);
         assertThatThrownBy(() ->
-                // When
                 engine.received(new CertificateVerifyMessage(TlsConstants.SignatureScheme.rsa_pss_rsae_sha256, validSignature)))
                 // Then
                 .isInstanceOf(CertificateUnknownAlert.class);
-
     }
 
     @Test
     void finisedMessageShouldNotBeReceivedBeforeCertificateVerify() throws Exception {
         // Given
         handshakeUpToCertificate();
-        engine.received(new CertificateMessage((X509Certificate) CertificateUtils.inflateCertificate(encodedCertificate)));
+        engine.received(new CertificateMessage(CertificateUtils.inflateCertificate(encodedCertificate)));
 
         // When, no Certificate Verify Message received
         // Then
@@ -487,13 +462,17 @@ class TlsClientEngineTest {
 
     private void handshakeUpToCertificate(List<TlsConstants.SignatureScheme> signatureSchemes) throws Exception {
         handshakeUpToEncryptedExtensions(signatureSchemes);
+
+        TranscriptHash transcriptHash = (TranscriptHash) spy(new FieldReader(engine, engine.getClass().getDeclaredField("transcriptHash")).read());
+        doReturn(ByteUtils.hexToBytes("0101010101010101010101010101010101010101010101010101010101010101")).when(transcriptHash).getHash(argThat(t -> t == TlsConstants.HandshakeType.certificate));
+        FieldSetter.setField(engine, engine.getClass().getDeclaredField("transcriptHash"), transcriptHash);
+
         engine.received(new EncryptedExtensions());
     }
 
     private void handshakeUpToFinished() throws Exception {
         handshakeUpToCertificate(List.of(TlsConstants.SignatureScheme.rsa_pss_rsae_sha256));
         TlsState state = spy(engine.getState());
-        when(state.getHandshakeServerCertificateHash()).thenReturn(ByteUtils.hexToBytes("0101010101010101010101010101010101010101010101010101010101010101"));
         FieldSetter.setField(engine, engine.getClass().getDeclaredField("state"), state);
         X509Certificate certificate = CertificateUtils.inflateCertificate(encodedCertificate);
         byte[] validSignature = createServerSignature();

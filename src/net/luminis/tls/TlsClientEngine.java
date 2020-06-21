@@ -202,7 +202,6 @@ public class TlsClientEngine implements TrafficSecrets {
         }
 
         transcriptHash.record(encryptedExtensions);
-        state.encryptedExtensionsReceived(encryptedExtensions.getBytes());
         status = Status.EncryptedExtensionsReceived;
     }
 
@@ -228,7 +227,6 @@ public class TlsClientEngine implements TrafficSecrets {
         serverCertificate = certificateMessage.getEndEntityCertificate();
         serverCertificateChain = certificateMessage.getCertificateChain();
         transcriptHash.record(certificateMessage);
-        state.setCertificate(certificateMessage.getBytes());
         status = Status.CertificateReceived;
     }
 
@@ -249,7 +247,7 @@ public class TlsClientEngine implements TrafficSecrets {
         }
 
         byte[] signature = certificateVerifyMessage.getSignature();
-        if (!verifySignature(signature, signatureScheme, serverCertificate, state.getHandshakeServerCertificateHash())) {
+        if (!verifySignature(signature, signatureScheme, serverCertificate, transcriptHash.getHash(TlsConstants.HandshakeType.certificate))) {
             throw new DecryptErrorAlert("signature verification fails");
         }
 
@@ -260,7 +258,6 @@ public class TlsClientEngine implements TrafficSecrets {
         }
 
         transcriptHash.record(certificateVerifyMessage);
-        state.setCertificateVerify(certificateVerifyMessage.getBytes());
         status = Status.CertificateVerifyReceived;
     }
 
@@ -297,7 +294,6 @@ public class TlsClientEngine implements TrafficSecrets {
         sender.send(clientFinished);
 
         transcriptHash.recordClient(clientFinished);
-        state.setClientFinished(clientFinished.getBytes());
     }
 
 
