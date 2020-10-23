@@ -49,7 +49,7 @@ public class EncryptedExtensions extends HandshakeMessage {
             throw new DecodeErrorException("Message too short");
         }
 
-        buffer.mark();
+        int start = buffer.position();
         int msgLength = buffer.getInt() & 0x00ffffff;
         if (buffer.remaining() < msgLength || msgLength < 2) {
             throw new DecodeErrorException("Incorrect message length");
@@ -58,7 +58,7 @@ public class EncryptedExtensions extends HandshakeMessage {
         extensions = parseExtensions(buffer, TlsConstants.HandshakeType.server_hello);
 
         // Raw bytes are needed for computing the transcript hash
-        buffer.reset();
+        buffer.position(start);
         raw = new byte[length];
         buffer.mark();
         buffer.get(raw);
