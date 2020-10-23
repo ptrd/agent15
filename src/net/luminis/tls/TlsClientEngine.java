@@ -184,6 +184,7 @@ public class TlsClientEngine implements TrafficSecrets {
         List<Class> clientExtensionTypes = extensions.stream()
                 .map(extension -> extension.getClass()).collect(Collectors.toList());
         boolean allClientResponses = encryptedExtensions.getExtensions().stream()
+                .filter(ext -> ! (ext instanceof UnknownExtension))
                 .allMatch(ext -> clientExtensionTypes.contains(ext.getClass()));
         if (! allClientResponses) {
             // https://tools.ietf.org/html/rfc8446#section-4.2
