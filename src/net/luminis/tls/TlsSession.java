@@ -38,8 +38,6 @@ public class TlsSession implements ClientMessageSender {
 
         parseServerMessages(tlsClientEngine);
         state = tlsClientEngine.getState();
-
-        state.computeApplicationSecrets();
     }
 
     public TlsSession(byte[] sentClientHello, PrivateKey clientPrivateKey, ECPublicKey clientPublicKey, InputStream input, OutputStream output) throws IOException, TlsProtocolException {
@@ -53,7 +51,6 @@ public class TlsSession implements ClientMessageSender {
         state.clientHelloSend(clientPrivateKey, sentClientHello);
         parseServerMessages(tlsClientEngine);
 
-        state.computeApplicationSecrets();
         sendApplicationData("GET / HTTP/1.1\r\n\r\n".getBytes());
     }
 
@@ -113,13 +110,12 @@ public class TlsSession implements ClientMessageSender {
                             .findAny()
                             .stream()
                             .forEach(m -> addNewSessionTicket((NewSessionTicketMessage) m));
-
-                    if (state.isServerFinished()) {
-                        return;
-                    }
                     break;
                 default:
                     throw new RuntimeException("Record type is unknown (" + contentType + ")");
+            }
+            if (tlsClientEngine.handshakeFinished()) {
+                break;
             }
             contentType = input.read();
         }

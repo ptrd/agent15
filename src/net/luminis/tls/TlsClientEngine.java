@@ -38,6 +38,7 @@ public class TlsClientEngine implements TrafficSecrets {
         EncryptedExtensionsReceived,
         CertificateReceived,
         CertificateVerifyReceived,
+        Finished
     }
 
     private final ClientMessageSender sender;
@@ -282,18 +283,25 @@ public class TlsClientEngine implements TrafficSecrets {
         //     | Server    | ClientHello ... later   | server_handshake_traffic_   |
         //     |           | of EncryptedExtensions/ | secret                      |
         //     |           | CertificateRequest      |                             |"
-        byte[] serverHmac = computeHmac(transcriptHash.getHash(TlsConstants.HandshakeType.certificate_verify), state.getServerHandshakeTrafficSecret());
+        byte[] serverHmac = computeFinishedVerifyData(transcriptHash.getHash(TlsConstants.HandshakeType.certificate_verify), state.getServerHandshakeTrafficSecret());
         // https://tools.ietf.org/html/rfc8446#section-4.4
         // "Recipients of Finished messages MUST verify that the contents are correct and if incorrect MUST terminate the connection with a "decrypt_error" alert."
         if (!Arrays.equals(finishedMessage.getVerifyData(), serverHmac)) {
             throw new DecryptErrorAlert("incorrect finished message");
         }
 
-        byte[] clientHmac = computeHmac(transcriptHash.getServerHash(TlsConstants.HandshakeType.finished), state.getClientHandshakeTrafficSecret());
+        // https://tools.ietf.org/html/rfc8446#section-4.4
+        // "   | Mode      | Handshake Context       | Base Key                    |
+        //     | Client    | ClientHello ... later   | client_handshake_traffic_   |
+        //     |           | of server               | secret                      |
+        //     |           | Finished/EndOfEarlyData |                             |"
+        byte[] clientHmac = computeFinishedVerifyData(transcriptHash.getServerHash(TlsConstants.HandshakeType.finished), state.getClientHandshakeTrafficSecret());
         FinishedMessage clientFinished = new FinishedMessage(clientHmac);
         sender.send(clientFinished);
 
         transcriptHash.recordClient(clientFinished);
+        state.computeApplicationSecrets();
+        status = Status.Finished;
     }
 
 
@@ -395,7 +403,7 @@ public class TlsClientEngine implements TrafficSecrets {
     }
 
     // https://tools.ietf.org/html/rfc8446#section-4.4.4
-    protected byte[] computeHmac(byte[] transcriptHash, byte[] baseKey) {
+    protected byte[] computeFinishedVerifyData(byte[] transcriptHash, byte[] baseKey) {
         short hashLength = state.getHashLength();
         byte[] finishedKey = state.hkdfExpandLabel(baseKey, "finished", "", hashLength);
         String macAlgorithmName = "HmacSHA" + (hashLength * 8);
@@ -502,6 +510,9 @@ public class TlsClientEngine implements TrafficSecrets {
         }
     }
 
+    public boolean handshakeFinished() {
+        return status == Status.Finished;
+    }
 
 
     // TODO: remove this

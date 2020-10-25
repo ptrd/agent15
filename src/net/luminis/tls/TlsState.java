@@ -178,16 +178,16 @@ public class TlsState {
     }
 
     public void computeApplicationSecrets() {
-        computeApplicationSecrets(
-                handshakeSecret,
-                transcriptHash.getServerHash(TlsConstants.HandshakeType.finished),
-                transcriptHash.getClientHash(TlsConstants.HandshakeType.finished));
+        computeApplicationSecrets(handshakeSecret);
+
         // Reset record counters
         serverRecordCount = 0;
         clientRecordCount = 0;
     }
 
-    void computeApplicationSecrets(byte[] handshakeSecret, byte[] serverFinishedHash, byte[] clientFinishedHash) {
+    void computeApplicationSecrets(byte[] handshakeSecret) {
+        byte[] serverFinishedHash = transcriptHash.getServerHash(TlsConstants.HandshakeType.finished);
+        byte[] clientFinishedHash = transcriptHash.getClientHash(TlsConstants.HandshakeType.finished);
 
         byte[] derivedSecret = hkdfExpandLabel(handshakeSecret, "derived", emptyHash, hashLength);
         Logger.debug("Derived secret: " + bytesToHex(derivedSecret));
