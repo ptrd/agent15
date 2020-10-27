@@ -435,7 +435,7 @@ class TlsClientEngineTest {
 
         FinishedMessage finishedMessage = new FinishedMessage(new byte[32]);
         TlsClientEngine stubbedEngine = spy(engine);
-        doReturn(new byte[32]).when(stubbedEngine).computeHmac(any(), any());
+        doReturn(new byte[32]).when(stubbedEngine).computeFinishedVerifyData(any(), any());
         stubbedEngine.received(finishedMessage);
 
         verify(messageSender).send(any(FinishedMessage.class));

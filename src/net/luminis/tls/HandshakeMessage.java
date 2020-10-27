@@ -36,7 +36,7 @@ public abstract class HandshakeMessage extends Message {
         }
         List<Extension> extensions = new ArrayList<>();
 
-        int extensionsLength = buffer.getShort();
+        int extensionsLength = buffer.getShort() & 0xffff;
         if (buffer.remaining() < extensionsLength) {
             throw new DecodeErrorException("Extensions too short");
         }

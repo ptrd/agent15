@@ -5,42 +5,65 @@ import net.luminis.tls.extension.Extension;
 import java.nio.ByteBuffer;
 import java.util.List;
 
+// https://tools.ietf.org/html/rfc8446#section-4.6.1
 public class NewSessionTicketMessage extends HandshakeMessage {
+
+    private static final int MINIMUM_MESSAGE_SIZE = 1 + 3 + 4 + 4 + 1 + 2 + 2;
 
     private long ticketAgeAdd;
     private byte[] ticket;
     private byte[] ticketNonce;
     private int ticketLifetime;
-    // https://tools.ietf.org/html/rfc8446#section-4.6.1
     // "The sole extension currently defined for NewSessionTicket is "early_data", ..."
     private EarlyDataExtension earlyDataExtension;
 
-    public NewSessionTicketMessage parse(ByteBuffer buffer, int length, TlsState state) throws TlsProtocolException {
-        buffer.getInt();  // Skip message type and 3 bytes length
+    public NewSessionTicketMessage parse(ByteBuffer buffer, int length) throws TlsProtocolException {
+        int remainingLength = parseHandshakeHeader(buffer, TlsConstants.HandshakeType.new_session_ticket, MINIMUM_MESSAGE_SIZE);
 
-        // https://www.davidwong.fr/tls13/#section-4.6.1
+        // "ticket_lifetime: Indicates the lifetime in seconds as a 32-bit unsigned integer (...)"
         // "Servers MUST NOT use any value greater than 604800 seconds (7 days)."
         // So a signed int is large enough to hold the unsigned value.
         ticketLifetime = buffer.getInt();
+        remainingLength -= 4;
+        if (ticketLifetime > 604800 || ticketLifetime < 0) {
+            throw new IllegalParameterAlert("Invalid ticket lifetime");
+        }
+        // "ticket_age_add: A securely generated, random 32-bit value that is used to obscure the age of the ticket"
         ticketAgeAdd = buffer.getInt() & 0xffffffffL;
-        int ticketNonceSize = buffer.get() & 0xff;
-        ticketNonce = new byte[ticketNonceSize];
-        buffer.get(ticketNonce);
-        int ticketSize = buffer.getShort() & 0xffff;
-        ticket = new byte[ticketSize];
-        buffer.get(ticket);
+        remainingLength -= 4;
+        // "ticket_nonce: A per-ticket value that is unique across all tickets issued on this connection."
+        ticketNonce = parseByteVector(buffer, 1, remainingLength, "ticket nonce");
+        remainingLength -= 1 + ticketNonce.length;
+        // "ticket: The value of the ticket to be used as the PSK identity."
+        ticket = parseByteVector(buffer, 2, remainingLength, "ticket");
 
         List<Extension> extensions = EncryptedExtensions.parseExtensions(buffer, TlsConstants.HandshakeType.new_session_ticket);
         if (! extensions.isEmpty()) {
-            if (extensions.get(0) instanceof EarlyDataExtension) {
+            if (extensions.size() == 1 && extensions.get(0) instanceof EarlyDataExtension) {
                 earlyDataExtension = (EarlyDataExtension) extensions.get(0);
             } else {
-                Logger.debug("Unexpected extension type in NewSessionTicketMessage: " + extensions.get(0));
+                throw new UnsupportedExtensionAlert("Only early data extension is allowed");
             }
         }
 
-        Logger.debug("Got New Session Ticket message (" + length + " bytes)");
         return this;
+    }
+
+    private byte[] parseByteVector(ByteBuffer buffer, int lengthBytes, int remainingMessageLength, String fieldName) throws DecodeErrorException {
+        if (remainingMessageLength < lengthBytes) {
+            throw new DecodeErrorException("No length specified for " + fieldName);
+        }
+        int vectorSize = 0;
+        for (int i = 0; i < lengthBytes; i++) {
+            vectorSize = (vectorSize << 8) | buffer.get() & 0xff;
+        }
+        remainingMessageLength -= lengthBytes;
+        if (remainingMessageLength < vectorSize) {
+            throw new DecodeErrorException("Message too short for given length of " + fieldName);
+        }
+        byte[] byteVector = new byte[vectorSize];
+        buffer.get(byteVector);
+        return byteVector;
     }
 
     @Override

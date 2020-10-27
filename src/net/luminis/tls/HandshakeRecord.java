@@ -83,7 +83,7 @@ public class HandshakeRecord {
             tlsClientEngine.received((FinishedMessage) msg);
         }
         else if (messageType == new_session_ticket.value) {
-            msg = new NewSessionTicketMessage().parse(buffer, length + 4, state);
+            msg = new NewSessionTicketMessage().parse(buffer, length + 4);
         }
         else {
             throw new TlsProtocolException("Invalid/unsupported handshake message type (" + messageType + ")");
