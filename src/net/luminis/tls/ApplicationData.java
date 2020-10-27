@@ -82,18 +82,18 @@ public class ApplicationData {
         Logger.debug("Decrypted: " + ByteUtils.bytesToHex(decryptedData));
 
         // TODO: remove padding, see https://tools.ietf.org/html/rfc8446#section-5.4
-        parseMessage(decryptedData, state, tlsClientEngine);
+        parseMessage(decryptedData, tlsClientEngine);
 
         return this;
     }
 
-    private void parseMessage(byte[] message, TlsState state, TlsClientEngine tlsClientEngine) throws TlsProtocolException, IOException {
+    private void parseMessage(byte[] message, TlsClientEngine tlsClientEngine) throws TlsProtocolException, IOException {
         int lastByte = message[message.length-1];
         if (lastByte == TlsConstants.ContentType.handshake.value) {
             Logger.debug("Decrypted Application Data content is Handshake record.");
             ByteBuffer buffer = ByteBuffer.wrap(message, 0, message.length - 1);
             while (buffer.remaining() > 0) {
-                HandshakeMessage handshakeMessage = HandshakeRecord.parseHandshakeMessage(buffer, state, tlsClientEngine);
+                HandshakeMessage handshakeMessage = HandshakeRecord.parseHandshakeMessage(buffer, tlsClientEngine);
                 messages.add(handshakeMessage);
             }
         }

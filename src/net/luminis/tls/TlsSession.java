@@ -37,7 +37,7 @@ public class TlsSession implements ClientMessageSender {
         tlsClientEngine.startHandshake();
 
         parseServerMessages(tlsClientEngine);
-        state = tlsClientEngine.getState();
+        sendApplicationData("GET / HTTP/1.1\r\n\r\n".getBytes());
     }
 
     public TlsSession(byte[] sentClientHello, PrivateKey clientPrivateKey, ECPublicKey clientPublicKey, InputStream input, OutputStream output) throws IOException, TlsProtocolException {
@@ -100,7 +100,7 @@ public class TlsSession implements ClientMessageSender {
                     new AlertRecord().parse(input);
                     break;
                 case 22:
-                    new HandshakeRecord().parse(input, state, tlsClientEngine);
+                    new HandshakeRecord().parse(input, tlsClientEngine);
                     state = tlsClientEngine.getState();
                     break;
                 case 23:

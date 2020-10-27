@@ -31,7 +31,7 @@ public class HandshakeRecord {
         data = buffer.array();
     }
 
-    public HandshakeRecord parse(PushbackInputStream input, TlsState state, TlsClientEngine tlsClientEngine) throws IOException, TlsProtocolException {
+    public HandshakeRecord parse(PushbackInputStream input, TlsClientEngine tlsClientEngine) throws IOException, TlsProtocolException {
         input.read();  // type
         int versionHigh = input.read();
         int versionLow = input.read();
@@ -48,14 +48,14 @@ public class HandshakeRecord {
         ByteBuffer buffer = ByteBuffer.wrap(data);
 
         while (buffer.remaining() > 0) {
-            HandshakeMessage message = parseHandshakeMessage(buffer, state, tlsClientEngine);
+            HandshakeMessage message = parseHandshakeMessage(buffer, tlsClientEngine);
             messages.add(message);
         }
 
         return this;
     }
 
-    public static HandshakeMessage parseHandshakeMessage(ByteBuffer buffer, TlsState state, TlsClientEngine tlsClientEngine) throws TlsProtocolException, IOException {
+    public static HandshakeMessage parseHandshakeMessage(ByteBuffer buffer, TlsClientEngine tlsClientEngine) throws TlsProtocolException, IOException {
         buffer.mark();
         int messageType = buffer.get();
         int length = ((buffer.get() & 0xff) << 16) | ((buffer.get() & 0xff) << 8) | (buffer.get() & 0xff);
