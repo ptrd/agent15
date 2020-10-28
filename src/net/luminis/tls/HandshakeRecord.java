@@ -3,16 +3,12 @@ package net.luminis.tls;
 import java.io.IOException;
 import java.io.PushbackInputStream;
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
-import java.util.List;
 
 import static net.luminis.tls.TlsConstants.*;
-import static net.luminis.tls.TlsConstants.HandshakeType.*;
 
 public class HandshakeRecord {
 
     private byte[] data;
-    private List<HandshakeMessage> messages = new ArrayList<>();
 
 
     public HandshakeRecord() {
@@ -47,55 +43,16 @@ public class HandshakeRecord {
 
         ByteBuffer buffer = ByteBuffer.wrap(data);
 
+        TlsMessageParser parser = new TlsMessageParser();
         while (buffer.remaining() > 0) {
-            HandshakeMessage message = parseHandshakeMessage(buffer, tlsClientEngine);
-            messages.add(message);
+            parser.parseAndProcessHandshakeMessage(buffer, tlsClientEngine);
         }
 
         return this;
-    }
-
-    public static HandshakeMessage parseHandshakeMessage(ByteBuffer buffer, TlsClientEngine tlsClientEngine) throws TlsProtocolException, IOException {
-        buffer.mark();
-        int messageType = buffer.get();
-        int length = ((buffer.get() & 0xff) << 16) | ((buffer.get() & 0xff) << 8) | (buffer.get() & 0xff);
-        buffer.reset();
-
-        HandshakeMessage msg;
-        if (messageType == server_hello.value) {
-            msg = new ServerHello().parse(buffer, length + 4);
-            tlsClientEngine.received((ServerHello) msg);
-        }
-        else if (messageType == encrypted_extensions.value) {
-            msg = new EncryptedExtensions().parse(buffer, length + 4);
-            tlsClientEngine.received((EncryptedExtensions) msg);
-        }
-        else if (messageType == certificate.value) {
-            msg = new CertificateMessage().parse(buffer);
-            tlsClientEngine.received((CertificateMessage) msg);
-        }
-        else if (messageType == certificate_verify.value) {
-            msg = new CertificateVerifyMessage().parse(buffer, length + 4);
-            tlsClientEngine.received((CertificateVerifyMessage) msg);
-        }
-        else if (messageType == finished.value) {
-            msg = new FinishedMessage().parse(buffer, length + 4);
-            tlsClientEngine.received((FinishedMessage) msg);
-        }
-        else if (messageType == new_session_ticket.value) {
-            msg = new NewSessionTicketMessage().parse(buffer, length + 4);
-        }
-        else {
-            throw new TlsProtocolException("Invalid/unsupported handshake message type (" + messageType + ")");
-        }
-        return msg;
     }
 
     public byte[] getBytes() {
         return data;
     }
 
-    public List<HandshakeMessage> getMessages() {
-        return messages;
-    }
 }

@@ -75,6 +75,8 @@ public class Tls13 {
                         System.err.println("Saving new session ticket failed: " + e);
                     }
                 });
+
+        tlsSession.start();
         tlsSession.sendApplicationData("GET / HTTP/1.1\r\n\r\n".getBytes());
     }
 

@@ -4,15 +4,12 @@ import java.io.IOException;
 import java.io.PushbackInputStream;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
-import java.util.ArrayList;
-import java.util.List;
 
 import static net.luminis.tls.TlsConstants.ContentType.application_data;
 
 public class ApplicationData {
 
     private byte[] recordBytes;
-    private List<Message> messages = new ArrayList<>();
 
 
     public ApplicationData() {
@@ -92,9 +89,9 @@ public class ApplicationData {
         if (lastByte == TlsConstants.ContentType.handshake.value) {
             Logger.debug("Decrypted Application Data content is Handshake record.");
             ByteBuffer buffer = ByteBuffer.wrap(message, 0, message.length - 1);
+            TlsMessageParser parser = new TlsMessageParser();
             while (buffer.remaining() > 0) {
-                HandshakeMessage handshakeMessage = HandshakeRecord.parseHandshakeMessage(buffer, tlsClientEngine);
-                messages.add(handshakeMessage);
+                parser.parseAndProcessHandshakeMessage(buffer, tlsClientEngine);
             }
         }
         else if (lastByte == TlsConstants.ContentType.alert.value) {
@@ -117,7 +114,4 @@ public class ApplicationData {
         return recordBytes;
     }
 
-    public List<Message> getMessages() {
-        return messages;
-    }
 }

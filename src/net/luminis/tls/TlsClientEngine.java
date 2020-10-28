@@ -27,7 +27,7 @@ import java.util.stream.Collectors;
 import static net.luminis.tls.TlsConstants.SignatureScheme.rsa_pss_rsae_sha256;
 
 
-public class TlsClientEngine implements TrafficSecrets {
+public class TlsClientEngine implements TrafficSecrets, ClientMessageProcessor {
 
     private static final Charset ISO_8859_1 = Charset.forName("ISO-8859-1");
 
@@ -60,6 +60,7 @@ public class TlsClientEngine implements TrafficSecrets {
     private X509TrustManager customTrustManager;
     private NewSessionTicket newSessionTicket;
     private HostnameVerifier hostnameVerifier;
+    private List<NewSessionTicket> obtainedNewSessionTickets;
     private boolean pskAccepted = false;
 
     public TlsClientEngine(ClientMessageSender clientMessageSender) {
@@ -67,6 +68,7 @@ public class TlsClientEngine implements TrafficSecrets {
         supportedCiphers = new ArrayList<>();
         extensions = new ArrayList<>();
         hostnameVerifier = new DefaultHostnameVerifier();
+        obtainedNewSessionTickets = new ArrayList<>();
     }
 
     public void startHandshake() throws IOException {
@@ -305,7 +307,10 @@ public class TlsClientEngine implements TrafficSecrets {
         status = Status.Finished;
     }
 
-
+    @Override
+    public void received(NewSessionTicketMessage nst) {
+        obtainedNewSessionTickets.add(new NewSessionTicket(state, nst));
+    }
 
 
     private void generateKeys() {
@@ -447,6 +452,10 @@ public class TlsClientEngine implements TrafficSecrets {
         this.customTrustManager = customTrustManager;
     }
 
+    /**
+     * Add ticket to use for a new session.
+     * @param newSessionTicket
+     */
     public void setNewSessionTicket(NewSessionTicket newSessionTicket) {
         this.newSessionTicket = newSessionTicket;
     }
@@ -504,6 +513,16 @@ public class TlsClientEngine implements TrafficSecrets {
             throw new IllegalStateException("Traffic secret not yet available");
         }
     }
+
+    /**
+     * Returns tickets provided by the current connection.
+     * @return
+     */
+    public List<NewSessionTicket> getNewSessionTickets() {
+        return obtainedNewSessionTickets;
+    }
+
+
 
     public void setHostnameVerifier(HostnameVerifier hostnameVerifier) {
         if (hostnameVerifier != null) {

@@ -34,24 +34,12 @@ public class TlsSession implements ClientMessageSender {
         if (newSessionTicket != null) {
             tlsClientEngine.setNewSessionTicket(newSessionTicket);
         }
+    }
+
+    public void start() throws IOException, TlsProtocolException {
         tlsClientEngine.startHandshake();
 
         parseServerMessages(tlsClientEngine);
-        sendApplicationData("GET / HTTP/1.1\r\n\r\n".getBytes());
-    }
-
-    public TlsSession(byte[] sentClientHello, PrivateKey clientPrivateKey, ECPublicKey clientPublicKey, InputStream input, OutputStream output) throws IOException, TlsProtocolException {
-
-        this.clientPrivateKey = clientPrivateKey;
-        this.clientPublicKey = clientPublicKey;
-        this.input = new PushbackInputStream(input, 16);
-        this.output = output;
-
-        state = new TlsState(null);
-        state.clientHelloSend(clientPrivateKey, sentClientHello);
-        parseServerMessages(tlsClientEngine);
-
-        sendApplicationData("GET / HTTP/1.1\r\n\r\n".getBytes());
     }
 
     @Override
@@ -83,7 +71,6 @@ public class TlsSession implements ClientMessageSender {
         parseServerMessages(tlsClientEngine);
     }
 
-
     private void parseServerMessages(TlsClientEngine tlsClientEngine) throws IOException, TlsProtocolException {
         int contentType = input.read();
 
@@ -104,12 +91,10 @@ public class TlsSession implements ClientMessageSender {
                     state = tlsClientEngine.getState();
                     break;
                 case 23:
-                    List<Message> messages = new ApplicationData().parse(input, state, tlsClientEngine).getMessages();
-                    messages.stream()
-                            .filter(m -> m instanceof NewSessionTicketMessage)
-                            .findAny()
-                            .stream()
-                            .forEach(m -> addNewSessionTicket((NewSessionTicketMessage) m));
+                    new ApplicationData().parse(input, state, tlsClientEngine);
+                    if (!tlsClientEngine.getNewSessionTickets().isEmpty()) {
+                        newSessionTicketCallback.accept(tlsClientEngine.getNewSessionTickets().get(0));
+                    }
                     break;
                 default:
                     throw new RuntimeException("Record type is unknown (" + contentType + ")");
@@ -121,24 +106,8 @@ public class TlsSession implements ClientMessageSender {
         }
     }
 
-    private void addNewSessionTicket(NewSessionTicketMessage m) {
-        newSessionTicketMessages.add(m);
-        if (newSessionTicketCallback != null) {
-            newSessionTicketCallback.accept(new NewSessionTicket(state, m));
-        }
-    }
-
-    public int getNewSessionTicketCount() {
-        return newSessionTicketMessages.size();
-    }
-
     public NewSessionTicket getNewSessionTicket(int index) {
-        if (index < newSessionTicketMessages.size()) {
-            return new NewSessionTicket(state, newSessionTicketMessages.get(index));
-        }
-        else {
-            throw new IllegalArgumentException();
-        }
+        return tlsClientEngine.getNewSessionTickets().get(index);
     }
 
     public void setNewSessionTicketCallback(Consumer<NewSessionTicket> callback) {
