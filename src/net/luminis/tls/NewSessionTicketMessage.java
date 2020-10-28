@@ -38,11 +38,23 @@ public class NewSessionTicketMessage extends HandshakeMessage {
         ticket = parseByteVector(buffer, 2, remainingLength, "ticket");
 
         List<Extension> extensions = EncryptedExtensions.parseExtensions(buffer, TlsConstants.HandshakeType.new_session_ticket);
-        if (! extensions.isEmpty()) {
-            if (extensions.size() == 1 && extensions.get(0) instanceof EarlyDataExtension) {
-                earlyDataExtension = (EarlyDataExtension) extensions.get(0);
-            } else {
-                throw new UnsupportedExtensionAlert("Only early data extension is allowed");
+        for (Extension extension: extensions) {
+            if (extension instanceof EarlyDataExtension) {
+                if (earlyDataExtension == null) {
+                    earlyDataExtension = (EarlyDataExtension) extension;
+                }
+                else {
+                    throw new UnsupportedExtensionAlert("Only one early data extension is allowed");
+                }
+            }
+            else if (extension instanceof UnknownExtension) {
+                int type = ((UnknownExtension) extension).getType();
+                // https://tools.ietf.org/html/rfc8701
+                // The following values are reserved as GREASE values for extensions (...):
+                // 0x0A0A  0x1A1A  0x2A2A  0x3A3A  0x4A4A  0x5A5A  0x6A6A  0x7A7A  0x8A8A  0x9A9A  0xAAAA  0xBABA  0xCACA  0xDADA  0xEAEA  0xFAFA
+                if ((type & 0x0a0a) != 0x0a0a) {
+                    throw new UnsupportedExtensionAlert("Only early data extension is allowed");
+                }
             }
         }
 

@@ -61,4 +61,17 @@ class NewSessionTicketMessageTest {
                 new NewSessionTicketMessage().parse(ByteBuffer.wrap(rawData), rawData.length)
         ).isInstanceOf(DecodeErrorException.class);
     }
+
+    @Test
+    void newSessionTicketMessageMayContainGreasedExtensionType() throws Exception {
+        byte[] rawData = ByteUtils.hexToBytes("0400001f 00093a80 fab00e11 04 01020304 0004 01020304"
+                + "000a"
+                + "baba 0000"
+                + "002a 0004 01ff ffff"
+        );
+
+        EarlyDataExtension earlyDataExtension = new NewSessionTicketMessage().parse(ByteBuffer.wrap(rawData), rawData.length).getEarlyDataExtension();
+
+        assertThat(earlyDataExtension).isNotNull();
+    }
 }

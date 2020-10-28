@@ -7,6 +7,7 @@ import java.nio.ByteBuffer;
 public class UnknownExtension extends Extension {
 
     private byte[] data;
+    private int type;
 
     public UnknownExtension parse(ByteBuffer buffer) throws DecodeErrorException {
         if (buffer.remaining() < 4) {
@@ -14,7 +15,7 @@ public class UnknownExtension extends Extension {
         }
 
         buffer.mark();
-        buffer.getShort();
+        type = buffer.getShort() & 0xffff;
         int length = buffer.getShort();
         if (buffer.remaining() < length) {
             throw new DecodeErrorException("Invalid extension length");
@@ -28,6 +29,10 @@ public class UnknownExtension extends Extension {
 
     public byte[] getData() {
         return data;
+    }
+
+    public int getType() {
+        return type;
     }
 
     @Override
