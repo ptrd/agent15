@@ -416,8 +416,7 @@ public class TlsClientEngine implements TrafficSecrets, ClientMessageProcessor {
             // Impossible, as we're using the default (JVM) keystore
             throw new RuntimeException("keystore exception");
         } catch (CertificateException e) {
-            Logger.debug("Certificate verification failed: " + e.getMessage());
-            throw new BadCertificateAlert("certificate validation failed");
+            throw new BadCertificateAlert(extractReason(e).orElse("certificate validation failed"));
         }
     }
 
@@ -438,6 +437,16 @@ public class TlsClientEngine implements TrafficSecrets, ClientMessageProcessor {
             throw new RuntimeException("Missing " + macAlgorithmName + " support");
         } catch (InvalidKeyException e) {
             throw new RuntimeException();
+        }
+    }
+
+    private Optional<String> extractReason(CertificateException exception) {
+        Throwable cause = exception.getCause();
+        if (cause instanceof CertPathValidatorException) {
+            return Optional.of(cause.getMessage() + ": " + ((CertPathValidatorException) cause).getReason());
+        }
+        else {
+            return Optional.empty();
         }
     }
 
