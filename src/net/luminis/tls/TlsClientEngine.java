@@ -95,6 +95,7 @@ public class TlsClientEngine implements TrafficSecrets, ClientMessageProcessor {
         }
 
         clientHello = new ClientHello(serverName, publicKey, compatibilityMode, supportedCiphers, supportedSignatures, extensions);
+        extensions = clientHello.getExtensions();
         sender.send(clientHello);
         status = Status.ClientHelloSent;
 

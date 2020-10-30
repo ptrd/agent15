@@ -18,6 +18,7 @@ public class ApplicationLayerProtocolNegotiationExtension extends Extension {
 
     public ApplicationLayerProtocolNegotiationExtension(String protocol) {
         byte[] protocolName = protocol.getBytes(Charset.forName("UTF-8"));
+        protocols = List.of(protocol);
 
         ByteBuffer buffer = ByteBuffer.allocate(7 + protocolName.length);
         buffer.putShort(TlsConstants.ExtensionType.application_layer_protocol_negotiation.value);

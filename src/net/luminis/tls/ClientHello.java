@@ -144,7 +144,7 @@ public class ClientHello extends HandshakeMessage {
                 new PskKeyExchangeModesExtension(TlsConstants.PskKeyExchangeMode.psk_dhe_ke)
         };
 
-        List<Extension> extensions = new ArrayList<>();
+        extensions = new ArrayList<>();
         extensions.addAll(List.of(defaultExtensions));
         extensions.addAll(extraExtensions);
 
