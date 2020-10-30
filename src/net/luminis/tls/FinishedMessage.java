@@ -16,7 +16,7 @@ public class FinishedMessage extends HandshakeMessage {
     }
 
     @Override
-    TlsConstants.HandshakeType getType() {
+    public TlsConstants.HandshakeType getType() {
         return TlsConstants.HandshakeType.finished;
     }
 

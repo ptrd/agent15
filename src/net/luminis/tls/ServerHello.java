@@ -62,7 +62,7 @@ public class ServerHello extends HandshakeMessage {
     }
 
     @Override
-    TlsConstants.HandshakeType getType() {
+    public TlsConstants.HandshakeType getType() {
         return TlsConstants.HandshakeType.server_hello;
     }
 

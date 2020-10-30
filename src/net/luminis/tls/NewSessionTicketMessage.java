@@ -79,7 +79,7 @@ public class NewSessionTicketMessage extends HandshakeMessage {
     }
 
     @Override
-    TlsConstants.HandshakeType getType() {
+    public TlsConstants.HandshakeType getType() {
         return TlsConstants.HandshakeType.new_session_ticket;
     }
 

@@ -8,7 +8,7 @@ import java.util.List;
 
 public abstract class HandshakeMessage extends Message {
 
-    abstract TlsConstants.HandshakeType getType();
+    public abstract TlsConstants.HandshakeType getType();
 
     protected int parseHandshakeHeader(ByteBuffer buffer, TlsConstants.HandshakeType expectedType, int minimumMessageSize) throws DecodeErrorException {
         if (buffer.remaining() < 4) {
