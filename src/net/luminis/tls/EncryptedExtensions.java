@@ -42,7 +42,7 @@ public class EncryptedExtensions extends HandshakeMessage {
     }
 
     public EncryptedExtensions parse(ByteBuffer buffer, int length) throws TlsProtocolException {
-        return parse(buffer, length);
+        return parse(buffer, length, null);
     }
     
     public EncryptedExtensions parse(ByteBuffer buffer, int length, ExtensionParser customExtensionParser) throws TlsProtocolException {

@@ -41,7 +41,7 @@ class TlsClientEngineTest {
     @BeforeEach
     private void initObjectUnderTest() {
         messageSender = mock(ClientMessageSender.class);
-        engine = new TlsClientEngine(messageSender);
+        engine = new TlsClientEngine(messageSender, mock(TlsStatusEventHandler.class));
         engine.setServerName("server");
         engine.addSupportedCiphers(List.of(TLS_AES_128_GCM_SHA256));
 

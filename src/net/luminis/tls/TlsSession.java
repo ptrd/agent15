@@ -1,5 +1,7 @@
 package net.luminis.tls;
 
+import net.luminis.tls.extension.Extension;
+
 import java.io.*;
 import java.security.PrivateKey;
 import java.security.interfaces.ECPublicKey;
@@ -27,7 +29,23 @@ public class TlsSession implements ClientMessageSender {
         this.output = output;
         newSessionTicketMessages = new CopyOnWriteArrayList<>();
 
-        tlsClientEngine = new TlsClientEngine(this);
+        tlsClientEngine = new TlsClientEngine(this, new TlsStatusEventHandler() {
+            @Override
+            public void earlySecretsKnown() {}
+
+            @Override
+            public void handshakeSecretsKnown() {}
+
+            @Override
+            public void handshakeFinished() {}
+
+            @Override
+            public void newSessionTicketReceived(NewSessionTicket ticket) {}
+
+            @Override
+            public void extensionsReceived(List<Extension> extensions) {}
+        });
+
         tlsClientEngine.setServerName(serverName);
         tlsClientEngine.addSupportedCiphers(List.of(TlsConstants.CipherSuite.TLS_AES_128_GCM_SHA256));
 

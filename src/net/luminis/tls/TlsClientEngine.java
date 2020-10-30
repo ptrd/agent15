@@ -13,6 +13,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.security.*;
+import java.security.cert.CertPathValidatorException;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
@@ -42,6 +43,7 @@ public class TlsClientEngine implements TrafficSecrets, ClientMessageProcessor {
     }
 
     private final ClientMessageSender sender;
+    private final TlsStatusEventHandler statusHandler;
     private String serverName;
     private String ecCurve = "secp256r1";
     private ECPublicKey publicKey;
@@ -63,8 +65,9 @@ public class TlsClientEngine implements TrafficSecrets, ClientMessageProcessor {
     private List<NewSessionTicket> obtainedNewSessionTickets;
     private boolean pskAccepted = false;
 
-    public TlsClientEngine(ClientMessageSender clientMessageSender) {
+    public TlsClientEngine(ClientMessageSender clientMessageSender, TlsStatusEventHandler tlsStatusHandler) {
         sender = clientMessageSender;
+        statusHandler = tlsStatusHandler;
         supportedCiphers = new ArrayList<>();
         extensions = new ArrayList<>();
         hostnameVerifier = new DefaultHostnameVerifier();
@@ -174,6 +177,7 @@ public class TlsClientEngine implements TrafficSecrets, ClientMessageProcessor {
         transcriptHash.record(serverHello);
         state.serverHelloReceived(serverHello.getBytes());
         status = Status.ServerHelloReceived;
+        statusHandler.handshakeSecretsKnown();
     }
 
     public void received(EncryptedExtensions encryptedExtensions) throws TlsProtocolException {
@@ -207,6 +211,7 @@ public class TlsClientEngine implements TrafficSecrets, ClientMessageProcessor {
 
         transcriptHash.record(encryptedExtensions);
         status = Status.EncryptedExtensionsReceived;
+        statusHandler.extensionsReceived(encryptedExtensions.getExtensions());
     }
 
     public void received(CertificateMessage certificateMessage) throws TlsProtocolException {
@@ -305,11 +310,14 @@ public class TlsClientEngine implements TrafficSecrets, ClientMessageProcessor {
         transcriptHash.recordClient(clientFinished);
         state.computeApplicationSecrets();
         status = Status.Finished;
+        statusHandler.handshakeFinished();
     }
 
     @Override
     public void received(NewSessionTicketMessage nst) {
-        obtainedNewSessionTickets.add(new NewSessionTicket(state, nst));
+        NewSessionTicket ticket = new NewSessionTicket(state, nst);
+        obtainedNewSessionTickets.add(ticket);
+        statusHandler.newSessionTicketReceived(ticket);
     }
 
 
