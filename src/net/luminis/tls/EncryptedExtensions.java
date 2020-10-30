@@ -1,11 +1,8 @@
 package net.luminis.tls;
 
 import net.luminis.tls.extension.Extension;
-import net.luminis.tls.extension.KeyShareExtension;
-import net.luminis.tls.extension.SupportedVersionsExtension;
 
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -45,6 +42,10 @@ public class EncryptedExtensions extends HandshakeMessage {
     }
 
     public EncryptedExtensions parse(ByteBuffer buffer, int length) throws TlsProtocolException {
+        return parse(buffer, length);
+    }
+    
+    public EncryptedExtensions parse(ByteBuffer buffer, int length, ExtensionParser customExtensionParser) throws TlsProtocolException {
         if (buffer.remaining() < MINIMAL_MESSAGE_LENGTH) {
             throw new DecodeErrorException("Message too short");
         }
@@ -55,7 +56,7 @@ public class EncryptedExtensions extends HandshakeMessage {
             throw new DecodeErrorException("Incorrect message length");
         }
 
-        extensions = parseExtensions(buffer, TlsConstants.HandshakeType.server_hello);
+        extensions = parseExtensions(buffer, TlsConstants.HandshakeType.server_hello, customExtensionParser);
 
         // Raw bytes are needed for computing the transcript hash
         buffer.position(start);

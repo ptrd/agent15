@@ -7,6 +7,16 @@ import static net.luminis.tls.TlsConstants.HandshakeType.*;
 
 public class TlsMessageParser {
 
+    private final ExtensionParser customExtensionParser;
+
+    public TlsMessageParser() {
+        customExtensionParser = null;
+    }
+
+    public TlsMessageParser(ExtensionParser customExtensionParser) {
+        this.customExtensionParser = customExtensionParser;
+    }
+
     public HandshakeMessage parseAndProcessHandshakeMessage(ByteBuffer buffer, ClientMessageProcessor messageProcessor) throws TlsProtocolException, IOException {
         // https://tools.ietf.org/html/rfc8446#section-4
         // "      struct {
@@ -26,7 +36,7 @@ public class TlsMessageParser {
             messageProcessor.received(sh);
         }
         else if (messageType == encrypted_extensions.value) {
-            EncryptedExtensions ee = new EncryptedExtensions().parse(buffer, length + 4);
+            EncryptedExtensions ee = new EncryptedExtensions().parse(buffer, length + 4, customExtensionParser);
             parsedMessage = ee;
             messageProcessor.received(ee);
         }

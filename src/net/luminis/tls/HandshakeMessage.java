@@ -31,6 +31,10 @@ public abstract class HandshakeMessage extends Message {
     public abstract byte[] getBytes();
 
     static List<Extension> parseExtensions(ByteBuffer buffer, TlsConstants.HandshakeType context) throws TlsProtocolException {
+        return parseExtensions(buffer, context, null);
+    }
+
+    static List<Extension> parseExtensions(ByteBuffer buffer, TlsConstants.HandshakeType context, ExtensionParser customExtensionParser) throws TlsProtocolException {
         if (buffer.remaining() < 2) {
             throw new DecodeErrorException("Extension field must be at least 2 bytes long");
         }
@@ -77,8 +81,17 @@ public abstract class HandshakeMessage extends Message {
                     extensions.add(new KeyShareExtension(buffer, context));
                 }
                 else {
-                    Logger.debug("Unsupported extension, type is: " + extensionType);
-                    extensions.add(new UnknownExtension().parse(buffer));
+                    Extension extension = null;
+                    if (customExtensionParser != null) {
+                        extension = customExtensionParser.apply(buffer, context);
+                    }
+                    if (extension != null) {
+                        extensions.add(extension);
+                    }
+                    else {
+                        Logger.debug("Unsupported extension, type is: " + extensionType);
+                        extensions.add(new UnknownExtension().parse(buffer));
+                    }
                 }
             }
         }
