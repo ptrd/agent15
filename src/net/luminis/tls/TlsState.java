@@ -10,8 +10,6 @@ import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.security.*;
 import java.security.interfaces.ECPublicKey;
-import java.security.spec.InvalidKeySpecException;
-import java.security.spec.X509EncodedKeySpec;
 import java.util.Base64;
 
 import static net.luminis.tls.ByteUtils.bytesToHex;
@@ -19,20 +17,8 @@ import static net.luminis.tls.ByteUtils.bytesToHex;
 public class TlsState {
 
     private static final Charset ISO_8859_1 = Charset.forName("ISO-8859-1");
-    private static byte[] P256_HEAD = Base64.getDecoder().decode("MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE");
 
     private static String labelPrefix = "tls13 ";
-
-    enum Status {
-        keyExchangeClient,
-        keyExchangeServer,
-        ServerParams,
-        AuthServer,
-        AuthServerFinished,
-        AuthClient,
-        AuthClientFinished,
-        ApplicationData
-    }
 
     private final MessageDigest hashFunction;
     private final HKDF hkdf;
@@ -41,7 +27,6 @@ public class TlsState {
     private final short keyLength = 16;   // Assuming AES-128, use 32 for AES-256
     private final short hashLength = 32;  // Assuming SHA-256, use 48 for SHA-384
     private final short iv_length = 12;
-    private Status status;
     private boolean pskSelected;
     private PublicKey serverSharedKey;
     private PrivateKey clientPrivateKey;
@@ -220,8 +205,6 @@ public class TlsState {
         byte[] serverApplicationIv = hkdfExpandLabel(serverApplicationTrafficSecret, "iv", "", iv_length);
         Logger.debug("Server application iv: " + bytesToHex(serverApplicationIv));
         serverIv = serverApplicationIv;
-
-        status = Status.ApplicationData;
     }
 
     // https://tools.ietf.org/html/rfc8446#section-4.6.1
@@ -248,30 +231,6 @@ public class TlsState {
         return hkdf.expand(secret, hkdfLabel.array(), length);
     }
 
-
-    public static ECPublicKey convertP256Key(byte[] w) {
-        int keyLength = w.length;
-        int startIndex = 0;
-        if (w[0] == 4) {
-            keyLength -= 1;
-            startIndex = 1;
-        }
-        byte[] encodedKey = new byte[P256_HEAD.length + w.length];
-        System.arraycopy(P256_HEAD, 0, encodedKey, 0, P256_HEAD.length);
-        System.arraycopy(w, startIndex, encodedKey, P256_HEAD.length, keyLength);
-        KeyFactory eckf;
-        try {
-            eckf = KeyFactory.getInstance("EC");
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException("EC key factory not present in runtime");
-        }
-        X509EncodedKeySpec ecpks = new X509EncodedKeySpec(encodedKey);
-        try {
-            return (ECPublicKey) eckf.generatePublic(ecpks);
-        } catch (InvalidKeySpecException e) {
-            throw new RuntimeException(e);
-        }
-    }
 
     byte[] decrypt(byte[] recordHeader, byte[] payload) {
         int recordSize = (recordHeader[3] & 0xff) << 8 | (recordHeader[4] & 0xff);
@@ -393,13 +352,4 @@ public class TlsState {
         byte[] sharedSecret = computeSharedSecret(serverSharedKey);
         computeHandshakeSecrets(handshakeHash, sharedSecret);
     }
-
-    public void setServerFinished(byte[] raw) {
-        status = Status.AuthServerFinished;
-    }
-
-    public boolean isServerFinished() {
-        return status == Status.AuthServerFinished;
-    }
-
 }

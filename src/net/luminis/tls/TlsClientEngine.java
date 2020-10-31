@@ -288,7 +288,6 @@ public class TlsClientEngine implements TrafficSecrets, ClientMessageProcessor {
         }
 
         transcriptHash.recordServer(finishedMessage);
-        state.setServerFinished(finishedMessage.getBytes());
 
         // https://tools.ietf.org/html/rfc8446#section-4.4
         // "   | Mode      | Handshake Context       | Base Key                    |
