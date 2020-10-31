@@ -1,5 +1,7 @@
 package net.luminis.tls;
 
+import net.luminis.tls.handshake.HandshakeMessage;
+
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Map;

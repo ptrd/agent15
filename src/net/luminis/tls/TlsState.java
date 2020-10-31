@@ -10,9 +10,8 @@ import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.security.*;
 import java.security.interfaces.ECPublicKey;
-import java.util.Base64;
 
-import static net.luminis.tls.ByteUtils.bytesToHex;
+import static net.luminis.tls.util.ByteUtils.bytesToHex;
 
 public class TlsState {
 
@@ -90,7 +89,7 @@ public class TlsState {
         return earlySecret;
     }
 
-    byte[] computePskBinder(byte[] partialClientHello) {
+    public byte[] computePskBinder(byte[] partialClientHello) {
         String macAlgorithmName = "HmacSHA" + (hashLength * 8);
         try {
             hashFunction.reset();
@@ -215,7 +214,7 @@ public class TlsState {
         return psk;
     }
 
-    byte[] hkdfExpandLabel(byte[] secret, String label, String context, short length) {
+    public byte[] hkdfExpandLabel(byte[] secret, String label, String context, short length) {
         return hkdfExpandLabel(secret, label, context.getBytes(ISO_8859_1), length);
     }
 
@@ -232,7 +231,7 @@ public class TlsState {
     }
 
 
-    byte[] decrypt(byte[] recordHeader, byte[] payload) {
+    public byte[] decrypt(byte[] recordHeader, byte[] payload) {
         int recordSize = (recordHeader[3] & 0xff) << 8 | (recordHeader[4] & 0xff);
         Logger.debug("Payload length: " + payload.length + " bytes, size in record: " + recordSize);
 
@@ -278,7 +277,7 @@ public class TlsState {
         }
     }
 
-    byte[] encryptPayload(byte[] message, byte[] associatedData) {
+    public byte[] encryptPayload(byte[] message, byte[] associatedData) {
         ByteBuffer nonceInput = ByteBuffer.allocate(iv_length);
         nonceInput.putInt(0);
         nonceInput.putLong((long) clientRecordCount);

@@ -1,6 +1,6 @@
 package net.luminis.tls.extension;
 
-import net.luminis.tls.DecodeErrorException;
+import net.luminis.tls.alert.DecodeErrorException;
 import net.luminis.tls.TlsConstants;
 import net.luminis.tls.TlsProtocolException;
 

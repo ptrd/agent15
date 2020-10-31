@@ -1,6 +1,6 @@
 package net.luminis.tls.extension;
 
-import net.luminis.tls.DecodeErrorException;
+import net.luminis.tls.alert.DecodeErrorException;
 import net.luminis.tls.TlsConstants;
 
 import java.nio.ByteBuffer;
@@ -8,8 +8,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-
-import static net.luminis.tls.TlsConstants.SignatureScheme.*;
 
 /**
  * The TLS supported groups extension.

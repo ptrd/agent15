@@ -1,6 +1,8 @@
 package net.luminis.tls.extension;
 
 import net.luminis.tls.*;
+import net.luminis.tls.alert.DecodeErrorException;
+import net.luminis.tls.util.ByteUtils;
 
 import java.math.BigInteger;
 import java.nio.ByteBuffer;

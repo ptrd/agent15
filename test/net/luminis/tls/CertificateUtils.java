@@ -8,7 +8,7 @@ import java.util.Base64;
 
 public class CertificateUtils {
 
-    static X509Certificate inflateCertificate(String encodedCertificate) throws Exception {
+    public static X509Certificate inflateCertificate(String encodedCertificate) throws Exception {
         CertificateFactory certificateFactory = CertificateFactory.getInstance("X.509");
         Certificate certificate = certificateFactory.generateCertificate(new ByteArrayInputStream(Base64.getDecoder().decode(encodedCertificate.getBytes())));
         return (X509Certificate) certificate;

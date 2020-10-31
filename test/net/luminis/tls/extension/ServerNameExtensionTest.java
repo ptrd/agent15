@@ -1,14 +1,13 @@
 package net.luminis.tls.extension;
 
-import net.luminis.tls.ByteUtils;
-import net.luminis.tls.DecodeErrorException;
+import net.luminis.tls.util.ByteUtils;
+import net.luminis.tls.alert.DecodeErrorException;
 import org.junit.jupiter.api.Test;
 
 import java.nio.ByteBuffer;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.junit.jupiter.api.Assertions.*;
 
 class ServerNameExtensionTest {
 
