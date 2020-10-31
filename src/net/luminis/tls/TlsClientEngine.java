@@ -58,7 +58,7 @@ public class TlsClientEngine implements TrafficSecrets, ClientMessageProcessor {
     private TranscriptHash transcriptHash;
     private List<TlsConstants.SignatureScheme> supportedSignatures;
     private X509Certificate serverCertificate;
-    private List<X509Certificate> serverCertificateChain;
+    private List<X509Certificate> serverCertificateChain = Collections.emptyList();
     private X509TrustManager customTrustManager;
     private NewSessionTicket newSessionTicket;
     private HostnameVerifier hostnameVerifier;
@@ -544,7 +544,9 @@ public class TlsClientEngine implements TrafficSecrets, ClientMessageProcessor {
         return obtainedNewSessionTickets;
     }
 
-
+    public List<X509Certificate> getServerCertificateChain() {
+        return serverCertificateChain;
+    }
 
     public void setHostnameVerifier(HostnameVerifier hostnameVerifier) {
         if (hostnameVerifier != null) {
