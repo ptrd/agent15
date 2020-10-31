@@ -85,13 +85,23 @@ public class TlsClientEngine implements TrafficSecrets, ClientMessageProcessor {
             throw new IllegalStateException("not all mandatory properties are set");
         }
 
+        transcriptHash = new TranscriptHash(32);
         if (newSessionTicket != null) {
-            TlsState tlsState = new TlsState(transcriptHash, newSessionTicket.getPSK());
-            extensions.add(new ClientHelloPreSharedKeyExtension(tlsState, newSessionTicket));
+            state = new TlsState(transcriptHash, newSessionTicket.getPSK());
+            extensions.add(new ClientHelloPreSharedKeyExtension(state, newSessionTicket));
         }
+        else {
+            state = new TlsState(transcriptHash);
+        }
+
         clientHello = new ClientHello(serverName, publicKey, compatibilityMode, supportedCiphers, supportedSignatures, extensions);
         sender.send(clientHello);
         status = Status.ClientHelloSent;
+
+        transcriptHash.record(clientHello);
+        state.clientHelloSend(privateKey, clientHello.getBytes());
+
+        statusHandler.earlySecretsKnown();
     }
 
     /**
@@ -162,11 +172,6 @@ public class TlsClientEngine implements TrafficSecrets, ClientMessageProcessor {
         }
         selectedCipher = serverHello.getCipherSuite();
 
-        transcriptHash = new TranscriptHash(32);
-        state = (newSessionTicket == null)? new TlsState(transcriptHash): new TlsState(transcriptHash, newSessionTicket.psk);
-
-        transcriptHash.record(clientHello);
-        state.clientHelloSend(privateKey, clientHello.getBytes());
         if (preSharedKey.isPresent()) {
             state.setPskSelected(((ServerPreSharedKeyExtension) preSharedKey.get()).getSelectedIdentity());
             Logger.debug("Server has accepted PSK key establishment");

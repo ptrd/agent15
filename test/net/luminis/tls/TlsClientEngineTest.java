@@ -152,9 +152,7 @@ class TlsClientEngineTest {
     void afterProperServerHelloTrafficSecretsAreAvailable() throws Exception {
         // Given
         engine.startHandshake();
-        assertThatThrownBy(() ->
-                engine.getClientHandshakeTrafficSecret()
-        ).isInstanceOf(IllegalStateException.class);
+        assertThat(engine.getClientHandshakeTrafficSecret()).isNull();
 
         // When
         ServerHello serverHello = new ServerHello(TLS_AES_128_GCM_SHA256, List.of(
