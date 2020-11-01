@@ -1,18 +1,14 @@
 package net.luminis.tls.extension;
 
-import net.luminis.tls.ByteUtils;
-import net.luminis.tls.DecodeErrorException;
+import net.luminis.tls.util.ByteUtils;
+import net.luminis.tls.alert.DecodeErrorException;
 import net.luminis.tls.TlsConstants;
-import net.luminis.tls.TlsProtocolException;
 import org.junit.jupiter.api.Test;
 
 import java.nio.ByteBuffer;
 import java.security.interfaces.ECPublicKey;
-import java.security.spec.ECParameterSpec;
-import java.security.spec.ECPoint;
 
 import static org.assertj.core.api.Assertions.*;
-import static org.junit.jupiter.api.Assertions.*;
 
 class KeyShareExtensionTest {
 

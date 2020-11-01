@@ -1,5 +1,7 @@
 package net.luminis.tls;
 
+import net.luminis.tls.handshake.NewSessionTicketMessage;
+
 import java.nio.ByteBuffer;
 import java.util.Date;
 

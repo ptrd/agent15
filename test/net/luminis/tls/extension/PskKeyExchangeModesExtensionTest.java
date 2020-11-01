@@ -1,7 +1,7 @@
 package net.luminis.tls.extension;
 
-import net.luminis.tls.ByteUtils;
-import net.luminis.tls.DecodeErrorException;
+import net.luminis.tls.util.ByteUtils;
+import net.luminis.tls.alert.DecodeErrorException;
 import net.luminis.tls.TlsConstants;
 import org.junit.jupiter.api.Test;
 
