@@ -99,7 +99,8 @@ public class TlsClientEngine implements TrafficSecrets, ClientMessageProcessor {
         status = Status.ClientHelloSent;
 
         transcriptHash.record(clientHello);
-        state.clientHelloSend(privateKey, clientHello.getBytes());
+        state.setClientPrivateKey(privateKey);
+        state.computeEarlyTrafficSecret();
 
         statusHandler.earlySecretsKnown();
     }
@@ -176,11 +177,15 @@ public class TlsClientEngine implements TrafficSecrets, ClientMessageProcessor {
             state.setPskSelected(((ServerPreSharedKeyExtension) preSharedKey.get()).getSelectedIdentity());
             Logger.debug("Server has accepted PSK key establishment");
         }
+        else {
+            state.setNoPskSelected();
+        }
         if (keyShare.isPresent()) {
             state.setServerSharedKey(keyShare.get().getKey());
+            state.computeSharedSecret();
         }
         transcriptHash.record(serverHello);
-        state.serverHelloReceived(serverHello.getBytes());
+        state.computeHandshakeSecrets();
         status = Status.ServerHelloReceived;
         statusHandler.handshakeSecretsKnown();
     }

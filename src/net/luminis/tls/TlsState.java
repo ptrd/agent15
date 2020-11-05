@@ -46,6 +46,7 @@ public class TlsState {
     private int serverRecordCount = 0;
     private int clientRecordCount = 0;
     private final TranscriptHash transcriptHash;
+    private byte[] sharedSecret;
 
     public TlsState(TranscriptHash transcriptHash, byte[] psk) {
         this.psk = psk;
@@ -111,7 +112,7 @@ public class TlsState {
         }
     }
 
-    private byte[] computeSharedSecret(PublicKey serverSharedKey) {
+    public void computeSharedSecret() {
         ECPublicKey serverPublicKey = (ECPublicKey) serverSharedKey;
 
         try {
@@ -121,27 +122,31 @@ public class TlsState {
 
             SecretKey key = keyAgreement.generateSecret("TlsPremasterSecret");
             Logger.debug("Shared key: " + bytesToHex(key.getEncoded()));
-            return key.getEncoded();
+            sharedSecret = key.getEncoded();
         } catch (NoSuchAlgorithmException | InvalidKeyException e) {
             throw new RuntimeException("Unsupported crypto: " + e);
         }
     }
 
-    private void computeEarlyTrafficSecret(byte[] clientHelloHash) {
+    public void computeEarlyTrafficSecret() {
+        byte[] clientHelloHash = transcriptHash.getHash(TlsConstants.HandshakeType.client_hello);
+
         clientEarlyTrafficSecret = hkdfExpandLabel(earlySecret, "c e traffic", clientHelloHash, hashLength);
     }
 
-    private void computeHandshakeSecrets(byte[] helloHash, byte[] sharedSecret) {
+    public void computeHandshakeSecrets() {
         byte[] derivedSecret = hkdfExpandLabel(earlySecret, "derived", emptyHash, hashLength);
         Logger.debug("Derived secret: " + bytesToHex(derivedSecret));
 
         handshakeSecret = hkdf.extract(derivedSecret, sharedSecret);
         Logger.debug("Handshake secret: " + bytesToHex(handshakeSecret));
 
-        clientHandshakeTrafficSecret = hkdfExpandLabel(handshakeSecret, "c hs traffic", helloHash, hashLength);
+        byte[] handshakeHash = transcriptHash.getHash(TlsConstants.HandshakeType.server_hello);
+
+        clientHandshakeTrafficSecret = hkdfExpandLabel(handshakeSecret, "c hs traffic", handshakeHash, hashLength);
         Logger.debug("Client handshake traffic secret: " + bytesToHex(clientHandshakeTrafficSecret));
 
-        serverHandshakeTrafficSecret = hkdfExpandLabel(handshakeSecret, "s hs traffic", helloHash, hashLength);
+        serverHandshakeTrafficSecret = hkdfExpandLabel(handshakeSecret, "s hs traffic", handshakeHash, hashLength);
         Logger.debug("Server handshake traffic secret: " + bytesToHex(serverHandshakeTrafficSecret));
 
         byte[] clientHandshakeKey = hkdfExpandLabel(clientHandshakeTrafficSecret, "key", "", keyLength);
@@ -326,29 +331,24 @@ public class TlsState {
         return serverApplicationTrafficSecret;
     }
 
-    public void clientHelloSend(PrivateKey clientPrivateKey, byte[] sentClientHello) {
+    public void setClientPrivateKey(PrivateKey clientPrivateKey) {
         this.clientPrivateKey = clientPrivateKey;
-        byte[] clientHelloHash = transcriptHash.getHash(TlsConstants.HandshakeType.client_hello);
-        computeEarlyTrafficSecret(clientHelloHash);
     }
 
     public void setPskSelected(int selectedIdentity) {
         pskSelected = true;
     }
 
-    public void setServerSharedKey(PublicKey serverSharedKey) {
+    public void setNoPskSelected() {
         if (psk != null && !pskSelected) {
             // Recompute early secret, as psk is not accepted by server.
             // https://tools.ietf.org/html/rfc8446#section-7.1
             // "... if no PSK is selected, it will then need to compute the Early Secret corresponding to the zero PSK."
             computeEarlySecret(new byte[hashLength]);
         }
-        this.serverSharedKey = serverSharedKey;
     }
 
-    public void serverHelloReceived(byte[] serverHello) {
-        byte[] handshakeHash = transcriptHash.getHash(TlsConstants.HandshakeType.server_hello);
-        byte[] sharedSecret = computeSharedSecret(serverSharedKey);
-        computeHandshakeSecrets(handshakeHash, sharedSecret);
+    public void setServerSharedKey(PublicKey serverSharedKey) {
+        this.serverSharedKey = serverSharedKey;
     }
 }
