@@ -50,7 +50,8 @@ public class TlsClientEngine implements TrafficSecrets, ClientMessageProcessor {
     private boolean compatibilityMode;
     private List<TlsConstants.CipherSuite> supportedCiphers;
     private TlsConstants.CipherSuite selectedCipher;
-    private List<Extension> extensions;
+    private List<Extension> requestedExtensions;
+    private List<Extension> sentExtensions;
     private Status status = Status.Initial;
     private ClientHello clientHello;
     private TlsState state;
@@ -68,7 +69,7 @@ public class TlsClientEngine implements TrafficSecrets, ClientMessageProcessor {
         sender = clientMessageSender;
         statusHandler = tlsStatusHandler;
         supportedCiphers = new ArrayList<>();
-        extensions = new ArrayList<>();
+        requestedExtensions = new ArrayList<>();
         hostnameVerifier = new DefaultHostnameVerifier();
         obtainedNewSessionTickets = new ArrayList<>();
     }
@@ -85,7 +86,10 @@ public class TlsClientEngine implements TrafficSecrets, ClientMessageProcessor {
         }
 
         transcriptHash = new TranscriptHash(32);
+        List<Extension> extensions = requestedExtensions;
         if (newSessionTicket != null) {
+            extensions = new ArrayList<>();
+            extensions.addAll(requestedExtensions);
             state = new TlsState(transcriptHash, newSessionTicket.getPSK());
             extensions.add(new ClientHelloPreSharedKeyExtension(state, newSessionTicket));
         }
@@ -94,7 +98,7 @@ public class TlsClientEngine implements TrafficSecrets, ClientMessageProcessor {
         }
 
         clientHello = new ClientHello(serverName, publicKey, compatibilityMode, supportedCiphers, supportedSignatures, extensions);
-        extensions = clientHello.getExtensions();
+        sentExtensions = clientHello.getExtensions();
         sender.send(clientHello);
         status = Status.ClientHelloSent;
 
@@ -192,7 +196,7 @@ public class TlsClientEngine implements TrafficSecrets, ClientMessageProcessor {
             throw new UnexpectedMessageAlert("unexpected encrypted extensions message");
         }
 
-        List<Class> clientExtensionTypes = extensions.stream()
+        List<Class> clientExtensionTypes = sentExtensions.stream()
                 .map(extension -> extension.getClass()).collect(Collectors.toList());
         boolean allClientResponses = encryptedExtensions.getExtensions().stream()
                 .filter(ext -> ! (ext instanceof UnknownExtension))
@@ -462,11 +466,11 @@ public class TlsClientEngine implements TrafficSecrets, ClientMessageProcessor {
     }
 
     public void addExtensions(List<Extension> extensions) {
-        this.extensions.addAll(extensions);
+        this.requestedExtensions.addAll(extensions);
     }
 
     public void add(Extension extension) {
-        extensions.add(extension);
+        requestedExtensions.add(extension);
     }
 
     public void setTrustManager(X509TrustManager customTrustManager) {
