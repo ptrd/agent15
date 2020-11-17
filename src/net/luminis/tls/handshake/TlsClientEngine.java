@@ -449,6 +449,9 @@ public class TlsClientEngine implements TrafficSecrets, ClientMessageProcessor {
         if (cause instanceof CertPathValidatorException) {
             return Optional.of(cause.getMessage() + ": " + ((CertPathValidatorException) cause).getReason());
         }
+        else if (cause instanceof CertPathBuilderException) {
+            return Optional.of(cause.getMessage());
+        }
         else {
             return Optional.empty();
         }
