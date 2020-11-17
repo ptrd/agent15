@@ -21,7 +21,7 @@ public class TlsMessageParser {
         this.customExtensionParser = customExtensionParser;
     }
 
-    public HandshakeMessage parseAndProcessHandshakeMessage(ByteBuffer buffer, ClientMessageProcessor messageProcessor) throws TlsProtocolException, IOException {
+    public HandshakeMessage parseAndProcessHandshakeMessage(ByteBuffer buffer, MessageProcessor messageProcessor) throws TlsProtocolException, IOException {
         // https://tools.ietf.org/html/rfc8446#section-4
         // "      struct {
         //          HandshakeType msg_type;    /* handshake type */
@@ -34,7 +34,12 @@ public class TlsMessageParser {
         buffer.reset();
 
         HandshakeMessage parsedMessage;
-        if (messageType == server_hello.value) {
+        if (messageType == client_hello.value) {
+            ClientHello ch = new ClientHello(buffer);
+            parsedMessage = ch;
+            messageProcessor.received(ch);
+        }
+        else if (messageType == server_hello.value) {
             ServerHello sh = new ServerHello().parse(buffer, length + 4);
             parsedMessage = sh;
             messageProcessor.received(sh);

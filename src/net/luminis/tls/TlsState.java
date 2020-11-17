@@ -331,7 +331,7 @@ public class TlsState {
         return serverApplicationTrafficSecret;
     }
 
-    public void setClientPrivateKey(PrivateKey clientPrivateKey) {
+    public void setOwnKey(PrivateKey clientPrivateKey) {
         this.clientPrivateKey = clientPrivateKey;
     }
 
@@ -348,7 +348,7 @@ public class TlsState {
         }
     }
 
-    public void setServerSharedKey(PublicKey serverSharedKey) {
+    public void setPeerKey(PublicKey serverSharedKey) {
         this.serverSharedKey = serverSharedKey;
     }
 }
