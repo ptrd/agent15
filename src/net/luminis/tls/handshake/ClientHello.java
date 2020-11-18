@@ -98,6 +98,8 @@ public class ClientHello extends HandshakeMessage {
 
     public ClientHello(String serverName, ECPublicKey publicKey, boolean compatibilityMode, List<TlsConstants.CipherSuite> supportedCiphers,
                        List<TlsConstants.SignatureScheme> supportedSignatures, List<Extension> extraExtensions) {
+        this.cipherSuites = supportedCiphers;
+
         ByteBuffer buffer = ByteBuffer.allocate(MAX_CLIENT_HELLO_SIZE);
 
         // HandshakeType client_hello(1),

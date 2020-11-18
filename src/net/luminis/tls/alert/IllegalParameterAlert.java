@@ -1,10 +1,10 @@
 package net.luminis.tls.alert;
 
-import net.luminis.tls.TlsProtocolException;
+import net.luminis.tls.TlsConstants;
 
-public class IllegalParameterAlert extends TlsProtocolException {
+public class IllegalParameterAlert extends ErrorAlert {
 
     public IllegalParameterAlert(String message) {
-        super(message);
+        super(message, TlsConstants.AlertDescription.illegal_parameter);
     }
 }

@@ -1,11 +1,11 @@
 package net.luminis.tls.alert;
 
-import net.luminis.tls.TlsProtocolException;
+import net.luminis.tls.TlsConstants;
 
-public class HandshakeFailureAlert extends TlsProtocolException {
+public class HandshakeFailureAlert extends ErrorAlert {
 
     public HandshakeFailureAlert(String message) {
-        super(message);
+        super(message, TlsConstants.AlertDescription.handshake_failure);
     }
 }
 

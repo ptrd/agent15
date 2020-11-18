@@ -11,22 +11,6 @@ import java.security.spec.ECGenParameterSpec;
 
 public class EngineTest {
 
-    protected ECKey[] generateKeys() {
-        try {
-            KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance("EC");
-            keyPairGenerator.initialize(new ECGenParameterSpec("secp256r1"));
-
-            KeyPair keyPair = keyPairGenerator.genKeyPair();
-            return new ECKey[] { (ECPrivateKey) keyPair.getPrivate(), (ECPublicKey) keyPair.getPublic() };
-        } catch (NoSuchAlgorithmException e) {
-            // Invalid runtime
-            throw new RuntimeException("missing key pair generator algorithm EC");
-        } catch (InvalidAlgorithmParameterException e) {
-            // Impossible, would be programming error
-            throw new RuntimeException();
-        }
-    }
-
     protected String encodedCertificate = "MIICxzCCAa+gAwIBAgIEJ4Jd0zANBgkqhkiG9w0BAQsFADAUMRIwEAYDVQQDEwlr" +
             "d2lrLnRlY2gwHhcNMjAwNjAxMTAyNDMzWhcNMjEwNjAxMTAyNDMzWjAUMRIwEAYD" +
             "VQQDEwlrd2lrLnRlY2gwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQCD" +

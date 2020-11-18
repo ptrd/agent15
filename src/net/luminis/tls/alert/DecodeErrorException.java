@@ -1,8 +1,8 @@
 package net.luminis.tls.alert;
 
-import net.luminis.tls.TlsProtocolException;
+import net.luminis.tls.TlsConstants;
 
-public class DecodeErrorException extends TlsProtocolException {
+public class DecodeErrorException extends ErrorAlert {
 
     /**
      * Exception representing TLS error alert "decode_error".
@@ -13,6 +13,6 @@ public class DecodeErrorException extends TlsProtocolException {
      * @param message
      */
     public DecodeErrorException(String message) {
-        super(message);
+        super(message, TlsConstants.AlertDescription.decode_error);
     }
 }

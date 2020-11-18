@@ -51,7 +51,7 @@ class TlsClientEngineTest extends EngineTest {
         engine.setServerName("server");
         engine.addSupportedCiphers(List.of(TLS_AES_128_GCM_SHA256));
 
-        publicKey = (ECPublicKey) generateKeys()[1];
+        publicKey = KeyUtils.generatePublicKey();
     }
 
     @Test
