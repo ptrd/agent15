@@ -36,7 +36,7 @@ public class ClientHello extends HandshakeMessage {
      * @throws IllegalParameterAlert
      */
     public ClientHello(ByteBuffer buffer) throws TlsProtocolException, IllegalParameterAlert {
-        data = new byte[0];
+        int startPosition = buffer.position();
 
         if (buffer.remaining() < 4) {
             throw new DecodeErrorException("message underflow");
@@ -86,6 +86,10 @@ public class ClientHello extends HandshakeMessage {
         }
 
         extensions = parseExtensions(buffer, TlsConstants.HandshakeType.client_hello);
+
+        data = new byte[buffer.position() - startPosition];
+        buffer.position(startPosition);
+        buffer.get(data);
     }
 
     public ClientHello(String serverName, ECPublicKey publicKey) {

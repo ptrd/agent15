@@ -181,6 +181,21 @@ public class TlsServerEngineTest extends EngineTest {
         assertThat(engine.getServerHandshakeTrafficSecret()).isNotNull();
     }
 
+    @Test
+    void serverExtensionsShouldBeIncludedInEncryptedExtensions() throws Exception {
+        // Given
+        ClientHello clientHello = createDefaultClientHello();
+        engine.addServerExtensions(new ApplicationLayerProtocolNegotiationExtension("foobar"));
+
+        // When
+        engine.received(clientHello);
+
+        // Then
+        ArgumentCaptor<EncryptedExtensions> captor = ArgumentCaptor.forClass(EncryptedExtensions.class);
+        verify(messageSender).send(captor.capture());
+        assertThat(captor.getValue().getExtensions()).hasAtLeastOneElementOfType(ApplicationLayerProtocolNegotiationExtension.class);
+    }
+
     private ClientHello createDefaultClientHello() {
         return new ClientHello("localhost", publicKey, false,
                 List.of(TLS_AES_128_GCM_SHA256),

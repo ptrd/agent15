@@ -35,6 +35,7 @@ public class TlsServerEngine extends TlsEngine implements ServerMessageProcessor
     private PrivateKey certificatePrivateKey;
     private TranscriptHash transcriptHash;
     private TlsConstants.CipherSuite selectedCipher;
+    private List<Extension> serverExtensions;
 
 
     public TlsServerEngine(X509Certificate serverCertificate, PrivateKey certificateKey, ServerMessageSender serverMessageSender, TlsStatusEventHandler tlsStatusHandler) {
@@ -45,6 +46,7 @@ public class TlsServerEngine extends TlsEngine implements ServerMessageProcessor
         supportedCiphers = new ArrayList<>();
         supportedCiphers.add(TLS_AES_128_GCM_SHA256);
         extensions = new ArrayList<>();
+        serverExtensions = new ArrayList<>();
         transcriptHash = new TranscriptHash(32);
     }
 
@@ -84,7 +86,7 @@ public class TlsServerEngine extends TlsEngine implements ServerMessageProcessor
                 .findFirst()
                 .orElseThrow(() -> new MissingExtensionAlert("signature algorithms extension is required in Client Hello"));
 
-       // This implementation (yet) only supports rsa_pss_rsae_sha256 (non compliant, see https://tools.ietf.org/html/rfc8446#section-9.1)
+        // This implementation (yet) only supports rsa_pss_rsae_sha256 (non compliant, see https://tools.ietf.org/html/rfc8446#section-9.1)
         if (!signatureAlgorithmsExtension.getSignatureAlgorithms().contains(rsa_pss_rsae_sha256)) {
             throw new HandshakeFailureAlert("Failed to negotiate signature algorithm (server only supports rsa_pss_rsae_sha256");
         }
@@ -117,6 +119,10 @@ public class TlsServerEngine extends TlsEngine implements ServerMessageProcessor
         state.computeSharedSecret();
         state.computeHandshakeSecrets();
         statusHandler.handshakeSecretsKnown();
+
+        EncryptedExtensions encryptedExtensions = new EncryptedExtensions(serverExtensions);
+        serverMessageSender.send(encryptedExtensions);
+        transcriptHash.record(encryptedExtensions);
     }
 
     @Override
@@ -144,5 +150,8 @@ public class TlsServerEngine extends TlsEngine implements ServerMessageProcessor
         return state;
     }
 
+    public void addServerExtensions(Extension extension) {
+        serverExtensions.add(extension);
+    }
 }
 
