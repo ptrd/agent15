@@ -35,7 +35,7 @@ public class ClientHello extends HandshakeMessage {
      * @throws TlsProtocolException
      * @throws IllegalParameterAlert
      */
-    public ClientHello(ByteBuffer buffer) throws TlsProtocolException, IllegalParameterAlert {
+    public ClientHello(ByteBuffer buffer, ExtensionParser customExtensionParser) throws TlsProtocolException, IllegalParameterAlert {
         int startPosition = buffer.position();
 
         if (buffer.remaining() < 4) {
@@ -85,7 +85,7 @@ public class ClientHello extends HandshakeMessage {
             throw new IllegalParameterAlert("Invalid legacy compression method");
         }
 
-        extensions = parseExtensions(buffer, TlsConstants.HandshakeType.client_hello);
+        extensions = parseExtensions(buffer, TlsConstants.HandshakeType.client_hello, customExtensionParser);
 
         data = new byte[buffer.position() - startPosition];
         buffer.position(startPosition);
