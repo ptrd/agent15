@@ -145,6 +145,10 @@ public class TlsServerEngine extends TlsEngine implements ServerMessageProcessor
         return selectedCipher;
     }
 
+    public List<Extension> getServerExtensions() {
+        return serverExtensions;
+    }
+
     // TODO: remove this
     public TlsState getState() {
         return state;
