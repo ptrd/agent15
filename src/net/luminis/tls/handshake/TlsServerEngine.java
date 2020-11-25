@@ -13,6 +13,7 @@ import net.luminis.tls.util.ByteUtils;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.security.*;
 import java.security.cert.X509Certificate;
 import java.security.spec.MGF1ParameterSpec;
@@ -128,10 +129,58 @@ public class TlsServerEngine extends TlsEngine implements ServerMessageProcessor
         serverMessageSender.send(certificate);
         transcriptHash.record(certificate);
 
+        byte[] signature = computeSignature();
+        CertificateVerifyMessage certificateVerify = new CertificateVerifyMessage(rsa_pss_rsae_sha256, signature);
+        serverMessageSender.send(certificateVerify);
+        transcriptHash.record(certificateVerify);
     }
 
     @Override
     public void received(FinishedMessage clientFinished) throws TlsProtocolException, IOException {
+    }
+
+    private byte[] computeSignature() {
+        // https://tools.ietf.org/html/rfc8446#section-4.4.3
+        // "For example, if the transcript hash was 32 bytes of 01 (this length would make sense for SHA-256),
+        // the content covered by the digital signature for a server CertificateVerify would be:"
+
+        // "The content that is covered under the signature is the hash output as described in Section 4.4.1, namely:
+        //      Transcript-Hash(Handshake Context, Certificate)
+        byte[] hash = transcriptHash.getHash(TlsConstants.HandshakeType.certificate);
+
+        //   The digital signature is then computed over the concatenation of:
+        //   -  A string that consists of octet 32 (0x20) repeated 64 times
+        //   -  The context string
+        //   -  A single 0 byte which serves as the separator
+        //   -  The content to be signed"
+        ByteArrayOutputStream signatureInput = new ByteArrayOutputStream();
+        try {
+            signatureInput.write(new String(new byte[] { 0x20 }).repeat(64).getBytes(StandardCharsets.US_ASCII));
+            signatureInput.write("TLS 1.3, server CertificateVerify".getBytes(StandardCharsets.US_ASCII));
+            signatureInput.write(0x00);
+            signatureInput.write(hash);
+        } catch (IOException e) {
+            // Impossible
+            throw new RuntimeException();
+        }
+
+        try {
+            Signature signatureAlgorithm = Signature.getInstance("RSASSA-PSS");
+            signatureAlgorithm.setParameter(new PSSParameterSpec("SHA-256", "MGF1", new MGF1ParameterSpec("SHA-256"), 32, 1));
+            signatureAlgorithm.initSign(certificatePrivateKey);
+            signatureAlgorithm.update(signatureInput.toByteArray());
+            byte[] digitalSignature = signatureAlgorithm.sign();
+            return digitalSignature;
+        }
+        catch (NoSuchAlgorithmException e) {
+            throw new RuntimeException("Missing " + "RSASSA-PSS" + " support");
+        }
+        catch (InvalidAlgorithmParameterException | InvalidKeyException e) {
+            // Impossible
+            throw new RuntimeException();
+        } catch (SignatureException e) {
+            throw new RuntimeException();
+        }
     }
 
     public void addSupportedCiphers(List<TlsConstants.CipherSuite> cipherSuites) {
