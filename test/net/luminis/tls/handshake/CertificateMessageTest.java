@@ -1,5 +1,6 @@
 package net.luminis.tls.handshake;
 
+import net.luminis.tls.CertificateUtils;
 import net.luminis.tls.alert.BadCertificateAlert;
 import net.luminis.tls.alert.DecodeErrorException;
 import net.luminis.tls.handshake.CertificateMessage;
@@ -133,6 +134,23 @@ public class CertificateMessageTest {
         byte[] data = certificateMessage.getBytes();
         int messageLength = 4 + ByteBuffer.wrap(data).getInt() & 0x00ffffff;
         assertThat(data.length).isEqualTo(messageLength);
+
+        assertThatThrownBy(() ->
+                new CertificateMessage().parse(ByteBuffer.wrap(data)))
+                .isInstanceOf(BadCertificateAlert.class);
+    }
+
+    @Test
+    void serializeAndDeserializeCertificateMessage() throws Exception {
+        X509Certificate cert = CertificateUtils.getTestCertificate();
+        CertificateMessage certificateMessage = new CertificateMessage(cert);
+
+        byte[] data = certificateMessage.getBytes();
+        int messageLength = 4 + ByteBuffer.wrap(data).getInt() & 0x00ffffff;
+        assertThat(data.length).isEqualTo(messageLength);
+
+        CertificateMessage parsedCertificateMessage = new CertificateMessage().parse(ByteBuffer.wrap(data));
+        assertThat(parsedCertificateMessage.getEndEntityCertificate()).isEqualTo(cert);
     }
 
 

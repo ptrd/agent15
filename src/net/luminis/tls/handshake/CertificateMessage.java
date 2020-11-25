@@ -129,13 +129,13 @@ public class CertificateMessage extends HandshakeMessage {
                 }
             }
             short certLength = (short) certBytes.length;
-            ByteBuffer buffer = ByteBuffer.allocate(4 + 1 + 3 + 3 + certLength + 1);
-            buffer.putInt((TlsConstants.HandshakeType.certificate.value << 24) | (1 + 3 + 3 + certLength + 1));
+            ByteBuffer buffer = ByteBuffer.allocate(4 + 1 + 3 + 3 + certLength + 2);
+            buffer.putInt((TlsConstants.HandshakeType.certificate.value << 24) | (1 + 3 + 3 + certLength + 2));
             // cert request context size
             buffer.put((byte) 0x00);
             // certificate_list size (3 bytes)
-            buffer.put((byte) 0);
-            buffer.put((byte) (3 + certLength + 1));
+            buffer.put((byte) 0); // assuming < 65535
+            buffer.putShort((short) (3 + certLength + 2));
             // certificate size
             buffer.put((byte) 0);
             buffer.putShort(certLength);
