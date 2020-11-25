@@ -4,6 +4,7 @@ import net.luminis.tls.TlsConstants;
 import net.luminis.tls.TlsProtocolException;
 import net.luminis.tls.TlsState;
 import net.luminis.tls.TranscriptHash;
+import net.luminis.tls.alert.DecryptErrorAlert;
 import net.luminis.tls.alert.HandshakeFailureAlert;
 import net.luminis.tls.alert.IllegalParameterAlert;
 import net.luminis.tls.alert.MissingExtensionAlert;
@@ -133,6 +134,11 @@ public class TlsServerEngine extends TlsEngine implements ServerMessageProcessor
         CertificateVerifyMessage certificateVerify = new CertificateVerifyMessage(rsa_pss_rsae_sha256, signature);
         serverMessageSender.send(certificateVerify);
         transcriptHash.record(certificateVerify);
+
+        byte[] hmac = computeFinishedVerifyData(transcriptHash.getHash(TlsConstants.HandshakeType.certificate_verify), state.getServerHandshakeTrafficSecret());
+        FinishedMessage finished = new FinishedMessage(hmac);
+        serverMessageSender.send(finished);
+        transcriptHash.recordServer(finished);
     }
 
     @Override
