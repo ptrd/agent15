@@ -139,10 +139,27 @@ public class TlsServerEngine extends TlsEngine implements ServerMessageProcessor
         FinishedMessage finished = new FinishedMessage(hmac);
         serverMessageSender.send(finished);
         transcriptHash.recordServer(finished);
+        state.computeApplicationSecrets();
     }
 
     @Override
     public void received(FinishedMessage clientFinished) throws TlsProtocolException, IOException {
+        // https://tools.ietf.org/html/rfc8446#section-4.4
+        // "   | Mode      | Handshake Context       | Base Key                    |
+        //     +-----------+-------------------------+-----------------------------+
+        //     | Client    | ClientHello ... later   | client_handshake_traffic_   |
+        //     |           | of server               | secret                      |
+        //     |           | Finished/EndOfEarlyData |                             |
+
+        byte[] serverHmac = computeFinishedVerifyData(transcriptHash.getServerHash(TlsConstants.HandshakeType.finished), state.getClientHandshakeTrafficSecret());
+        // https://tools.ietf.org/html/rfc8446#section-4.4
+        // "Recipients of Finished messages MUST verify that the contents are correct and if incorrect MUST terminate the connection with a "decrypt_error" alert."
+        if (!Arrays.equals(clientFinished.getVerifyData(), serverHmac)) {
+            throw new DecryptErrorAlert("incorrect finished message");
+        }
+        else {
+            statusHandler.handshakeFinished();
+        }
     }
 
     private byte[] computeSignature() {

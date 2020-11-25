@@ -3,6 +3,7 @@ package net.luminis.tls.handshake;
 import net.luminis.tls.CertificateUtils;
 import net.luminis.tls.KeyUtils;
 import net.luminis.tls.TlsConstants;
+import net.luminis.tls.alert.DecryptErrorAlert;
 import net.luminis.tls.alert.HandshakeFailureAlert;
 import net.luminis.tls.alert.IllegalParameterAlert;
 import net.luminis.tls.alert.MissingExtensionAlert;
@@ -195,6 +196,20 @@ public class TlsServerEngineTest extends EngineTest {
         verify(messageSender).send(captor.capture());
         assertThat(captor.getValue().getExtensions()).hasAtLeastOneElementOfType(ApplicationLayerProtocolNegotiationExtension.class);
     }
+
+    @Test
+    void incorrectClientFinishedMessageLeadsToDecryptError() throws Exception {
+        // Given
+        ClientHello clientHello = createDefaultClientHello();
+        engine.received(clientHello);
+
+        assertThatThrownBy(() ->
+                // When
+                engine.received(new FinishedMessage(new byte[32])))
+        // Then
+        .isInstanceOf(DecryptErrorAlert.class);
+    }
+
 
     private ClientHello createDefaultClientHello() {
         return new ClientHello("localhost", publicKey, false,
