@@ -123,6 +123,11 @@ public class TlsServerEngine extends TlsEngine implements ServerMessageProcessor
         EncryptedExtensions encryptedExtensions = new EncryptedExtensions(serverExtensions);
         serverMessageSender.send(encryptedExtensions);
         transcriptHash.record(encryptedExtensions);
+
+        CertificateMessage certificate = new CertificateMessage(serverCertificate);
+        serverMessageSender.send(certificate);
+        transcriptHash.record(certificate);
+
     }
 
     @Override
