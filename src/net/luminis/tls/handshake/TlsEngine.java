@@ -10,24 +10,38 @@ import java.security.*;
 import java.security.interfaces.ECPrivateKey;
 import java.security.interfaces.ECPublicKey;
 import java.security.spec.ECGenParameterSpec;
+import java.security.spec.NamedParameterSpec;
+
+import static net.luminis.tls.TlsConstants.NamedGroup.*;
 
 public abstract class TlsEngine implements MessageProcessor, TrafficSecrets {
 
-    protected ECPublicKey publicKey;
-    protected ECPrivateKey privateKey;
+    protected PublicKey publicKey;
+    protected PrivateKey privateKey;
     protected TlsState state;
 
     public abstract TlsConstants.CipherSuite getSelectedCipher();
 
 
-    protected void generateKeys(String ecCurve) {
+    protected void generateKeys(TlsConstants.NamedGroup namedGroup) {
         try {
-            KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance("EC");
-            keyPairGenerator.initialize(new ECGenParameterSpec(ecCurve));
+            KeyPairGenerator keyPairGenerator;
+            if (namedGroup == secp256r1 || namedGroup == secp384r1 || namedGroup == secp521r1) {
+                keyPairGenerator = KeyPairGenerator.getInstance("EC");
+                keyPairGenerator.initialize(new ECGenParameterSpec(namedGroup.toString()));
+            }
+            else if (namedGroup == x25519 || namedGroup == x448) {
+                keyPairGenerator = KeyPairGenerator.getInstance("XDH");
+                NamedParameterSpec paramSpec = new NamedParameterSpec(namedGroup.toString().toUpperCase());  // x25519 => X25519
+                keyPairGenerator.initialize(paramSpec);
+            }
+            else {
+                throw new RuntimeException("unsupported group " + namedGroup);
+            }
 
             KeyPair keyPair = keyPairGenerator.genKeyPair();
-            privateKey = (ECPrivateKey) keyPair.getPrivate();
-            publicKey = (ECPublicKey) keyPair.getPublic();
+            privateKey = keyPair.getPrivate();
+            publicKey = keyPair.getPublic();
         } catch (NoSuchAlgorithmException e) {
             // Invalid runtime
             throw new RuntimeException("missing key pair generator algorithm EC");

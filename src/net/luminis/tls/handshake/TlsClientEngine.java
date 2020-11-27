@@ -38,7 +38,6 @@ public class TlsClientEngine extends TlsEngine implements ClientMessageProcessor
     private final ClientMessageSender sender;
     private final TlsStatusEventHandler statusHandler;
     private String serverName;
-    private String ecCurve = "secp256r1";
     private boolean compatibilityMode;
     private List<TlsConstants.CipherSuite> supportedCiphers;
     private TlsConstants.CipherSuite selectedCipher;
@@ -65,10 +64,14 @@ public class TlsClientEngine extends TlsEngine implements ClientMessageProcessor
     }
 
     public void startHandshake() throws IOException {
-        startHandshake(List.of(rsa_pss_rsae_sha256));
+        startHandshake(TlsConstants.NamedGroup.secp256r1, List.of(rsa_pss_rsae_sha256));
     }
 
-    public void startHandshake(List<TlsConstants.SignatureScheme> signatureSchemes) throws IOException {
+    public void startHandshake(TlsConstants.NamedGroup ecCurve) throws IOException {
+        startHandshake(ecCurve, List.of(rsa_pss_rsae_sha256));
+    }
+
+    public void startHandshake(TlsConstants.NamedGroup ecCurve, List<TlsConstants.SignatureScheme> signatureSchemes) throws IOException {
         supportedSignatures = signatureSchemes;
         generateKeys(ecCurve);
         if (serverName == null || supportedCiphers.isEmpty()) {
@@ -84,7 +87,7 @@ public class TlsClientEngine extends TlsEngine implements ClientMessageProcessor
             state = new TlsState(transcriptHash);
         }
 
-        clientHello = new ClientHello(serverName, publicKey, compatibilityMode, supportedCiphers, supportedSignatures, extensions);
+        clientHello = new ClientHello(serverName, publicKey, compatibilityMode, supportedCiphers, supportedSignatures, ecCurve, extensions);
         extensions = clientHello.getExtensions();
         sender.send(clientHello);
         status = Status.ClientHelloSent;
