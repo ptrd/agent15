@@ -10,6 +10,7 @@ import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.security.*;
 import java.security.interfaces.ECPublicKey;
+import java.util.Arrays;
 
 import static net.luminis.tls.util.ByteUtils.bytesToHex;
 
@@ -120,9 +121,8 @@ public class TlsState {
             keyAgreement.init(clientPrivateKey);
             keyAgreement.doPhase(serverPublicKey, true);
 
-            SecretKey key = keyAgreement.generateSecret("TlsPremasterSecret");
-            Logger.debug("Shared key: " + bytesToHex(key.getEncoded()));
-            sharedSecret = key.getEncoded();
+            sharedSecret = keyAgreement.generateSecret();
+            Logger.debug("Shared key: " + bytesToHex(sharedSecret));
         } catch (NoSuchAlgorithmException | InvalidKeyException e) {
             throw new RuntimeException("Unsupported crypto: " + e);
         }
