@@ -24,6 +24,7 @@ import java.util.stream.Collectors;
 
 import static net.luminis.tls.TlsConstants.CipherSuite.TLS_AES_128_GCM_SHA256;
 import static net.luminis.tls.TlsConstants.NamedGroup.secp256r1;
+import static net.luminis.tls.TlsConstants.NamedGroup.x25519;
 import static net.luminis.tls.TlsConstants.SignatureScheme.rsa_pss_rsae_sha256;
 
 public class TlsServerEngine extends TlsEngine implements ServerMessageProcessor {
@@ -68,9 +69,13 @@ public class TlsServerEngine extends TlsEngine implements ServerMessageProcessor
                 .findFirst()
                 .orElseThrow(() -> new MissingExtensionAlert("supported groups extension is required in Client Hello"));
 
-        // This implementation (yet) only supports secp256r1
-        if (!supportedGroupsExt.getNamedGroups().contains(secp256r1)) {
-            throw new HandshakeFailureAlert("Failed to negotiate supported group (server only supports secp256r1");
+        // This implementation (yet) only supports secp256r1 and x25519
+        List<TlsConstants.NamedGroup> serverSupportedGroups = List.of(TlsConstants.NamedGroup.secp256r1, x25519);
+        if (supportedGroupsExt.getNamedGroups().stream()
+                .filter(serverSupportedGroups::contains)
+                .findFirst()
+                .isEmpty()) {
+            throw new HandshakeFailureAlert(String.format("Failed to negotiate supported group (server only supports %s)", serverSupportedGroups));
         }
 
         KeyShareExtension keyShareExtension = (KeyShareExtension) clientHello.getExtensions().stream()
@@ -79,9 +84,9 @@ public class TlsServerEngine extends TlsEngine implements ServerMessageProcessor
                 .orElseThrow(() -> new MissingExtensionAlert("key share extension is required in Client Hello"));
 
         KeyShareExtension.KeyShareEntry keyShareEntry = keyShareExtension.getKeyShareEntries().stream()
-                .filter(entry -> entry.getNamedGroup() == secp256r1)
+                .filter(entry -> serverSupportedGroups.contains(entry.getNamedGroup()))
                 .findFirst()
-                .orElseThrow(() -> new IllegalParameterAlert("key share extension group inconsistent with supported groups"));
+                .orElseThrow(() -> new IllegalParameterAlert("key share named group no supported (and no HelloRetryRequest support)"));
 
        SignatureAlgorithmsExtension signatureAlgorithmsExtension = (SignatureAlgorithmsExtension) clientHello.getExtensions().stream()
                 .filter(ext -> ext instanceof SignatureAlgorithmsExtension)
@@ -101,14 +106,14 @@ public class TlsServerEngine extends TlsEngine implements ServerMessageProcessor
         state = new TlsState(transcriptHash);
         transcriptHash.record(clientHello);
 
-        generateKeys(ecCurve);
+        generateKeys(keyShareEntry.getNamedGroup());
         state.setOwnKey(privateKey);
         state.computeEarlyTrafficSecret();
         statusHandler.earlySecretsKnown();
 
         ServerHello serverHello = new ServerHello(selectedCipher, List.of(
                 new SupportedVersionsExtension(TlsConstants.HandshakeType.server_hello),
-                new KeyShareExtension(publicKey, secp256r1, TlsConstants.HandshakeType.server_hello)
+                new KeyShareExtension(publicKey, keyShareEntry.getNamedGroup(), TlsConstants.HandshakeType.server_hello)
         ));
         // Send server hello back to client
         serverMessageSender.send(serverHello);

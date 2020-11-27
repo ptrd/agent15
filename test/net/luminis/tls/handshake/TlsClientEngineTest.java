@@ -17,10 +17,7 @@ import java.nio.ByteBuffer;
 import java.security.*;
 import java.security.cert.Certificate;
 import java.security.cert.X509Certificate;
-import java.security.interfaces.ECKey;
-import java.security.interfaces.ECPrivateKey;
 import java.security.interfaces.ECPublicKey;
-import java.security.spec.ECGenParameterSpec;
 import java.security.spec.MGF1ParameterSpec;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.security.spec.PSSParameterSpec;
@@ -451,7 +448,7 @@ class TlsClientEngineTest extends EngineTest {
     }
 
     private void handshakeUpToEncryptedExtensions(List<TlsConstants.SignatureScheme> signatureSchemes) throws Exception {
-        engine.startHandshake(signatureSchemes);
+        engine.startHandshake(TlsConstants.NamedGroup.secp256r1, signatureSchemes);
 
         ServerHello serverHello = new ServerHello(TLS_AES_128_GCM_SHA256, List.of(
                 new SupportedVersionsExtension(TlsConstants.HandshakeType.server_hello),

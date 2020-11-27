@@ -10,8 +10,10 @@ import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.security.*;
 import java.security.interfaces.ECPublicKey;
+import java.security.interfaces.XECPublicKey;
 
 import static net.luminis.tls.util.ByteUtils.bytesToHex;
+
 
 public class TlsState {
 
@@ -113,17 +115,25 @@ public class TlsState {
     }
 
     public void computeSharedSecret() {
-        ECPublicKey serverPublicKey = (ECPublicKey) serverSharedKey;
-
         try {
-            KeyAgreement keyAgreement = KeyAgreement.getInstance("ECDH");
-            keyAgreement.init(clientPrivateKey);
-            keyAgreement.doPhase(serverPublicKey, true);
+            KeyAgreement keyAgreement;
+            if (serverSharedKey instanceof ECPublicKey) {
+                keyAgreement = KeyAgreement.getInstance("ECDH");
+            }
+            else if (serverSharedKey instanceof XECPublicKey) {
+                keyAgreement = KeyAgreement.getInstance("XDH");
+            }
+            else {
+                throw new RuntimeException("Unsupported key type");
+            }
 
-            SecretKey key = keyAgreement.generateSecret("TlsPremasterSecret");
-            Logger.debug("Shared key: " + bytesToHex(key.getEncoded()));
-            sharedSecret = key.getEncoded();
-        } catch (NoSuchAlgorithmException | InvalidKeyException e) {
+            keyAgreement.init(clientPrivateKey);
+            keyAgreement.doPhase(serverSharedKey, true);
+
+            sharedSecret = keyAgreement.generateSecret();
+            Logger.debug("Shared key: " + bytesToHex(sharedSecret));
+        }
+        catch (NoSuchAlgorithmException | InvalidKeyException e) {
             throw new RuntimeException("Unsupported crypto: " + e);
         }
     }

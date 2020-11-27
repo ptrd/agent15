@@ -5,13 +5,11 @@ import net.luminis.tls.KeyUtils;
 import net.luminis.tls.TlsConstants;
 import net.luminis.tls.alert.DecryptErrorAlert;
 import net.luminis.tls.alert.HandshakeFailureAlert;
-import net.luminis.tls.alert.IllegalParameterAlert;
 import net.luminis.tls.alert.MissingExtensionAlert;
 import net.luminis.tls.extension.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
-import org.mockito.Mockito;
 
 import java.security.KeyFactory;
 import java.security.PrivateKey;
@@ -22,7 +20,6 @@ import java.util.Base64;
 import java.util.Collections;
 import java.util.List;
 
-import static net.luminis.tls.KeyUtils.generateKeys;
 import static net.luminis.tls.TlsConstants.CipherSuite.TLS_AES_128_GCM_SHA256;
 import static net.luminis.tls.TlsConstants.CipherSuite.TLS_CHACHA20_POLY1305_SHA256;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -61,7 +58,7 @@ public class TlsServerEngineTest extends EngineTest {
         ClientHello clientHello = new ClientHello("localhost", publicKey, false,
                 List.of(TLS_CHACHA20_POLY1305_SHA256),
                 List.of(TlsConstants.SignatureScheme.rsa_pss_rsae_sha256),
-                Collections.emptyList());
+                TlsConstants.NamedGroup.secp256r1, Collections.emptyList());
 
         assertThatThrownBy(() ->
                 // When
@@ -160,7 +157,7 @@ public class TlsServerEngineTest extends EngineTest {
         ClientHello clientHello = new ClientHello("localhost", publicKey, false,
                 List.of(TLS_CHACHA20_POLY1305_SHA256, TLS_AES_128_GCM_SHA256),
                 List.of(TlsConstants.SignatureScheme.rsa_pss_rsae_sha256),
-                Collections.emptyList());
+                TlsConstants.NamedGroup.secp256r1, Collections.emptyList());
 
         // When
         engine.received(clientHello);
@@ -215,6 +212,6 @@ public class TlsServerEngineTest extends EngineTest {
         return new ClientHello("localhost", publicKey, false,
                 List.of(TLS_AES_128_GCM_SHA256),
                 List.of(TlsConstants.SignatureScheme.rsa_pss_rsae_sha256),
-                Collections.emptyList());
+                TlsConstants.NamedGroup.secp256r1, Collections.emptyList());
     }
 }

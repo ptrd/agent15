@@ -11,6 +11,7 @@ import java.security.KeyFactory;
 import java.security.NoSuchAlgorithmException;
 import java.security.PublicKey;
 import java.security.interfaces.ECPublicKey;
+import java.security.interfaces.XECPublicKey;
 import java.security.spec.*;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -18,15 +19,20 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
 
+import static net.luminis.tls.TlsConstants.NamedGroup.*;
+
 /**
  * The TLS "key_share" extension contains the endpoint's cryptographic parameters.
  * See https://tools.ietf.org/html/rfc8446#section-4.2.8
  */
 public class KeyShareExtension extends Extension {
 
-    public static final Map<TlsConstants.NamedGroup, Integer> SEC_KEY_LENGTHS
-            = Map.of(TlsConstants.NamedGroup.secp256r1, 32, TlsConstants.NamedGroup.secp384r1, 48, TlsConstants.NamedGroup.secp521r1, 66);
-
+    public static final Map<TlsConstants.NamedGroup, Integer> CURVE_KEY_LENGTHS = Map.of(
+            secp256r1, 65,
+            x25519, 32,
+            x448, 56
+    );
+    public static final List<TlsConstants.NamedGroup> supportedCurves = List.of(secp256r1, x25519);
 
     private TlsConstants.HandshakeType handshakeType;
     private List<KeyShareEntry> keyShareEntries = new ArrayList<>();
@@ -41,11 +47,21 @@ public class KeyShareExtension extends Extension {
     public KeyShareExtension(ECPublicKey publicKey, TlsConstants.NamedGroup ecCurve, TlsConstants.HandshakeType handshakeType) {
         this.handshakeType = handshakeType;
 
-        if (ecCurve != TlsConstants.NamedGroup.secp256r1) {
-            throw new RuntimeException("Only secp256r1 is supported");
+        if (! supportedCurves.contains(ecCurve)) {
+            throw new RuntimeException("Only curves supported: " + supportedCurves);
         }
 
         keyShareEntries.add(new ECKeyShareEntry(ecCurve, publicKey));
+    }
+
+    public KeyShareExtension(PublicKey publicKey, TlsConstants.NamedGroup ecCurve, TlsConstants.HandshakeType handshakeType) {
+        this.handshakeType = handshakeType;
+
+        if (! supportedCurves.contains(ecCurve)) {
+            throw new RuntimeException("Only curves supported: " + supportedCurves);
+        }
+
+        keyShareEntries.add(new KeyShareEntry(ecCurve, publicKey));
     }
 
     /**
@@ -100,8 +116,8 @@ public class KeyShareExtension extends Extension {
         TlsConstants.NamedGroup namedGroup = Stream.of(TlsConstants.NamedGroup.values()).filter(it -> it.value == namedGroupValue).findAny()
                 .orElseThrow(() -> new DecodeErrorException("Invalid named group"));
 
-        if (namedGroup != TlsConstants.NamedGroup.secp256r1) {
-            throw new RuntimeException("Unsupported named group " + namedGroup.name());
+        if (! supportedCurves.contains(namedGroup)) {
+            throw new RuntimeException("Only curves supported: " + supportedCurves);
         }
 
         if (namedGroupOnly) {
@@ -112,17 +128,25 @@ public class KeyShareExtension extends Extension {
             if (buffer.remaining() < keyLength) {
                 throw new DecodeErrorException("extension underflow");
             }
-            if (keyLength != 1 + 2 * SEC_KEY_LENGTHS.get(namedGroup)) {
+            if (keyLength != CURVE_KEY_LENGTHS.get(namedGroup)) {
                 throw new DecodeErrorException("Invalid key length");
             }
-            int headerByte = buffer.get();
-            if (headerByte == 4) {
-                byte[] keyData = new byte[keyLength - 1];
+            if (namedGroup == secp256r1) {
+                int headerByte = buffer.get();
+                if (headerByte == 4) {
+                    byte[] keyData = new byte[keyLength - 1];
+                    buffer.get(keyData);
+                    ECPublicKey ecPublicKey = rawToEncodedECPublicKey(namedGroup, keyData);
+                    keyShareEntries.add(new ECKeyShareEntry(namedGroup, ecPublicKey));
+                } else {
+                    throw new DecodeErrorException("EC keys must be in legacy form");
+                }
+            }
+            else if (namedGroup == x25519) {
+                byte[] keyData = new byte[keyLength];
                 buffer.get(keyData);
-                ECPublicKey ecPublicKey = rawToEncodedECPublicKey(namedGroup.name(), keyData);
-                keyShareEntries.add(new ECKeyShareEntry(namedGroup, ecPublicKey));
-            } else {
-                throw new DecodeErrorException("EC keys must be in legacy form");
+                PublicKey publicKey = rawToEncodedXDHPublicKey(namedGroup, keyData);
+                keyShareEntries.add(new KeyShareEntry(namedGroup, publicKey));
             }
         }
         return buffer.position() - startPosition;
@@ -130,8 +154,11 @@ public class KeyShareExtension extends Extension {
 
     @Override
     public byte[] getBytes() {
-        short rawKeyLength = 65;
-        short keyShareEntryLength = (short) (2 + 2 + rawKeyLength);   // Named Group: 2 bytes, key length: 2 bytes
+        short keyShareEntryLength = (short) keyShareEntries.stream()
+                .map(ks -> ks.getNamedGroup())
+                .mapToInt(g -> CURVE_KEY_LENGTHS.get(g))
+                .map(s -> 2 + 2 + s)  // Named Group: 2 bytes, key length: 2 bytes
+                .sum();
         short extensionLength = keyShareEntryLength;
         if (handshakeType == TlsConstants.HandshakeType.client_hello) {
             extensionLength += 2;
@@ -147,13 +174,23 @@ public class KeyShareExtension extends Extension {
 
         for (KeyShareEntry keyShare: keyShareEntries) {
             buffer.putShort(keyShare.getNamedGroup().value);
-            buffer.putShort(rawKeyLength);
-            // See https://tools.ietf.org/html/rfc8446#section-4.2.8.2, "For secp256r1, secp384r1, and secp521r1, ..."
-            buffer.put((byte) 4);
-            byte[] affineX = ((ECPublicKey) keyShare.getKey()).getW().getAffineX().toByteArray();
-            writeAffine(buffer, affineX);
-            byte[] affineY = ((ECPublicKey) keyShare.getKey()).getW().getAffineY().toByteArray();
-            writeAffine(buffer, affineY);
+            buffer.putShort(CURVE_KEY_LENGTHS.get(keyShare.getNamedGroup()).shortValue());
+            if (keyShare.getNamedGroup() == secp256r1) {
+                // See https://tools.ietf.org/html/rfc8446#section-4.2.8.2, "For secp256r1, secp384r1, and secp521r1, ..."
+                buffer.put((byte) 4);
+                byte[] affineX = ((ECPublicKey) keyShare.getKey()).getW().getAffineX().toByteArray();
+                writeAffine(buffer, affineX);
+                byte[] affineY = ((ECPublicKey) keyShare.getKey()).getW().getAffineY().toByteArray();
+                writeAffine(buffer, affineY);
+            }
+            else if (keyShare.getNamedGroup() == x25519) {
+                byte[] raw = ((XECPublicKey) keyShare.getKey()).getU().toByteArray();
+                if (raw.length != CURVE_KEY_LENGTHS.get(keyShare.getNamedGroup())) {
+                    throw new RuntimeException("invalid key length: " + raw.length);
+                }
+                reverse(raw);  // WTF? Apparently, this is necessary.... ;-)
+                buffer.put(raw);
+            }
         }
 
         return buffer.array();
@@ -184,20 +221,29 @@ public class KeyShareExtension extends Extension {
         }
     }
 
-    public static abstract class KeyShareEntry {
+    public static class KeyShareEntry {
         protected TlsConstants.NamedGroup namedGroup;
+        protected final PublicKey key;
+
+        public KeyShareEntry(TlsConstants.NamedGroup namedGroup, PublicKey key) {
+            this.namedGroup = namedGroup;
+            this.key = key;
+        }
 
         public TlsConstants.NamedGroup getNamedGroup() {
             return namedGroup;
         }
 
-        public abstract PublicKey getKey();
+        public PublicKey getKey() {
+            return key;
+        }
     }
 
     public static class ECKeyShareEntry extends KeyShareEntry {
         private final ECPublicKey key;
 
         public ECKeyShareEntry(TlsConstants.NamedGroup namedGroup, ECPublicKey key) {
+            super(namedGroup, key);
             this.namedGroup = namedGroup;
             this.key = key;
         }
@@ -207,13 +253,13 @@ public class KeyShareExtension extends Extension {
         }
     }
 
-    static ECPublicKey rawToEncodedECPublicKey(String curveName, byte[] rawBytes) {
+    static ECPublicKey rawToEncodedECPublicKey(TlsConstants.NamedGroup curveName, byte[] rawBytes) {
         try {
             KeyFactory kf = KeyFactory.getInstance("EC");
             byte[] x = Arrays.copyOfRange(rawBytes, 0, rawBytes.length/2);
             byte[] y = Arrays.copyOfRange(rawBytes, rawBytes.length/2, rawBytes.length);
             ECPoint w = new ECPoint(new BigInteger(1,x), new BigInteger(1,y));
-            return (ECPublicKey) kf.generatePublic(new ECPublicKeySpec(w, ecParameterSpecForCurve(curveName)));
+            return (ECPublicKey) kf.generatePublic(new ECPublicKeySpec(w, ecParameterSpecForCurve(curveName.name())));
         } catch (NoSuchAlgorithmException e) {
             throw new RuntimeException("Missing support for EC algorithm");
         } catch (InvalidKeySpecException e) {
@@ -230,6 +276,37 @@ public class KeyShareExtension extends Extension {
             throw new RuntimeException("Missing support for EC algorithm");
         } catch (InvalidParameterSpecException e) {
             throw new RuntimeException("Inappropriate parameter specification");
+        }
+    }
+
+    static PublicKey rawToEncodedXDHPublicKey(TlsConstants.NamedGroup curve, byte[] keyData) {
+        try {
+            reverse(keyData);  // WTF? Apparently, this is necessary.... ;-)
+            BigInteger u = new BigInteger(keyData);
+            KeyFactory kf = KeyFactory.getInstance("XDH");
+            NamedParameterSpec paramSpec = new NamedParameterSpec(curve.name().toUpperCase());
+            XECPublicKeySpec pubSpec = new XECPublicKeySpec(paramSpec, u);
+            return kf.generatePublic(pubSpec);
+        } catch (NoSuchAlgorithmException e) {
+            throw new RuntimeException("Missing support for EC algorithm");
+        } catch (InvalidKeySpecException e) {
+            throw new RuntimeException("Inappropriate parameter specification");
+        }
+    }
+
+    public static void reverse(byte[] array) {
+        if (array == null) {
+            return;
+        }
+        int i = 0;
+        int j = array.length - 1;
+        byte tmp;
+        while (j > i) {
+            tmp = array[j];
+            array[j] = array[i];
+            array[i] = tmp;
+            j--;
+            i++;
         }
     }
 }
