@@ -32,7 +32,7 @@ public class TlsServerEngine extends TlsEngine implements ServerMessageProcessor
     private final ArrayList<TlsConstants.CipherSuite> supportedCiphers;
     private final ArrayList<Extension> extensions;
     private ServerMessageSender serverMessageSender;
-    private TlsStatusEventHandler statusHandler;
+    protected TlsStatusEventHandler statusHandler;
     private final String ecCurve = "secp256r1";
     private X509Certificate serverCertificate;
     private PrivateKey certificatePrivateKey;
