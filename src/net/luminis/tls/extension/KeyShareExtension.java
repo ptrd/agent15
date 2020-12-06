@@ -32,7 +32,7 @@ public class KeyShareExtension extends Extension {
             x25519, 32,
             x448, 56
     );
-    public static final List<TlsConstants.NamedGroup> supportedCurves = List.of(secp256r1, x25519);
+    public static final List<TlsConstants.NamedGroup> supportedCurves = List.of(secp256r1, x25519, x448);
 
     private TlsConstants.HandshakeType handshakeType;
     private List<KeyShareEntry> keyShareEntries = new ArrayList<>();
@@ -117,7 +117,7 @@ public class KeyShareExtension extends Extension {
                 .orElseThrow(() -> new DecodeErrorException("Invalid named group"));
 
         if (! supportedCurves.contains(namedGroup)) {
-            throw new RuntimeException("Only curves supported: " + supportedCurves);
+            throw new RuntimeException("Curve '" + namedGroup + "' not supported");
         }
 
         if (namedGroupOnly) {
@@ -142,7 +142,7 @@ public class KeyShareExtension extends Extension {
                     throw new DecodeErrorException("EC keys must be in legacy form");
                 }
             }
-            else if (namedGroup == x25519) {
+            else if (namedGroup == x25519 || namedGroup == x448) {
                 byte[] keyData = new byte[keyLength];
                 buffer.get(keyData);
                 PublicKey publicKey = rawToEncodedXDHPublicKey(namedGroup, keyData);
@@ -183,13 +183,16 @@ public class KeyShareExtension extends Extension {
                 byte[] affineY = ((ECPublicKey) keyShare.getKey()).getW().getAffineY().toByteArray();
                 writeAffine(buffer, affineY);
             }
-            else if (keyShare.getNamedGroup() == x25519) {
+            else if (keyShare.getNamedGroup() == x25519 || keyShare.getNamedGroup() == x448) {
                 byte[] raw = ((XECPublicKey) keyShare.getKey()).getU().toByteArray();
                 if (raw.length != CURVE_KEY_LENGTHS.get(keyShare.getNamedGroup())) {
                     throw new RuntimeException("invalid key length: " + raw.length);
                 }
                 reverse(raw);  // WTF? Apparently, this is necessary.... ;-)
                 buffer.put(raw);
+            }
+            else {
+                throw new RuntimeException();
             }
         }
 

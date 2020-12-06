@@ -23,8 +23,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 import static net.luminis.tls.TlsConstants.CipherSuite.TLS_AES_128_GCM_SHA256;
-import static net.luminis.tls.TlsConstants.NamedGroup.secp256r1;
-import static net.luminis.tls.TlsConstants.NamedGroup.x25519;
+import static net.luminis.tls.TlsConstants.NamedGroup.*;
 import static net.luminis.tls.TlsConstants.SignatureScheme.rsa_pss_rsae_sha256;
 
 public class TlsServerEngine extends TlsEngine implements ServerMessageProcessor {
@@ -33,7 +32,6 @@ public class TlsServerEngine extends TlsEngine implements ServerMessageProcessor
     private final ArrayList<Extension> extensions;
     private ServerMessageSender serverMessageSender;
     protected TlsStatusEventHandler statusHandler;
-    private final String ecCurve = "secp256r1";
     private X509Certificate serverCertificate;
     private PrivateKey certificatePrivateKey;
     private TranscriptHash transcriptHash;
