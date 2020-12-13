@@ -24,6 +24,7 @@ import java.security.spec.PSSParameterSpec;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import static net.luminis.tls.TlsConstants.SignatureScheme.ecdsa_secp256r1_sha256;
 import static net.luminis.tls.TlsConstants.SignatureScheme.rsa_pss_rsae_sha256;
 
 
@@ -75,7 +76,7 @@ public class TlsClientEngine implements TrafficSecrets, ClientMessageProcessor {
     }
 
     public void startHandshake() throws IOException {
-        startHandshake(List.of(rsa_pss_rsae_sha256));
+        startHandshake(List.of(rsa_pss_rsae_sha256, ecdsa_secp256r1_sha256));
     }
 
     public void startHandshake(List<TlsConstants.SignatureScheme> signatureSchemes) throws IOException {
@@ -381,7 +382,15 @@ public class TlsClientEngine implements TrafficSecrets, ClientMessageProcessor {
                 // Fairly impossible (because the parameters is hard coded)
                 throw new RuntimeException(e);
             }
-        } else {
+        }
+        else if (signatureScheme.equals(ecdsa_secp256r1_sha256)) {
+            try {
+                signatureAlgorithm = Signature.getInstance("SHA256withECDSA");
+            } catch (NoSuchAlgorithmException e) {
+                throw new RuntimeException("Missing SHA256withECDSA support");
+            }
+        }
+        else {
             // Bad lock, not yet supported.
             throw new RuntimeException("Signature algorithm (verification) not supported " + signatureScheme);
         }
@@ -409,7 +418,7 @@ public class TlsClientEngine implements TrafficSecrets, ClientMessageProcessor {
                 TrustManagerFactory trustManagerFactory = TrustManagerFactory.getInstance("PKIX");
                 trustManagerFactory.init((KeyStore) null);
                 X509TrustManager trustMgr = (X509TrustManager) trustManagerFactory.getTrustManagers()[0];
-                trustMgr.checkServerTrusted(certificates.toArray(X509Certificate[]::new), "RSA");
+                trustMgr.checkServerTrusted(certificates.toArray(X509Certificate[]::new), "UNKNOWN");
                 // If it gets here, the certificates are ok.
             }
         } catch (NoSuchAlgorithmException e) {
