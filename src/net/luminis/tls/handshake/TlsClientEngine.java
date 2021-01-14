@@ -18,6 +18,7 @@ import java.security.spec.PSSParameterSpec;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import static net.luminis.tls.TlsConstants.SignatureScheme.ecdsa_secp256r1_sha256;
 import static net.luminis.tls.TlsConstants.SignatureScheme.rsa_pss_rsae_sha256;
 
 
@@ -41,7 +42,8 @@ public class TlsClientEngine extends TlsEngine implements ClientMessageProcessor
     private boolean compatibilityMode;
     private List<TlsConstants.CipherSuite> supportedCiphers;
     private TlsConstants.CipherSuite selectedCipher;
-    private List<Extension> extensions;
+    private List<Extension> requestedExtensions;
+    private List<Extension> sentExtensions;
     private Status status = Status.Initial;
     private ClientHello clientHello;
     private TranscriptHash transcriptHash;
@@ -58,13 +60,13 @@ public class TlsClientEngine extends TlsEngine implements ClientMessageProcessor
         sender = clientMessageSender;
         statusHandler = tlsStatusHandler;
         supportedCiphers = new ArrayList<>();
-        extensions = new ArrayList<>();
+        requestedExtensions = new ArrayList<>();
         hostnameVerifier = new DefaultHostnameVerifier();
         obtainedNewSessionTickets = new ArrayList<>();
     }
 
     public void startHandshake() throws IOException {
-        startHandshake(TlsConstants.NamedGroup.secp256r1, List.of(rsa_pss_rsae_sha256));
+        startHandshake(TlsConstants.NamedGroup.secp256r1, List.of(rsa_pss_rsae_sha256, ecdsa_secp256r1_sha256));
     }
 
     public void startHandshake(TlsConstants.NamedGroup ecCurve) throws IOException {
@@ -79,7 +81,10 @@ public class TlsClientEngine extends TlsEngine implements ClientMessageProcessor
         }
 
         transcriptHash = new TranscriptHash(32);
+        List<Extension> extensions = requestedExtensions;
         if (newSessionTicket != null) {
+            extensions = new ArrayList<>();
+            extensions.addAll(requestedExtensions);
             state = new TlsState(transcriptHash, newSessionTicket.getPSK());
             extensions.add(new ClientHelloPreSharedKeyExtension(state, newSessionTicket));
         }
@@ -88,7 +93,7 @@ public class TlsClientEngine extends TlsEngine implements ClientMessageProcessor
         }
 
         clientHello = new ClientHello(serverName, publicKey, compatibilityMode, supportedCiphers, supportedSignatures, ecCurve, extensions);
-        extensions = clientHello.getExtensions();
+        sentExtensions = clientHello.getExtensions();
         sender.send(clientHello);
         status = Status.ClientHelloSent;
 
@@ -191,7 +196,7 @@ public class TlsClientEngine extends TlsEngine implements ClientMessageProcessor
             throw new UnexpectedMessageAlert("unexpected encrypted extensions message");
         }
 
-        List<Class> clientExtensionTypes = extensions.stream()
+        List<Class> clientExtensionTypes = sentExtensions.stream()
                 .map(extension -> extension.getClass()).collect(Collectors.toList());
         boolean allClientResponses = encryptedExtensions.getExtensions().stream()
                 .filter(ext -> ! (ext instanceof UnknownExtension))
@@ -359,7 +364,15 @@ public class TlsClientEngine extends TlsEngine implements ClientMessageProcessor
                 // Fairly impossible (because the parameters is hard coded)
                 throw new RuntimeException(e);
             }
-        } else {
+        }
+        else if (signatureScheme.equals(ecdsa_secp256r1_sha256)) {
+            try {
+                signatureAlgorithm = Signature.getInstance("SHA256withECDSA");
+            } catch (NoSuchAlgorithmException e) {
+                throw new RuntimeException("Missing SHA256withECDSA support");
+            }
+        }
+        else {
             // Bad lock, not yet supported.
             throw new RuntimeException("Signature algorithm (verification) not supported " + signatureScheme);
         }
@@ -387,7 +400,7 @@ public class TlsClientEngine extends TlsEngine implements ClientMessageProcessor
                 TrustManagerFactory trustManagerFactory = TrustManagerFactory.getInstance("PKIX");
                 trustManagerFactory.init((KeyStore) null);
                 X509TrustManager trustMgr = (X509TrustManager) trustManagerFactory.getTrustManagers()[0];
-                trustMgr.checkServerTrusted(certificates.toArray(X509Certificate[]::new), "RSA");
+                trustMgr.checkServerTrusted(certificates.toArray(X509Certificate[]::new), "UNKNOWN");
                 // If it gets here, the certificates are ok.
             }
         } catch (NoSuchAlgorithmException e) {
@@ -427,11 +440,11 @@ public class TlsClientEngine extends TlsEngine implements ClientMessageProcessor
     }
 
     public void addExtensions(List<Extension> extensions) {
-        this.extensions.addAll(extensions);
+        this.requestedExtensions.addAll(extensions);
     }
 
     public void add(Extension extension) {
-        extensions.add(extension);
+        requestedExtensions.add(extension);
     }
 
     public void setTrustManager(X509TrustManager customTrustManager) {
