@@ -186,7 +186,7 @@ public class KeyShareExtension extends Extension {
             else if (keyShare.getNamedGroup() == x25519 || keyShare.getNamedGroup() == x448) {
                 byte[] raw = ((XECPublicKey) keyShare.getKey()).getU().toByteArray();
                 if (raw.length != CURVE_KEY_LENGTHS.get(keyShare.getNamedGroup())) {
-                    throw new RuntimeException("invalid key length: " + raw.length);
+                    throw new RuntimeException("Invalid " + keyShare.getNamedGroup() + " key length: " + raw.length);
                 }
                 reverse(raw);  // WTF? Apparently, this is necessary.... ;-)
                 buffer.put(raw);
