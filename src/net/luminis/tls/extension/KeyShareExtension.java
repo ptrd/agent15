@@ -129,7 +129,7 @@ public class KeyShareExtension extends Extension {
                 throw new DecodeErrorException("extension underflow");
             }
             if (keyLength != CURVE_KEY_LENGTHS.get(namedGroup)) {
-                throw new DecodeErrorException("Invalid key length");
+                throw new DecodeErrorException("Invalid " + namedGroup.name() + " key length: " + keyLength);
             }
             if (namedGroup == secp256r1) {
                 int headerByte = buffer.get();
@@ -185,10 +185,20 @@ public class KeyShareExtension extends Extension {
             }
             else if (keyShare.getNamedGroup() == x25519 || keyShare.getNamedGroup() == x448) {
                 byte[] raw = ((XECPublicKey) keyShare.getKey()).getU().toByteArray();
-                if (raw.length != CURVE_KEY_LENGTHS.get(keyShare.getNamedGroup())) {
+                if (raw.length > CURVE_KEY_LENGTHS.get(keyShare.getNamedGroup())) {
                     throw new RuntimeException("Invalid " + keyShare.getNamedGroup() + " key length: " + raw.length);
                 }
-                reverse(raw);  // WTF? Apparently, this is necessary.... ;-)
+                if (raw.length < CURVE_KEY_LENGTHS.get(keyShare.getNamedGroup())) {
+                    // Must pad with leading zeros, but as the encoding is little endian, it is easier to first reverse...
+                    reverse(raw);
+                    // ... and than pad with zeroes up to the required ledngth
+                    byte[] padded = Arrays.copyOf(raw, CURVE_KEY_LENGTHS.get(keyShare.getNamedGroup()));
+                    raw = padded;
+                }
+                else {
+                    // Encoding is little endian, so reverse the bytes.
+                    reverse(raw);
+                }
                 buffer.put(raw);
             }
             else {
@@ -284,7 +294,8 @@ public class KeyShareExtension extends Extension {
 
     static PublicKey rawToEncodedXDHPublicKey(TlsConstants.NamedGroup curve, byte[] keyData) {
         try {
-            reverse(keyData);  // WTF? Apparently, this is necessary.... ;-)
+            // Encoding is little endian, so reverse the bytes.
+            reverse(keyData);
             BigInteger u = new BigInteger(keyData);
             KeyFactory kf = KeyFactory.getInstance("XDH");
             NamedParameterSpec paramSpec = new NamedParameterSpec(curve.name().toUpperCase());
