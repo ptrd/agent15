@@ -13,6 +13,8 @@ import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
+import java.util.stream.Collectors;
 
 // https://tools.ietf.org/html/rfc8446#section-4.4.2
 public class CertificateMessage extends HandshakeMessage {
@@ -24,17 +26,35 @@ public class CertificateMessage extends HandshakeMessage {
     private byte[] raw;
 
     public CertificateMessage(X509Certificate certificate) {
+        Objects.requireNonNull(certificate);
         this.requestContext = new byte[0];
         endEntityCertificate = certificate;
-        if (certificate != null) {
-            certificateChain = List.of(certificate);
+        certificateChain = List.of(certificate);
+
+        serialize();
+    }
+
+    /**
+     * @param certificateChain     The server certificate must be the first in the list
+     */
+    public CertificateMessage(List<X509Certificate> certificateChain) {
+        Objects.requireNonNull(certificateChain);
+        if (certificateChain.size() < 1) {
+            throw new IllegalArgumentException();
         }
+        this.requestContext = new byte[0];
+        endEntityCertificate = certificateChain.get(0);
+        this.certificateChain = certificateChain;
+
         serialize();
     }
 
     public CertificateMessage(byte[] requestContext, X509Certificate certificate) {
+        Objects.requireNonNull(certificate);
         this.requestContext = requestContext;
         endEntityCertificate = certificate;
+        certificateChain = List.of(certificate);
+
         serialize();
     }
 
@@ -120,32 +140,40 @@ public class CertificateMessage extends HandshakeMessage {
     }
 
     private void serialize() {
-        try {
-            byte[] certBytes = new byte[0];
-            if (endEntityCertificate != null) {
-                certBytes = endEntityCertificate.getEncoded();
-                if (certBytes.length > 0xfff0) {
-                    throw new RuntimeException("Certificate size not supported");
-                }
+        int nrOfCerts = certificateChain.size();
+        List<byte[]> encodedCerts = certificateChain.stream()
+                .map(cert -> encode(cert))
+                .collect(Collectors.toList());
+
+        int msgSize = 4 + 1 + 3 + nrOfCerts * (3 + 2) + encodedCerts.stream().mapToInt(bytes -> bytes.length).sum();
+        ByteBuffer buffer = ByteBuffer.allocate(msgSize);
+
+        buffer.putInt((TlsConstants.HandshakeType.certificate.value << 24) | (msgSize - 4));
+        // cert request context size
+        buffer.put((byte) 0x00);
+        // certificate_list size (3 bytes)
+        buffer.put((byte) 0); // assuming < 65535
+        buffer.putShort((short) (msgSize - 4 - 1 - 3));
+
+        encodedCerts.forEach(encodedCert -> {
+            if (encodedCert.length > 0xfff0) {
+                throw new RuntimeException("Certificate size not supported");
             }
-            short certLength = (short) certBytes.length;
-            ByteBuffer buffer = ByteBuffer.allocate(4 + 1 + 3 + 3 + certLength + 2);
-            buffer.putInt((TlsConstants.HandshakeType.certificate.value << 24) | (1 + 3 + 3 + certLength + 2));
-            // cert request context size
-            buffer.put((byte) 0x00);
-            // certificate_list size (3 bytes)
-            buffer.put((byte) 0); // assuming < 65535
-            buffer.putShort((short) (3 + certLength + 2));
             // certificate size
             buffer.put((byte) 0);
-            buffer.putShort(certLength);
+            buffer.putShort((short) encodedCert.length);
             // certificate
-            buffer.put(certBytes);
+            buffer.put(encodedCert);
             // extensions size
             buffer.putShort((short) 0);
-            raw = buffer.array();
-        }
-        catch (CertificateEncodingException e) {
+        });
+        raw = buffer.array();
+    }
+
+    byte[] encode(X509Certificate certificate) {
+        try {
+            return certificate.getEncoded();
+        } catch (CertificateEncodingException e) {
             // Impossible with valid certificate
             throw new RuntimeException(e);
         }

@@ -248,7 +248,9 @@ class TlsClientEngineTest extends EngineTest {
     void serverCertificateMessageShouldAlwaysContainAtLeastOneCertificate() throws Exception {
         handshakeUpToCertificate();
 
-        CertificateMessage certificateMessage = new CertificateMessage(null);
+        CertificateMessage certificateMessage = new CertificateMessage();
+        byte[] emptyCertificateMessageData = ByteUtils.hexToBytes("0b000009" + "00" + "000005" + "0000000000");
+        certificateMessage.parse(ByteBuffer.wrap(emptyCertificateMessageData));
 
         Assertions.assertThatThrownBy(() ->
                 engine.received(certificateMessage)

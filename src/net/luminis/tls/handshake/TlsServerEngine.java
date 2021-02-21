@@ -32,15 +32,15 @@ public class TlsServerEngine extends TlsEngine implements ServerMessageProcessor
     private final ArrayList<Extension> extensions;
     private ServerMessageSender serverMessageSender;
     protected TlsStatusEventHandler statusHandler;
-    private X509Certificate serverCertificate;
+    private List<X509Certificate> serverCertificateChain;
     private PrivateKey certificatePrivateKey;
     private TranscriptHash transcriptHash;
     private TlsConstants.CipherSuite selectedCipher;
     private List<Extension> serverExtensions;
 
 
-    public TlsServerEngine(X509Certificate serverCertificate, PrivateKey certificateKey, ServerMessageSender serverMessageSender, TlsStatusEventHandler tlsStatusHandler) {
-        this.serverCertificate = serverCertificate;
+    public TlsServerEngine(List<X509Certificate> certificates, PrivateKey certificateKey, ServerMessageSender serverMessageSender, TlsStatusEventHandler tlsStatusHandler) {
+        this.serverCertificateChain = certificates;
         this.certificatePrivateKey = certificateKey;
         this.serverMessageSender = serverMessageSender;
         this.statusHandler = tlsStatusHandler;
@@ -49,6 +49,10 @@ public class TlsServerEngine extends TlsEngine implements ServerMessageProcessor
         extensions = new ArrayList<>();
         serverExtensions = new ArrayList<>();
         transcriptHash = new TranscriptHash(32);
+    }
+
+    public TlsServerEngine(X509Certificate serverCertificate, PrivateKey certificateKey, ServerMessageSender serverMessageSender, TlsStatusEventHandler tlsStatusHandler) {
+        this(List.of(serverCertificate), certificateKey, serverMessageSender, tlsStatusHandler);
     }
 
     @Override
@@ -129,7 +133,7 @@ public class TlsServerEngine extends TlsEngine implements ServerMessageProcessor
         serverMessageSender.send(encryptedExtensions);
         transcriptHash.record(encryptedExtensions);
 
-        CertificateMessage certificate = new CertificateMessage(serverCertificate);
+        CertificateMessage certificate = new CertificateMessage(serverCertificateChain);
         serverMessageSender.send(certificate);
         transcriptHash.record(certificate);
 

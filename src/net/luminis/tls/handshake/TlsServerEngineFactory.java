@@ -17,36 +17,46 @@ import java.security.cert.X509Certificate;
 import java.security.interfaces.RSAPrivateKey;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.PKCS8EncodedKeySpec;
+import java.util.ArrayList;
 import java.util.Base64;
+import java.util.Collections;
 import java.util.List;
 
 public class TlsServerEngineFactory {
 
-    private X509Certificate serverCertificate;
+    private List<X509Certificate> serverCertificates;
     private PrivateKey certificateKey;
 
     public TlsServerEngineFactory(InputStream certificateFile, InputStream certificateKeyFile) throws IOException, CertificateException, InvalidKeySpecException {
-        this.serverCertificate = readCertificate(certificateFile);
+        this.serverCertificates = readCertificates(certificateFile);
         this.certificateKey = readPrivateKey(certificateKeyFile);
     }
 
     public TlsServerEngine createServerEngine(ServerMessageSender serverMessageSender, TlsStatusEventHandler tlsStatusHandler) {
-        TlsServerEngine tlsServerEngine = new TlsServerEngine(serverCertificate, certificateKey, serverMessageSender, tlsStatusHandler);
+        TlsServerEngine tlsServerEngine = new TlsServerEngine(serverCertificates, certificateKey, serverMessageSender, tlsStatusHandler);
         tlsServerEngine.addSupportedCiphers(List.of(TlsConstants.CipherSuite.TLS_AES_128_GCM_SHA256));
         return tlsServerEngine;
     }
 
-    private static X509Certificate readCertificate(InputStream file) throws IOException, CertificateException {
-        String key = new String(file.readAllBytes(), Charset.defaultCharset());
+    private static List<X509Certificate> readCertificates(InputStream file) throws IOException, CertificateException {
+        String fileContent = new String(file.readAllBytes(), Charset.defaultCharset());
+        String[] chunks = fileContent.split("-----END CERTIFICATE-----\n");
 
-        String encodedCertificate = key
-                .replace("-----BEGIN CERTIFICATE-----", "")
-                .replaceAll(System.lineSeparator(), "")
-                .replace("-----END CERTIFICATE-----", "");
+        List<X509Certificate> certs = new ArrayList<>();
 
         CertificateFactory certificateFactory = CertificateFactory.getInstance("X.509");
-        Certificate certificate = certificateFactory.generateCertificate(new ByteArrayInputStream(Base64.getDecoder().decode(encodedCertificate)));
-        return (X509Certificate) certificate;
+        for (int i = 0; i < chunks.length; i++) {
+            if (chunks[i].startsWith("-----BEGIN CERTIFICATE-----")) {
+                String encodedCertificate = chunks[i]
+                        .replace("-----BEGIN CERTIFICATE-----", "")
+                        .replaceAll(System.lineSeparator(), "")
+                        .replace("-----END CERTIFICATE-----", "");
+                Certificate certificate = certificateFactory.generateCertificate(new ByteArrayInputStream(Base64.getDecoder().decode(encodedCertificate)));
+                certs.add((X509Certificate) certificate);
+            }
+        }
+
+        return certs;
     }
 
     private RSAPrivateKey readPrivateKey(InputStream file) throws IOException, InvalidKeySpecException {
