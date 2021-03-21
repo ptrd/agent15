@@ -3,6 +3,7 @@ package net.luminis.tls.handshake;
 import net.luminis.tls.*;
 import net.luminis.tls.alert.*;
 import net.luminis.tls.extension.*;
+import net.luminis.tls.extension.Extension;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
@@ -12,10 +13,8 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.security.*;
-import java.security.cert.CertPathValidatorException;
+import java.security.cert.*;
 import java.security.cert.Certificate;
-import java.security.cert.CertificateException;
-import java.security.cert.X509Certificate;
 import java.security.interfaces.ECPrivateKey;
 import java.security.interfaces.ECPublicKey;
 import java.security.spec.ECGenParameterSpec;
@@ -447,6 +446,9 @@ public class TlsClientEngine implements TrafficSecrets, ClientMessageProcessor {
         Throwable cause = exception.getCause();
         if (cause instanceof CertPathValidatorException) {
             return Optional.of(cause.getMessage() + ": " + ((CertPathValidatorException) cause).getReason());
+        }
+        else if (cause instanceof CertPathBuilderException) {
+            return Optional.of(cause.getMessage());
         }
         else {
             return Optional.empty();
