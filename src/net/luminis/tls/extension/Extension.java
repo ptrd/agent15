@@ -12,11 +12,15 @@ import java.nio.ByteBuffer;
 public abstract class Extension {
 
     protected int parseExtensionHeader(ByteBuffer buffer, TlsConstants.ExtensionType expectedType, int minimumExtensionSize) throws DecodeErrorException {
+        return parseExtensionHeader(buffer, expectedType.value, minimumExtensionSize);
+    }
+
+    protected int parseExtensionHeader(ByteBuffer buffer, int expectedType, int minimumExtensionSize) throws DecodeErrorException {
         if (buffer.limit() - buffer.position() < 4) {
             throw new DecodeErrorException("extension underflow");
         }
         int extensionType = buffer.getShort() & 0xffff;
-        if (extensionType != expectedType.value) {
+        if (extensionType != expectedType) {
             throw new IllegalStateException();  // i.e. programming error
         }
         int extensionDataLength = buffer.getShort();

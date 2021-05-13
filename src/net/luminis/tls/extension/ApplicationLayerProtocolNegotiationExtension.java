@@ -58,6 +58,10 @@ public class ApplicationLayerProtocolNegotiationExtension extends Extension {
         return data;
     }
 
+    public List<String> getProtocols() {
+        return protocols;
+    }
+
     @Override
     public String toString() {
         return "AlpnExtension " + protocols;

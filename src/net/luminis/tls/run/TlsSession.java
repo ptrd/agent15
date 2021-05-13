@@ -27,6 +27,7 @@ public class TlsSession implements ClientMessageSender {
     private List<NewSessionTicketMessage> newSessionTicketMessages;
     private Consumer<NewSessionTicket> newSessionTicketCallback;
     private TlsClientEngine tlsClientEngine;
+    private boolean isHandshaking;
 
 
     public TlsSession(NewSessionTicket newSessionTicket, PrivateKey clientPrivateKey, ECPublicKey clientPublicKey, InputStream input, OutputStream output, String serverName) throws IOException, TlsProtocolException {
@@ -63,8 +64,9 @@ public class TlsSession implements ClientMessageSender {
 
     public void start() throws IOException, TlsProtocolException {
         tlsClientEngine.startHandshake();
-
+        isHandshaking = true;
         parseServerMessages(tlsClientEngine);
+        isHandshaking = false;
     }
 
     @Override
@@ -124,7 +126,7 @@ public class TlsSession implements ClientMessageSender {
                 default:
                     throw new RuntimeException("Record type is unknown (" + contentType + ")");
             }
-            if (tlsClientEngine.handshakeFinished()) {
+            if (isHandshaking && tlsClientEngine.handshakeFinished()) {
                 break;
             }
             contentType = input.read();

@@ -1,10 +1,10 @@
 package net.luminis.tls.alert;
 
-import net.luminis.tls.TlsProtocolException;
+import net.luminis.tls.TlsConstants;
 
-public class DecryptErrorAlert extends TlsProtocolException {
+public class DecryptErrorAlert extends ErrorAlert {
 
     public DecryptErrorAlert(String message) {
-        super(message);
+        super(message, TlsConstants.AlertDescription.decrypt_error);
     }
 }

@@ -137,7 +137,7 @@ public class TranscriptHash {
 
     private ExtendedHandshakeType convert(TlsConstants.HandshakeType type) {
         if (type == TlsConstants.HandshakeType.finished) {
-            throw new IllegalArgumentException("cannot convert ambiguous type 'finised'");
+            throw new IllegalArgumentException("cannot convert ambiguous type 'finished'");
         }
         return ExtendedHandshakeType.values()[type.ordinal()];
     }

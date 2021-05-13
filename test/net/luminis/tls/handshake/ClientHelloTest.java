@@ -33,7 +33,7 @@ class ClientHelloTest {
                 + "ffa500340032000100048000ea6000040004802625a0000500048003d090000600048003d090000700048003d09000080001010009000101"
                 // unknown extension (ec_point_formats)  alpn extension
                 + "000b000403000102" +                  "0010000800060568712d3234").replaceAll(" ", ""));
-        ClientHello ch = new ClientHello(ByteBuffer.wrap(data));
+        ClientHello ch = new ClientHello(ByteBuffer.wrap(data), null);
 
         assertThat(ch.getClientRandom()).isEqualTo(ByteUtils.hexToBytes("2411ec38adb041713ca81a04182a655b567ecc8c4935e082ec20bb233d57aff2"));
         assertThat(ch.getCipherSuites()).containsExactly(TLS_AES_128_GCM_SHA256, TLS_AES_256_GCM_SHA384);
@@ -50,7 +50,7 @@ class ClientHelloTest {
         byte[] data = ByteUtils.hexToBytes(("01 00002b 0303 2411ec38adb041713ca81a04182a655b567ecc8c4935e082ec20bb233d57aff2"
                 //    cipher    comp ext's length
                 + "00 0002 1301 0100 0000").replaceAll(" ", ""));
-        ClientHello ch = new ClientHello(ByteBuffer.wrap(data));
+        ClientHello ch = new ClientHello(ByteBuffer.wrap(data), null);
         assertThat(ch.getClientRandom()).isEqualTo(ByteUtils.hexToBytes("2411ec38adb041713ca81a04182a655b567ecc8c4935e082ec20bb233d57aff2"));
         assertThat(ch.getCipherSuites()).containsExactly(TLS_AES_128_GCM_SHA256);
         assertThat(ch.getExtensions()).hasSize(0);
@@ -63,7 +63,7 @@ class ClientHelloTest {
                 + "00 0002 1301 0100 0000").replaceAll(" ", ""));
 
         assertThatThrownBy(() ->
-                new ClientHello(ByteBuffer.wrap(data))
+                new ClientHello(ByteBuffer.wrap(data), null)
         ).isInstanceOf(DecodeErrorException.class);
     }
 
@@ -74,7 +74,7 @@ class ClientHelloTest {
                 + "00 0002 1301 0100 0000").replaceAll(" ", ""));
 
         assertThatThrownBy(() ->
-                new ClientHello(ByteBuffer.wrap(data))
+                new ClientHello(ByteBuffer.wrap(data), null)
         ).isInstanceOf(DecodeErrorException.class);
     }
 
@@ -84,7 +84,7 @@ class ClientHelloTest {
                 //    cipher    comp ext's length
                 + "00 0002 130f 0100 0000").replaceAll(" ", ""));
 
-        ClientHello ch = new ClientHello(ByteBuffer.wrap(data));
+        ClientHello ch = new ClientHello(ByteBuffer.wrap(data), null);
         assertThat(ch.getCipherSuites()).isEmpty();
     }
 }

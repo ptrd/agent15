@@ -2,31 +2,27 @@ package net.luminis.tls.handshake;
 
 import net.luminis.tls.*;
 import net.luminis.tls.alert.*;
-import net.luminis.tls.extension.*;
 import net.luminis.tls.extension.Extension;
+import net.luminis.tls.extension.*;
 
-import javax.crypto.Mac;
-import javax.crypto.spec.SecretKeySpec;
 import javax.net.ssl.TrustManagerFactory;
 import javax.net.ssl.X509TrustManager;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.security.*;
-import java.security.cert.*;
 import java.security.cert.Certificate;
-import java.security.interfaces.ECPrivateKey;
-import java.security.interfaces.ECPublicKey;
-import java.security.spec.ECGenParameterSpec;
+import java.security.cert.*;
 import java.security.spec.MGF1ParameterSpec;
 import java.security.spec.PSSParameterSpec;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import static net.luminis.tls.TlsConstants.SignatureScheme.ecdsa_secp256r1_sha256;
 import static net.luminis.tls.TlsConstants.SignatureScheme.rsa_pss_rsae_sha256;
 
 
-public class TlsClientEngine implements TrafficSecrets, ClientMessageProcessor {
+public class TlsClientEngine extends TlsEngine implements ClientMessageProcessor {
 
     private static final Charset ISO_8859_1 = Charset.forName("ISO-8859-1");
 
@@ -43,9 +39,6 @@ public class TlsClientEngine implements TrafficSecrets, ClientMessageProcessor {
     private final ClientMessageSender sender;
     private final TlsStatusEventHandler statusHandler;
     private String serverName;
-    private String ecCurve = "secp256r1";
-    private ECPublicKey publicKey;
-    private ECPrivateKey privateKey;
     private boolean compatibilityMode;
     private List<TlsConstants.CipherSuite> supportedCiphers;
     private TlsConstants.CipherSuite selectedCipher;
@@ -53,7 +46,6 @@ public class TlsClientEngine implements TrafficSecrets, ClientMessageProcessor {
     private List<Extension> sentExtensions;
     private Status status = Status.Initial;
     private ClientHello clientHello;
-    private TlsState state;
     private TranscriptHash transcriptHash;
     private List<TlsConstants.SignatureScheme> supportedSignatures;
     private X509Certificate serverCertificate;
@@ -74,12 +66,16 @@ public class TlsClientEngine implements TrafficSecrets, ClientMessageProcessor {
     }
 
     public void startHandshake() throws IOException {
-        startHandshake(List.of(rsa_pss_rsae_sha256));
+        startHandshake(TlsConstants.NamedGroup.secp256r1, List.of(rsa_pss_rsae_sha256, ecdsa_secp256r1_sha256));
     }
 
-    public void startHandshake(List<TlsConstants.SignatureScheme> signatureSchemes) throws IOException {
+    public void startHandshake(TlsConstants.NamedGroup ecCurve) throws IOException {
+        startHandshake(ecCurve, List.of(rsa_pss_rsae_sha256));
+    }
+
+    public void startHandshake(TlsConstants.NamedGroup ecCurve, List<TlsConstants.SignatureScheme> signatureSchemes) throws IOException {
         supportedSignatures = signatureSchemes;
-        generateKeys();
+        generateKeys(ecCurve);
         if (serverName == null || supportedCiphers.isEmpty()) {
             throw new IllegalStateException("not all mandatory properties are set");
         }
@@ -96,13 +92,14 @@ public class TlsClientEngine implements TrafficSecrets, ClientMessageProcessor {
             state = new TlsState(transcriptHash);
         }
 
-        clientHello = new ClientHello(serverName, publicKey, compatibilityMode, supportedCiphers, supportedSignatures, extensions);
+        clientHello = new ClientHello(serverName, publicKey, compatibilityMode, supportedCiphers, supportedSignatures, ecCurve, extensions);
         sentExtensions = clientHello.getExtensions();
         sender.send(clientHello);
         status = Status.ClientHelloSent;
 
         transcriptHash.record(clientHello);
-        state.clientHelloSend(privateKey, clientHello.getBytes());
+        state.setOwnKey(privateKey);
+        state.computeEarlyTrafficSecret();
 
         statusHandler.earlySecretsKnown();
     }
@@ -179,11 +176,15 @@ public class TlsClientEngine implements TrafficSecrets, ClientMessageProcessor {
             state.setPskSelected(((ServerPreSharedKeyExtension) preSharedKey.get()).getSelectedIdentity());
             Logger.debug("Server has accepted PSK key establishment");
         }
+        else {
+            state.setNoPskSelected();
+        }
         if (keyShare.isPresent()) {
-            state.setServerSharedKey(keyShare.get().getKey());
+            state.setPeerKey(keyShare.get().getKey());
+            state.computeSharedSecret();
         }
         transcriptHash.record(serverHello);
-        state.serverHelloReceived(serverHello.getBytes());
+        state.computeHandshakeSecrets();
         status = Status.ServerHelloReceived;
         statusHandler.handshakeSecretsKnown();
     }
@@ -328,23 +329,6 @@ public class TlsClientEngine implements TrafficSecrets, ClientMessageProcessor {
     }
 
 
-    private void generateKeys() {
-        try {
-            KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance("EC");
-            keyPairGenerator.initialize(new ECGenParameterSpec(ecCurve));
-
-            KeyPair keyPair = keyPairGenerator.genKeyPair();
-            privateKey = (ECPrivateKey) keyPair.getPrivate();
-            publicKey = (ECPublicKey) keyPair.getPublic();
-        } catch (NoSuchAlgorithmException e) {
-            // Invalid runtime
-            throw new RuntimeException("missing key pair generator algorithm EC");
-        } catch (InvalidAlgorithmParameterException e) {
-            // Impossible, would be programming error
-            throw new RuntimeException();
-        }
-    }
-
     protected boolean verifySignature(byte[] signatureToVerify, TlsConstants.SignatureScheme signatureScheme, Certificate certificate, byte[] transcriptHash) {
         // https://tools.ietf.org/html/rfc8446#section-4.4.3
         // "The digital signature is then computed over the concatenation of:
@@ -380,7 +364,15 @@ public class TlsClientEngine implements TrafficSecrets, ClientMessageProcessor {
                 // Fairly impossible (because the parameters is hard coded)
                 throw new RuntimeException(e);
             }
-        } else {
+        }
+        else if (signatureScheme.equals(ecdsa_secp256r1_sha256)) {
+            try {
+                signatureAlgorithm = Signature.getInstance("SHA256withECDSA");
+            } catch (NoSuchAlgorithmException e) {
+                throw new RuntimeException("Missing SHA256withECDSA support");
+            }
+        }
+        else {
             // Bad lock, not yet supported.
             throw new RuntimeException("Signature algorithm (verification) not supported " + signatureScheme);
         }
@@ -408,7 +400,7 @@ public class TlsClientEngine implements TrafficSecrets, ClientMessageProcessor {
                 TrustManagerFactory trustManagerFactory = TrustManagerFactory.getInstance("PKIX");
                 trustManagerFactory.init((KeyStore) null);
                 X509TrustManager trustMgr = (X509TrustManager) trustManagerFactory.getTrustManagers()[0];
-                trustMgr.checkServerTrusted(certificates.toArray(X509Certificate[]::new), "RSA");
+                trustMgr.checkServerTrusted(certificates.toArray(X509Certificate[]::new), "UNKNOWN");
                 // If it gets here, the certificates are ok.
             }
         } catch (NoSuchAlgorithmException e) {
@@ -419,26 +411,6 @@ public class TlsClientEngine implements TrafficSecrets, ClientMessageProcessor {
             throw new RuntimeException("keystore exception");
         } catch (CertificateException e) {
             throw new BadCertificateAlert(extractReason(e).orElse("certificate validation failed"));
-        }
-    }
-
-    // https://tools.ietf.org/html/rfc8446#section-4.4.4
-    protected byte[] computeFinishedVerifyData(byte[] transcriptHash, byte[] baseKey) {
-        short hashLength = state.getHashLength();
-        byte[] finishedKey = state.hkdfExpandLabel(baseKey, "finished", "", hashLength);
-        String macAlgorithmName = "HmacSHA" + (hashLength * 8);
-        SecretKeySpec hmacKey = new SecretKeySpec(finishedKey, macAlgorithmName);
-
-        try {
-            Mac hmacAlgorithm = Mac.getInstance(macAlgorithmName);
-            hmacAlgorithm.init(hmacKey);
-            hmacAlgorithm.update(transcriptHash);
-            byte[] hmac = hmacAlgorithm.doFinal();
-            return hmac;
-        } catch (NoSuchAlgorithmException e) {
-            throw new RuntimeException("Missing " + macAlgorithmName + " support");
-        } catch (InvalidKeyException e) {
-            throw new RuntimeException();
         }
     }
 
@@ -493,51 +465,6 @@ public class TlsClientEngine implements TrafficSecrets, ClientMessageProcessor {
         }
         else {
             throw new IllegalStateException("No (valid) server hello received yet");
-        }
-    }
-
-    public byte[] getClientEarlyTrafficSecret() {
-        if (state != null) {
-            return state.getClientEarlyTrafficSecret();
-        }
-        else {
-            throw new IllegalStateException("Traffic secret not yet available");
-        }
-    }
-
-    public byte[] getClientHandshakeTrafficSecret() {
-        if (state != null) {
-            return state.getClientHandshakeTrafficSecret();
-        }
-        else {
-            throw new IllegalStateException("Traffic secret not yet available");
-        }
-    }
-
-    public byte[] getServerHandshakeTrafficSecret() {
-        if (state != null) {
-            return state.getServerHandshakeTrafficSecret();
-        }
-        else {
-            throw new IllegalStateException("Traffic secret not yet available");
-        }
-    }
-
-    public byte[] getClientApplicationTrafficSecret() {
-        if (state != null) {
-            return state.getClientApplicationTrafficSecret();
-        }
-        else {
-            throw new IllegalStateException("Traffic secret not yet available");
-        }
-    }
-
-    public byte[] getServerApplicationTrafficSecret() {
-        if (state != null) {
-            return state.getServerApplicationTrafficSecret();
-        }
-        else {
-            throw new IllegalStateException("Traffic secret not yet available");
         }
     }
 
