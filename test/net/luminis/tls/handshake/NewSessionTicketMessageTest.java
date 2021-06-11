@@ -54,6 +54,7 @@ class NewSessionTicketMessageTest {
 
     @Test
     void parseMessageWithInappropriateExtension() throws Exception {
+        //                                              lifetime age_add  nonce       ticket        extensions
         byte[] rawData = ByteUtils.hexToBytes("04000017 00093a80 fab00e11 04 01020304 0004 01020304 0004 fab0 0000");
 
         assertThatThrownBy(() ->
@@ -87,8 +88,10 @@ class NewSessionTicketMessageTest {
 
     @Test
     void newSessionTicketMessageMayContainGreasedExtensionType() throws Exception {
+        //                                              lifetime age_add  nonce       ticket
         byte[] rawData = ByteUtils.hexToBytes("0400001f 00093a80 fab00e11 04 01020304 0004 01020304"
-                + "000a"
+                // extensions length
+                + "000c"
                 + "baba 0000"
                 + "002a 0004 01ff ffff"
         );
