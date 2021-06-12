@@ -485,7 +485,7 @@ class TlsClientEngineTest extends EngineTest {
         handshakeUpToEncryptedExtensions(signatureSchemes);
 
         TranscriptHash transcriptHash = (TranscriptHash) Mockito.spy(new FieldReader(engine, engine.getClass().getDeclaredField("transcriptHash")).read());
-        Mockito.doReturn(ByteUtils.hexToBytes("0101010101010101010101010101010101010101010101010101010101010101")).when(transcriptHash).getHash(ArgumentMatchers.argThat(t -> t == TlsConstants.HandshakeType.certificate));
+        Mockito.doReturn(ByteUtils.hexToBytes("0101010101010101010101010101010101010101010101010101010101010101")).when(transcriptHash).getServerHash(ArgumentMatchers.argThat(t -> t == TlsConstants.HandshakeType.certificate));
         FieldSetter.setField(engine, engine.getClass().getDeclaredField("transcriptHash"), transcriptHash);
 
         engine.received(new EncryptedExtensions());

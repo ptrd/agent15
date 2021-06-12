@@ -1,5 +1,5 @@
 /*
- * Copyright © 2019, 2020, 2021 Peter Doornbosch
+ * Copyright © 2020, 2021 Peter Doornbosch
  *
  * This file is part of Agent15, an implementation of TLS 1.3 in Java.
  *
@@ -22,15 +22,14 @@ import net.luminis.tls.handshake.HandshakeMessage;
 
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 // https://tools.ietf.org/html/rfc8446#section-4.4.1
-// "Many of the cryptographic computations in TLS make use of a
-//   transcript hash.  This value is computed by hashing the concatenation
-//   of each included handshake message, including the handshake message
-//   header carrying the handshake message type and length fields, but not
-//   including record layer headers."
+// "Many of the cryptographic computations in TLS make use of a transcript hash. This value is computed by hashing the
+//  concatenation of each included handshake message, including the handshake message header carrying the handshake
+//  message type and length fields, but not including record layer headers."
 public class TranscriptHash {
 
     enum ExtendedHandshakeType {
@@ -44,8 +43,12 @@ public class TranscriptHash {
         certificate_verify(15),
         finished(20),
         key_update(24),
-        client_finished(251),
-        server_finished(252),
+        server_certificate(249),
+        server_certificate_verify(250),
+        server_finished(251),
+        client_certificate(252),
+        client_certificate_verify(253),
+        client_finished(254)
         ;
 
         public final byte value;
@@ -67,9 +70,12 @@ public class TranscriptHash {
             ExtendedHandshakeType.client_hello,
             ExtendedHandshakeType.server_hello,
             ExtendedHandshakeType.encrypted_extensions,
-            ExtendedHandshakeType.certificate,
-            ExtendedHandshakeType.certificate_verify,
+            ExtendedHandshakeType.certificate_request,
+            ExtendedHandshakeType.server_certificate,
+            ExtendedHandshakeType.server_certificate_verify,
             ExtendedHandshakeType.server_finished,
+            ExtendedHandshakeType.client_certificate,
+            ExtendedHandshakeType.client_certificate_verify,
             ExtendedHandshakeType.client_finished
     };
 
@@ -90,26 +96,75 @@ public class TranscriptHash {
         }
     }
 
+    /**
+     * Return the transcript hash for the messages in the handshake up to and including the indicated message type.
+     * @param msgType
+     * @return
+     */
     public byte[] getHash(TlsConstants.HandshakeType msgType) {
         return getHash(convert(msgType));
     }
 
+    /**
+     * Return the transcript hash for the messages in the handshake up to and including the indicated client message type.
+     * For example, when the <code>msgType</code> parameter has value <code>certificate</code>, the transcript hash for
+     * the concatenation of handshake messages up to (and including) the client certificate message is returned.
+     * @param msgType
+     * @return
+     */
     public byte[] getClientHash(TlsConstants.HandshakeType msgType) {
-        if (msgType == TlsConstants.HandshakeType.finished) {
-            return getHash(ExtendedHandshakeType.client_finished);
-        }
-        else {
-            return getHash(msgType);
-        }
+        return getHash(convert(msgType, true));
     }
 
+    /**
+     * Return the transcript hash for the messages in the handshake up to and including the indicated server message type.
+     * For example, when the <code>msgType</code> parameter has value <code>certificate</code>, the transcript hash for
+     * the concatenation of handshake messages up to (and including) the server certificate message is returned.
+     * @param msgType
+     * @return
+     */
     public byte[] getServerHash(TlsConstants.HandshakeType msgType) {
-        if (msgType == TlsConstants.HandshakeType.finished) {
-            return getHash(ExtendedHandshakeType.server_finished);
+        return getHash(convert(msgType, false));
+    }
+
+    /**
+     * Record a handshake message for computing the transcript hash. The type of the message determines its position
+     * in the transcript hash computation.
+     * @param msg
+     */
+    public void record(HandshakeMessage msg) {
+        List<TlsConstants.HandshakeType> ambigousTypes = List.of(TlsConstants.HandshakeType.certificate,
+                TlsConstants.HandshakeType.certificate_verify, TlsConstants.HandshakeType.finished);
+        if (ambigousTypes.contains(msg.getType())) {
+            throw new IllegalArgumentException();
         }
-        else {
-            return getHash(msgType);
-        }
+        msgData.put(convert(msg.getType()), msg.getBytes());
+    }
+
+    /**
+     * Record a client handshake message for computing the transcript hash. This method is needed because the
+     * <code>TlsConstants.HandshakeType</code> type does not differentiate between client and server variants, whilst
+     * these variants have a different position in the transcript hash computation.
+     * Note that the term "client" here refers to the message type, not whether it is sent or received by a client.
+     * For example, a client certificate message is sent by the client and received by the server; both need to use
+     * this method to record the message.
+     * @param msg
+     */
+    public void recordClient(HandshakeMessage msg) {
+        msgData.put(convert(msg.getType(), true), msg.getBytes());
+    }
+
+    /**
+     * Record a server handshake message for computing the transcript hash. This method is needed because the
+     * <code>TlsConstants.HandshakeType</code> type does not differentiate between client and server variants, whilst
+     * these variants have a different position in the transcript hash computation.
+     * Note that the term "server" here refers to the message type, not whether it is sent or received by a client.
+     * For example, a server certificate message is sent by the server and received by the client; both need to use
+     * this method to record the message.
+     * @param msg
+     */
+    public void recordServer(HandshakeMessage msg) {
+        msgData.put(convert(msg.getType(), false), msg.getBytes());
     }
 
     private byte[] getHash(ExtendedHandshakeType type) {
@@ -119,29 +174,7 @@ public class TranscriptHash {
         return hashes.get(type);
     }
 
-    public void record(HandshakeMessage msg) {
-        msgData.put(convert(msg.getType()), msg.getBytes());
-    }
-
-    public void recordClient(HandshakeMessage msg) {
-        if (msg.getType() == TlsConstants.HandshakeType.finished) {
-            msgData.put(ExtendedHandshakeType.client_finished, msg.getBytes());
-        }
-        else {
-            msgData.put(convert(msg.getType()), msg.getBytes());
-        }
-    }
-
-    public void recordServer(HandshakeMessage msg) {
-        if (msg.getType() == TlsConstants.HandshakeType.finished) {
-            msgData.put(ExtendedHandshakeType.server_finished, msg.getBytes());
-        }
-        else {
-            msgData.put(convert(msg.getType()), msg.getBytes());
-        }
-    }
-
-    private void computeHash(ExtendedHandshakeType requestedType) {
+   private void computeHash(ExtendedHandshakeType requestedType) {
         for (ExtendedHandshakeType type: hashedMessages) {
             if (msgData.containsKey(type)) {
                 hashFunction.update(msgData.get(type));
@@ -154,8 +187,23 @@ public class TranscriptHash {
     }
 
     private ExtendedHandshakeType convert(TlsConstants.HandshakeType type) {
+        List<TlsConstants.HandshakeType> ambigousTypes = List.of(TlsConstants.HandshakeType.certificate,
+                TlsConstants.HandshakeType.certificate_verify, TlsConstants.HandshakeType.finished);
+        if (ambigousTypes.contains(type)) {
+            throw new IllegalArgumentException("cannot convert ambiguous type " + type);
+        }
+        return ExtendedHandshakeType.values()[type.ordinal()];
+    }
+
+    private ExtendedHandshakeType convert(TlsConstants.HandshakeType type, boolean client) {
         if (type == TlsConstants.HandshakeType.finished) {
-            throw new IllegalArgumentException("cannot convert ambiguous type 'finished'");
+            return client? ExtendedHandshakeType.client_finished: ExtendedHandshakeType.server_finished;
+        }
+        else if (type == TlsConstants.HandshakeType.certificate) {
+            return client? ExtendedHandshakeType.client_certificate: ExtendedHandshakeType.server_certificate;
+        }
+        else if (type == TlsConstants.HandshakeType.certificate_verify) {
+            return client? ExtendedHandshakeType.client_certificate_verify: ExtendedHandshakeType.server_certificate_verify;
         }
         return ExtendedHandshakeType.values()[type.ordinal()];
     }

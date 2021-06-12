@@ -1,5 +1,5 @@
 /*
- * Copyright © 2019, 2020, 2021 Peter Doornbosch
+ * Copyright © 2020, 2021 Peter Doornbosch
  *
  * This file is part of Agent15, an implementation of TLS 1.3 in Java.
  *
@@ -127,6 +127,7 @@ public class TlsClientEngine extends TlsEngine implements ClientMessageProcessor
      * @param serverHello
      * @throws MissingExtensionAlert
      */
+    @Override
     public void received(ServerHello serverHello) throws MissingExtensionAlert, IllegalParameterAlert {
         boolean containsSupportedVersionExt = serverHello.getExtensions().stream().anyMatch(ext -> ext instanceof SupportedVersionsExtension);
         boolean containsKeyExt = serverHello.getExtensions().stream().anyMatch(ext -> ext instanceof PreSharedKeyExtension || ext instanceof KeyShareExtension);
@@ -207,6 +208,7 @@ public class TlsClientEngine extends TlsEngine implements ClientMessageProcessor
         statusHandler.handshakeSecretsKnown();
     }
 
+    @Override
     public void received(EncryptedExtensions encryptedExtensions) throws TlsProtocolException {
         if (status != Status.ServerHelloReceived) {
             // https://tools.ietf.org/html/rfc8446#section-4.3.1
@@ -241,6 +243,7 @@ public class TlsClientEngine extends TlsEngine implements ClientMessageProcessor
         statusHandler.extensionsReceived(encryptedExtensions.getExtensions());
     }
 
+    @Override
     public void received(CertificateMessage certificateMessage) throws TlsProtocolException {
         if (status != Status.EncryptedExtensionsReceived) {
             // https://tools.ietf.org/html/rfc8446#section-4.4
@@ -262,10 +265,11 @@ public class TlsClientEngine extends TlsEngine implements ClientMessageProcessor
 
         serverCertificate = certificateMessage.getEndEntityCertificate();
         serverCertificateChain = certificateMessage.getCertificateChain();
-        transcriptHash.record(certificateMessage);
+        transcriptHash.recordServer(certificateMessage);
         status = Status.CertificateReceived;
     }
 
+    @Override
     public void received(CertificateVerifyMessage certificateVerifyMessage) throws TlsProtocolException {
         if (status != Status.CertificateReceived) {
             // https://tools.ietf.org/html/rfc8446#section-4.4.3
@@ -283,7 +287,7 @@ public class TlsClientEngine extends TlsEngine implements ClientMessageProcessor
         }
 
         byte[] signature = certificateVerifyMessage.getSignature();
-        if (!verifySignature(signature, signatureScheme, serverCertificate, transcriptHash.getHash(TlsConstants.HandshakeType.certificate))) {
+        if (!verifySignature(signature, signatureScheme, serverCertificate, transcriptHash.getServerHash(TlsConstants.HandshakeType.certificate))) {
             throw new DecryptErrorAlert("signature verification fails");
         }
 
@@ -293,10 +297,11 @@ public class TlsClientEngine extends TlsEngine implements ClientMessageProcessor
             throw new CertificateUnknownAlert("servername does not match");
         }
 
-        transcriptHash.record(certificateVerifyMessage);
+        transcriptHash.recordServer(certificateVerifyMessage);
         status = Status.CertificateVerifyReceived;
     }
 
+    @Override
     public void received(FinishedMessage finishedMessage) throws DecryptErrorAlert, UnexpectedMessageAlert, IOException {
         Status expectedStatus;
         if (pskAccepted) {
@@ -317,7 +322,7 @@ public class TlsClientEngine extends TlsEngine implements ClientMessageProcessor
         //     | Server    | ClientHello ... later   | server_handshake_traffic_   |
         //     |           | of EncryptedExtensions/ | secret                      |
         //     |           | CertificateRequest      |                             |"
-        byte[] serverHmac = computeFinishedVerifyData(transcriptHash.getHash(TlsConstants.HandshakeType.certificate_verify), state.getServerHandshakeTrafficSecret());
+        byte[] serverHmac = computeFinishedVerifyData(transcriptHash.getServerHash(TlsConstants.HandshakeType.certificate_verify), state.getServerHandshakeTrafficSecret());
         // https://tools.ietf.org/html/rfc8446#section-4.4
         // "Recipients of Finished messages MUST verify that the contents are correct and if incorrect MUST terminate the connection with a "decrypt_error" alert."
         if (!Arrays.equals(finishedMessage.getVerifyData(), serverHmac)) {
@@ -329,7 +334,7 @@ public class TlsClientEngine extends TlsEngine implements ClientMessageProcessor
         //     | Client    | ClientHello ... later   | client_handshake_traffic_   |
         //     |           | of server               | secret                      |
         //     |           | Finished/EndOfEarlyData |                             |"
-        byte[] clientHmac = computeFinishedVerifyData(transcriptHash.getServerHash(TlsConstants.HandshakeType.finished), state.getClientHandshakeTrafficSecret());
+        byte[] clientHmac = computeFinishedVerifyData(transcriptHash.getClientHash(TlsConstants.HandshakeType.certificate_verify), state.getClientHandshakeTrafficSecret());
         FinishedMessage clientFinished = new FinishedMessage(clientHmac);
         sender.send(clientFinished);
 
