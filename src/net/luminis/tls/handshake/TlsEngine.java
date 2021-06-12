@@ -1,5 +1,5 @@
 /*
- * Copyright © 2019, 2020, 2021 Peter Doornbosch
+ * Copyright © 2020, 2021 Peter Doornbosch
  *
  * This file is part of Agent15, an implementation of TLS 1.3 in Java.
  *
@@ -24,11 +24,14 @@ import net.luminis.tls.TrafficSecrets;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.security.*;
-import java.security.interfaces.ECPrivateKey;
-import java.security.interfaces.ECPublicKey;
 import java.security.spec.ECGenParameterSpec;
+import java.security.spec.MGF1ParameterSpec;
 import java.security.spec.NamedParameterSpec;
+import java.security.spec.PSSParameterSpec;
 
 import static net.luminis.tls.TlsConstants.NamedGroup.*;
 
@@ -69,6 +72,52 @@ public abstract class TlsEngine implements MessageProcessor, TrafficSecrets {
         }
     }
 
+    /**
+     * Compute the signature used in certificate verify message to proof possession of private key.
+     * @param content  the content to be signed (transcript hash)
+     * @param certificatePrivateKey  the private key associated with the certificate
+     * @param client  whether the signature must be computed
+     * @return
+     */
+    protected byte[] computeSignature(byte[] content, PrivateKey certificatePrivateKey, boolean client) {
+        // https://tools.ietf.org/html/rfc8446#section-4.4.3
+
+        //   The digital signature is then computed over the concatenation of:
+        //   -  A string that consists of octet 32 (0x20) repeated 64 times
+        //   -  The context string
+        //   -  A single 0 byte which serves as the separator
+        //   -  The content to be signed"
+        ByteArrayOutputStream signatureInput = new ByteArrayOutputStream();
+        try {
+            signatureInput.write(new String(new byte[] { 0x20 }).repeat(64).getBytes(StandardCharsets.US_ASCII));
+            String contextString = "TLS 1.3, " + (client? "client": "server") + " CertificateVerify";
+            signatureInput.write(contextString.getBytes(StandardCharsets.US_ASCII));
+            signatureInput.write(0x00);
+            signatureInput.write(content);
+        } catch (IOException e) {
+            // Impossible
+            throw new RuntimeException();
+        }
+
+        try {
+            Signature signatureAlgorithm = Signature.getInstance("RSASSA-PSS");
+            signatureAlgorithm.setParameter(new PSSParameterSpec("SHA-256", "MGF1", new MGF1ParameterSpec("SHA-256"), 32, 1));
+            signatureAlgorithm.initSign(certificatePrivateKey);
+            signatureAlgorithm.update(signatureInput.toByteArray());
+            byte[] digitalSignature = signatureAlgorithm.sign();
+            return digitalSignature;
+        }
+        catch (NoSuchAlgorithmException e) {
+            throw new RuntimeException("Missing " + "RSASSA-PSS" + " support");
+        }
+        catch (InvalidAlgorithmParameterException | InvalidKeyException e) {
+            // Impossible
+            throw new RuntimeException();
+        } catch (SignatureException e) {
+            throw new RuntimeException();
+        }
+    }
+
     // https://tools.ietf.org/html/rfc8446#section-4.4.4
     protected byte[] computeFinishedVerifyData(byte[] transcriptHash, byte[] baseKey) {
         short hashLength = state.getHashLength();
@@ -89,6 +138,7 @@ public abstract class TlsEngine implements MessageProcessor, TrafficSecrets {
         }
     }
 
+    @Override
     public byte[] getClientEarlyTrafficSecret() {
         if (state != null) {
             return state.getClientEarlyTrafficSecret();
@@ -98,6 +148,7 @@ public abstract class TlsEngine implements MessageProcessor, TrafficSecrets {
         }
     }
 
+    @Override
     public byte[] getClientHandshakeTrafficSecret() {
         if (state != null) {
             return state.getClientHandshakeTrafficSecret();
@@ -107,6 +158,7 @@ public abstract class TlsEngine implements MessageProcessor, TrafficSecrets {
         }
     }
 
+    @Override
     public byte[] getServerHandshakeTrafficSecret() {
         if (state != null) {
             return state.getServerHandshakeTrafficSecret();
@@ -116,6 +168,7 @@ public abstract class TlsEngine implements MessageProcessor, TrafficSecrets {
         }
     }
 
+    @Override
     public byte[] getClientApplicationTrafficSecret() {
         if (state != null) {
             return state.getClientApplicationTrafficSecret();
@@ -125,6 +178,7 @@ public abstract class TlsEngine implements MessageProcessor, TrafficSecrets {
         }
     }
 
+    @Override
     public byte[] getServerApplicationTrafficSecret() {
         if (state != null) {
             return state.getServerApplicationTrafficSecret();
