@@ -49,6 +49,7 @@ public class TlsClientEngine extends TlsEngine implements ClientMessageProcessor
         ClientHelloSent,
         ServerHelloReceived,
         EncryptedExtensionsReceived,
+        CertificateRequestReceived,
         CertificateReceived,
         CertificateVerifyReceived,
         Finished
@@ -245,7 +246,7 @@ public class TlsClientEngine extends TlsEngine implements ClientMessageProcessor
 
     @Override
     public void received(CertificateMessage certificateMessage) throws TlsProtocolException {
-        if (status != Status.EncryptedExtensionsReceived) {
+        if (status != Status.EncryptedExtensionsReceived && status != Status.CertificateRequestReceived) {
             // https://tools.ietf.org/html/rfc8446#section-4.4
             // "TLS generally uses a common set of messages for authentication, key confirmation, and handshake
             //   integrity: Certificate, CertificateVerify, and Finished.  (...)  These three messages are always
@@ -349,6 +350,21 @@ public class TlsClientEngine extends TlsEngine implements ClientMessageProcessor
         NewSessionTicket ticket = new NewSessionTicket(state, nst);
         obtainedNewSessionTickets.add(ticket);
         statusHandler.newSessionTicketReceived(ticket);
+    }
+
+    @Override
+    public void received(CertificateRequestMessage cr) throws TlsProtocolException, IOException {
+        if (status != Status.EncryptedExtensionsReceived) {
+            throw new UnexpectedMessageAlert("unexpected certificate request message");
+        }
+        transcriptHash.record(cr);
+
+        System.out.println("Server requires client authentication.");
+        // No client cert, send empty Certificate Message
+        CertificateMessage certificateMessage = new CertificateMessage((X509Certificate) null);
+        sender.send(certificateMessage);
+        transcriptHash.recordClient(certificateMessage);
+        status = Status.CertificateRequestReceived;
     }
 
 

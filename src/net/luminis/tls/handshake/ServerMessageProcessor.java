@@ -1,5 +1,5 @@
 /*
- * Copyright © 2019, 2020, 2021 Peter Doornbosch
+ * Copyright © 2020, 2021 Peter Doornbosch
  *
  * This file is part of Agent15, an implementation of TLS 1.3 in Java.
  *
@@ -39,5 +39,6 @@ public interface ServerMessageProcessor extends MessageProcessor {
     default void received(NewSessionTicketMessage nst) throws TlsProtocolException, IOException {
     }
 
+    default void received(CertificateRequestMessage cr) throws TlsProtocolException, IOException {
+    }
 }
-

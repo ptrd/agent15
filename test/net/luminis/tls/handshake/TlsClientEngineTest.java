@@ -1,5 +1,5 @@
 /*
- * Copyright © 2019, 2020, 2021 Peter Doornbosch
+ * Copyright © 2020, 2021 Peter Doornbosch
  *
  * This file is part of Agent15, an implementation of TLS 1.3 in Java.
  *
@@ -462,6 +462,34 @@ class TlsClientEngineTest extends EngineTest {
         Mockito.verify(messageSender).send(ArgumentMatchers.any(FinishedMessage.class));
     }
 
+    @Test
+    void certificateRequestMessageShouldNotBeReceivedBeforeEncryptedExtensions() throws Exception {
+        // Given
+        engine.startHandshake();
+
+        ServerHello serverHello = new ServerHello(TLS_AES_128_GCM_SHA256, List.of(
+                new SupportedVersionsExtension(TlsConstants.HandshakeType.server_hello),
+                new KeyShareExtension(publicKey, TlsConstants.NamedGroup.secp256r1, TlsConstants.HandshakeType.server_hello)));
+        engine.received(serverHello);
+
+        // Then
+        Assertions.assertThatThrownBy(() ->
+                // When
+                engine.received(new CertificateRequestMessage(new SignatureAlgorithmsExtension()))
+        ).isInstanceOf(UnexpectedMessageAlert.class);
+    }
+
+    @Test
+    void certificateRequestMessageShouldNotBeReceivedAfterCertificate() throws Exception {
+        // Given
+        handshakeUpToCertificate();
+        engine.received(new CertificateMessage(CertificateUtils.inflateCertificate(encodedCertificate)));
+
+        // Then
+        Assertions.assertThatThrownBy(() ->
+                engine.received(new CertificateRequestMessage(new SignatureAlgorithmsExtension()))
+        ).isInstanceOf(UnexpectedMessageAlert.class);
+    }
 
     private void handshakeUpToEncryptedExtensions() throws Exception {
         handshakeUpToEncryptedExtensions(List.of(TlsConstants.SignatureScheme.rsa_pss_rsae_sha256));

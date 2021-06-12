@@ -1,5 +1,5 @@
 /*
- * Copyright © 2019, 2020, 2021 Peter Doornbosch
+ * Copyright © 2020, 2021 Peter Doornbosch
  *
  * This file is part of Agent15, an implementation of TLS 1.3 in Java.
  *
@@ -18,10 +18,8 @@
  */
 package net.luminis.tls.handshake;
 
-import net.luminis.tls.handshake.ClientHello;
-import net.luminis.tls.handshake.FinishedMessage;
-
 import java.io.IOException;
+
 
 public interface ClientMessageSender {
 
@@ -29,4 +27,5 @@ public interface ClientMessageSender {
 
     void send(FinishedMessage fm) throws IOException;
 
+    void send(CertificateMessage cm) throws IOException;
 }

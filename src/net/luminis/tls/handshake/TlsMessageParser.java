@@ -1,5 +1,5 @@
 /*
- * Copyright © 2019, 2020, 2021 Peter Doornbosch
+ * Copyright © 2020, 2021 Peter Doornbosch
  *
  * This file is part of Agent15, an implementation of TLS 1.3 in Java.
  *
@@ -20,7 +20,6 @@ package net.luminis.tls.handshake;
 
 import net.luminis.tls.TlsProtocolException;
 import net.luminis.tls.extension.ExtensionParser;
-import net.luminis.tls.handshake.*;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -71,6 +70,11 @@ public class TlsMessageParser {
             CertificateMessage cm = new CertificateMessage().parse(buffer);
             parsedMessage = cm;
             messageProcessor.received(cm);
+        }
+        else if (messageType == certificate_request.value) {
+            CertificateRequestMessage cr = new CertificateRequestMessage().parse(buffer);
+            parsedMessage = cr;
+            messageProcessor.received(cr);
         }
         else if (messageType == certificate_verify.value) {
             CertificateVerifyMessage cv = new CertificateVerifyMessage().parse(buffer, length + 4);
