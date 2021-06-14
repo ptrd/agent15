@@ -49,8 +49,7 @@ import java.util.stream.Stream;
 import static net.luminis.tls.TlsConstants.CipherSuite.*;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 class TlsClientEngineTest extends EngineTest {
 
@@ -434,7 +433,7 @@ class TlsClientEngineTest extends EngineTest {
 
     @Test
     void incorrectServerFinishedShouldAbortTls() throws Exception {
-        handshakeUpToFinished();
+        handshakeUpToFinished(false);
         Mockito.when(engine.getState().getServerHandshakeTrafficSecret()).thenReturn(new byte[32]);
         Mockito.when(engine.getState().getHashLength()).thenReturn((short) 32);
 
@@ -449,10 +448,7 @@ class TlsClientEngineTest extends EngineTest {
 
     @Test
     void engineShouldSendClientFinishedWhenHandshakeDone() throws Exception {
-        handshakeUpToFinished();
-
-        Mockito.when(engine.getState().getServerHandshakeTrafficSecret()).thenReturn(new byte[32]);
-        Mockito.when(engine.getState().getHashLength()).thenReturn((short) 32);
+        handshakeUpToFinished(false);
 
         FinishedMessage finishedMessage = new FinishedMessage(new byte[32]);
         TlsClientEngine stubbedEngine = Mockito.spy(engine);
@@ -491,6 +487,44 @@ class TlsClientEngineTest extends EngineTest {
         ).isInstanceOf(UnexpectedMessageAlert.class);
     }
 
+    @Test
+    void withoutClientCertificateClientAuthLeadsToAdditionalCertificateMessageBeforeFinished() throws Exception {
+        // Given
+        handshakeUpToFinished(true);
+
+        FinishedMessage finishedMessage = new FinishedMessage(new byte[32]);
+        TlsClientEngine stubbedEngine = Mockito.spy(engine);
+        Mockito.doReturn(new byte[32]).when(stubbedEngine).computeFinishedVerifyData(ArgumentMatchers.any(), ArgumentMatchers.any());
+        // When
+        stubbedEngine.received(finishedMessage);
+
+        // Then
+        Mockito.verify(messageSender).send(ArgumentMatchers.any(CertificateMessage.class));
+        Mockito.verify(messageSender, never()).send(ArgumentMatchers.any(CertificateVerifyMessage.class));
+        Mockito.verify(messageSender).send(ArgumentMatchers.any(FinishedMessage.class));
+    }
+
+    @Test
+    void withClientCertificateClientAuthLeadsToAdditionalCertificateMessageAndVerifyBeforeFinished() throws Exception {
+        // Given
+        X509Certificate clientCertificate = CertificateUtils.getTestCertificate();
+        PrivateKey privateKey = CertificateUtils.getPrivateKey();
+        engine.setClientCertificateCallback(arg -> new CertificateWithPrivateKey(clientCertificate, privateKey));
+
+        handshakeUpToFinished(true);
+
+        FinishedMessage finishedMessage = new FinishedMessage(new byte[32]);
+        TlsClientEngine stubbedEngine = Mockito.spy(engine);
+        Mockito.doReturn(new byte[32]).when(stubbedEngine).computeFinishedVerifyData(ArgumentMatchers.any(), ArgumentMatchers.any());
+        // When
+        stubbedEngine.received(finishedMessage);
+
+        // Then
+        Mockito.verify(messageSender).send(ArgumentMatchers.any(CertificateMessage.class));
+        Mockito.verify(messageSender).send(ArgumentMatchers.any(CertificateVerifyMessage.class));
+        Mockito.verify(messageSender).send(ArgumentMatchers.any(FinishedMessage.class));
+    }
+
     private void handshakeUpToEncryptedExtensions() throws Exception {
         handshakeUpToEncryptedExtensions(List.of(TlsConstants.SignatureScheme.rsa_pss_rsae_sha256));
     }
@@ -519,8 +553,11 @@ class TlsClientEngineTest extends EngineTest {
         engine.received(new EncryptedExtensions());
     }
 
-    private void handshakeUpToFinished() throws Exception {
+    private void handshakeUpToFinished(boolean requestClientCert) throws Exception {
         handshakeUpToCertificate(List.of(TlsConstants.SignatureScheme.rsa_pss_rsae_sha256));
+        if (requestClientCert) {
+            engine.received(new CertificateRequestMessage(new SignatureAlgorithmsExtension()));
+        }
         TlsState state = Mockito.spy(engine.getState());
         FieldSetter.setField(engine, engine.getClass().getSuperclass().getDeclaredField("state"), state);
         X509Certificate certificate = CertificateUtils.inflateCertificate(encodedCertificate);

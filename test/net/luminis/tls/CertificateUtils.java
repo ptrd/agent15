@@ -19,9 +19,12 @@
 package net.luminis.tls;
 
 import java.io.ByteArrayInputStream;
+import java.security.KeyFactory;
+import java.security.PrivateKey;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
+import java.security.spec.PKCS8EncodedKeySpec;
 import java.util.Base64;
 
 public class CertificateUtils {
@@ -34,6 +37,13 @@ public class CertificateUtils {
 
     public static X509Certificate getTestCertificate() throws Exception {
         return inflateCertificate(encodedCertificate);
+    }
+
+    public static PrivateKey getPrivateKey() throws Exception {
+        PKCS8EncodedKeySpec keySpec = new PKCS8EncodedKeySpec(Base64.getDecoder().decode(encodedPrivateKey.getBytes()));
+        KeyFactory kf = KeyFactory.getInstance("RSA");
+        PrivateKey privKey = kf.generatePrivate(keySpec);
+        return privKey;
     }
 
     // Subject: C=Netherlands, ST=Noord-Holland, L=Amsterdam, O=Acme, OU=orgUnit, CN=example.com
@@ -58,4 +68,32 @@ public class CertificateUtils {
             + "q8JO/9AmfykOeWsRKio9/V3Ccg6EiE6fdva6hXEB80ZPQZNEv9aqICupNXSMZ6HO"
             + "wwnvBmbndxsN/GBSveOI/mkS8hGSqdcCHD2H7ag0BQxsqnp7NtjgYKtTPNB/nChM"
             + "aB9pFr8=";
+
+    static String encodedPrivateKey =
+            "MIIEvwIBADANBgkqhkiG9w0BAQEFAASCBKkwggSlAgEAAoIBAQC0oO7QrlyQS9xp" +
+                    "FXeyye05+N4hcCbWT4/TsPky3gs56UNrfw8ViK1J7QXn1j4Mdqswi3paUvdUEjmW" +
+                    "n6yN2HSzf8OIBDiZPkVsJ3kIYNdRU1ODtr7AWK+kqslz2oS4g/WifvAEt0twU46y" +
+                    "KjgQop89fgsTjXnJj/SJr34mqzYJI1lAVU9Tj+qjqLToXMHlajh6F6p7KC2+J9EC" +
+                    "k6IGSodCwB689btLfoOZwe5V+XEHrpJ0GG4btOKUH2nGxKOi4m/2IvpXcOyTJ/P4" +
+                    "B+USxVqZnomm2CTKQo0JaSPA2ZbnNEvEicp70usMb9AkZ3Z4tGjHaMmAHCiFqiiz" +
+                    "zKfalsF/AgMBAAECggEBAKEgUghLEX0SfsoqgT02jWxCSPwxDCPukxE2dAVhN0hw" +
+                    "gVi53d3KrzIbwkHdxjnd/bVvJjS+f6w6Ga74PrfFl8yrMuP5R/fDKbBhwcCsikYc" +
+                    "e4oqERyJwBy20L+M9QmXhR1v+HFshFnt34Okz6BfQIddEUpe0H3x8SSFLJYX8jrR" +
+                    "Ec7HtdgtxN9CAxiS3uxSS+zS3cs5W9upzH448LwfYZDzLpDKrdGeiIISD2r2FRE5" +
+                    "NS1+ob2a8g8tbZnsjgNQjwsmPOGVkXjvxQULc4tSePo/pvNUPGRpjwTWOH3S+37s" +
+                    "L99FpslR3yeH2dWMv3zm0zmuSjJKpvXAfrua/jmno3kCgYEA56Or48NKxNj1oMph" +
+                    "lAj0oVwF0BAj11cnMK51gXSKak4zLQXtDK/iqZlZ0p+he8v3k+6TNrNIWRhticzg" +
+                    "DWE6Q3CeNov7jMvm0zZ+ssxoOxlwTk3yRCm5xi+XZ1SVy4u/CLiBlaY+OsMQhWux" +
+                    "PVciOaqXKMiZBaRt/OmOSMTLgesCgYEAx5/r//xGcG+XP6IHmaPuFfjJtyY2r87c" +
+                    "QzI48KC+W8ZYNuzMTUm1AQCpnIQG3iMbq3ZUm9ALmvERK+FGCGd0L1xEbtfaevcb" +
+                    "X1z6qqDBN3WZI7oh772SUjFhZoHJFKGbQCIJ3sG0whyY2QK20qsyZcKXiWRNqu7m" +
+                    "XfbJs+qaxb0CgYEAlvqbIs07gqpXDwJaL37W1AWC1GZwtf7cUGKlvEcVoMxvlrzy" +
+                    "EP7jIeAOJ7ZcLrB3IjiyQ0j/svK1EsgykQX6T9KrjKoYv2B3httSIYARv9OI28D6" +
+                    "U2tO5tpGONds+0qOrUR1UfEVRn+12QCkeXK9oBCMjcyR0JeoCNzCHLQIYRkCgYEA" +
+                    "mTXBUJ/ThBnxUHJQOPgbFBv03S9kC3zNinkyQGRulUteixElIDBwzksu4iRmjPkP" +
+                    "FILmHwwGzC02y6HDOVIFVxAOqa/bTEL5bDCVZn2oraMBHO2PfEvX0GN76Mu1g7Mg" +
+                    "z5EQWDn9PHnsSaoOnROtw3IdEeK8xXNDtVxipEZr8VUCgYAAz9yKIB3HEBNYBT7g" +
+                    "pyjkmSJDeftpup13UxDNcDQ47jwWgkQLVr1IBjLVa5NEQ28igQzY4Zugmb3qgf5u" +
+                    "T85zQNvlhax7H00x+L8caBimErMrO7j3sKbnC2evp/2tUfS4997/icD1TKs76sJ1" +
+                    "3Z9e2GPTQz4pixzAJJQG1sozSw==";
 }

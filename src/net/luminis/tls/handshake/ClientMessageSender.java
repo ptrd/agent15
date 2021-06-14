@@ -23,9 +23,11 @@ import java.io.IOException;
 
 public interface ClientMessageSender {
 
-    void send(ClientHello sh) throws IOException;
+    void send(ClientHello clientHello) throws IOException;
 
-    void send(FinishedMessage fm) throws IOException;
+    void send(FinishedMessage finishedMessage) throws IOException;
 
-    void send(CertificateMessage cm) throws IOException;
+    void send(CertificateMessage certificateMessage) throws IOException;
+
+    void send(CertificateVerifyMessage certificateVerifyMessage);
 }
