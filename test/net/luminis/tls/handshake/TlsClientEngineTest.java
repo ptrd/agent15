@@ -525,6 +525,16 @@ class TlsClientEngineTest extends EngineTest {
         Mockito.verify(messageSender).send(ArgumentMatchers.any(FinishedMessage.class));
     }
 
+    @Test
+    void unsupportedSignatureSchemeLeadsToException() throws Exception {
+        assertThatThrownBy(() ->
+                engine.startHandshake(TlsConstants.NamedGroup.secp256r1,
+                        List.of(TlsConstants.SignatureScheme.rsa_pss_rsae_sha256, TlsConstants.SignatureScheme.rsa_pkcs1_sha1))
+        ).isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("rsa_pkcs1_sha1");
+
+    }
+
     private void handshakeUpToEncryptedExtensions() throws Exception {
         handshakeUpToEncryptedExtensions(List.of(TlsConstants.SignatureScheme.rsa_pss_rsae_sha256));
     }

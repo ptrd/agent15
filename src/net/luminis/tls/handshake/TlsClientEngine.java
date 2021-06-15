@@ -44,6 +44,8 @@ import static net.luminis.tls.TlsConstants.SignatureScheme.rsa_pss_rsae_sha256;
 
 public class TlsClientEngine extends TlsEngine implements ClientMessageProcessor {
 
+    public static final List<TlsConstants.SignatureScheme> AVAILABLE_SIGNATURES = List.of(rsa_pss_rsae_sha256, ecdsa_secp256r1_sha256);
+
     private static final Charset ISO_8859_1 = Charset.forName("ISO-8859-1");
 
     enum Status {
@@ -100,6 +102,13 @@ public class TlsClientEngine extends TlsEngine implements ClientMessageProcessor
     }
 
     public void startHandshake(TlsConstants.NamedGroup ecCurve, List<TlsConstants.SignatureScheme> signatureSchemes) throws IOException {
+        if (signatureSchemes.stream().anyMatch(scheme -> !AVAILABLE_SIGNATURES.contains(scheme))) {
+            // Remove available leaves the ones that are not available (cannot be supported)
+            var unsupportedSignatures = new ArrayList<>(signatureSchemes);
+            unsupportedSignatures.removeAll(AVAILABLE_SIGNATURES);
+            throw new IllegalArgumentException("Unsupported signature scheme(s): " + unsupportedSignatures);
+        }
+
         supportedSignatures = signatureSchemes;
         generateKeys(ecCurve);
         if (serverName == null || supportedCiphers.isEmpty()) {
@@ -364,8 +373,7 @@ public class TlsClientEngine extends TlsEngine implements ClientMessageProcessor
     }
 
     @Override
-    public void received(CertificateRequestMessage certificateRequestMessage) throws TlsProtocolException, IOException {
-        if (status != Status.EncryptedExtensionsReceived) {
+    public void received(CertificateRequestMessage certificateRequestMessage) throws TlsProtocolException, IOException { if (status != Status.EncryptedExtensionsReceived) {
             throw new UnexpectedMessageAlert("unexpected certificate request message");
         }
         transcriptHash.record(certificateRequestMessage);
