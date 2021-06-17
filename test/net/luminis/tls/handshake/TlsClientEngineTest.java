@@ -47,6 +47,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static net.luminis.tls.TlsConstants.CipherSuite.*;
+import static net.luminis.tls.TlsConstants.SignatureScheme.rsa_pss_rsae_sha256;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.*;
@@ -295,7 +296,7 @@ class TlsClientEngineTest extends EngineTest {
 
         Assertions.assertThatThrownBy(() ->
                 // When
-                engine.received(new CertificateVerifyMessage(TlsConstants.SignatureScheme.rsa_pss_rsae_sha256, new byte[0])))
+                engine.received(new CertificateVerifyMessage(rsa_pss_rsae_sha256, new byte[0])))
                 // Then
                 .isInstanceOf(IllegalParameterAlert.class);
     }
@@ -312,7 +313,7 @@ class TlsClientEngineTest extends EngineTest {
         engine.received(new CertificateMessage(CertificateUtils.inflateCertificate(encodedCertificate)));
 
         // When
-        engine.received(new CertificateVerifyMessage(TlsConstants.SignatureScheme.rsa_pss_rsae_sha256, validSignature));
+        engine.received(new CertificateVerifyMessage(rsa_pss_rsae_sha256, validSignature));
         // Then
         // Ok
     }
@@ -325,7 +326,7 @@ class TlsClientEngineTest extends EngineTest {
 
         Assertions.assertThatThrownBy(() ->
                 // When
-                engine.received(new CertificateVerifyMessage(TlsConstants.SignatureScheme.rsa_pss_rsae_sha256, new byte[256])))
+                engine.received(new CertificateVerifyMessage(rsa_pss_rsae_sha256, new byte[256])))
                 // Then
                 .isInstanceOf(DecryptErrorAlert.class);
     }
@@ -339,7 +340,7 @@ class TlsClientEngineTest extends EngineTest {
         byte[] hash = new byte[32];
         Arrays.fill(hash, (byte) 0x01);
 
-        boolean verified = engine.verifySignature(signature, TlsConstants.SignatureScheme.rsa_pss_rsae_sha256, certificate, hash);
+        boolean verified = engine.verifySignature(signature, rsa_pss_rsae_sha256, certificate, hash);
 
         Assertions.assertThat(verified).isTrue();
     }
@@ -353,7 +354,7 @@ class TlsClientEngineTest extends EngineTest {
 
         Assertions.assertThatThrownBy(() ->
                 // When
-                engine.received(new CertificateVerifyMessage(TlsConstants.SignatureScheme.rsa_pss_rsae_sha256, validSignature)))
+                engine.received(new CertificateVerifyMessage(rsa_pss_rsae_sha256, validSignature)))
                 // Then
                 .isInstanceOf(BadCertificateAlert.class);
     }
@@ -370,7 +371,7 @@ class TlsClientEngineTest extends EngineTest {
         byte[] validSignature = createServerSignature();
         Assertions.assertThatThrownBy(() ->
                 // When
-                engine.received(new CertificateVerifyMessage(TlsConstants.SignatureScheme.rsa_pss_rsae_sha256, validSignature)))
+                engine.received(new CertificateVerifyMessage(rsa_pss_rsae_sha256, validSignature)))
                 // Then
                 .isInstanceOf(CertificateUnknownAlert.class);
     }
@@ -387,7 +388,7 @@ class TlsClientEngineTest extends EngineTest {
         // When
         engine.setHostnameVerifier(null);
         Assertions.assertThatThrownBy(() ->
-                engine.received(new CertificateVerifyMessage(TlsConstants.SignatureScheme.rsa_pss_rsae_sha256, validSignature)))
+                engine.received(new CertificateVerifyMessage(rsa_pss_rsae_sha256, validSignature)))
                 // Then
                 .isInstanceOf(CertificateUnknownAlert.class);
     }
@@ -529,14 +530,14 @@ class TlsClientEngineTest extends EngineTest {
     void unsupportedSignatureSchemeLeadsToException() throws Exception {
         assertThatThrownBy(() ->
                 engine.startHandshake(TlsConstants.NamedGroup.secp256r1,
-                        List.of(TlsConstants.SignatureScheme.rsa_pss_rsae_sha256, TlsConstants.SignatureScheme.rsa_pkcs1_sha1))
+                        List.of(rsa_pss_rsae_sha256, TlsConstants.SignatureScheme.rsa_pkcs1_sha1))
         ).isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("rsa_pkcs1_sha1");
 
     }
 
     private void handshakeUpToEncryptedExtensions() throws Exception {
-        handshakeUpToEncryptedExtensions(List.of(TlsConstants.SignatureScheme.rsa_pss_rsae_sha256));
+        handshakeUpToEncryptedExtensions(List.of(rsa_pss_rsae_sha256));
     }
 
     private void handshakeUpToEncryptedExtensions(List<TlsConstants.SignatureScheme> signatureSchemes) throws Exception {
@@ -550,7 +551,7 @@ class TlsClientEngineTest extends EngineTest {
     }
 
     private void handshakeUpToCertificate() throws Exception {
-        handshakeUpToCertificate(List.of(TlsConstants.SignatureScheme.rsa_pss_rsae_sha256));
+        handshakeUpToCertificate(List.of(rsa_pss_rsae_sha256));
     }
 
     private void handshakeUpToCertificate(List<TlsConstants.SignatureScheme> signatureSchemes) throws Exception {
@@ -564,9 +565,9 @@ class TlsClientEngineTest extends EngineTest {
     }
 
     private void handshakeUpToFinished(boolean requestClientCert) throws Exception {
-        handshakeUpToCertificate(List.of(TlsConstants.SignatureScheme.rsa_pss_rsae_sha256));
+        handshakeUpToCertificate(List.of(rsa_pss_rsae_sha256));
         if (requestClientCert) {
-            engine.received(new CertificateRequestMessage(new SignatureAlgorithmsExtension()));
+            engine.received(new CertificateRequestMessage(new SignatureAlgorithmsExtension(rsa_pss_rsae_sha256)));
         }
         TlsState state = Mockito.spy(engine.getState());
         FieldSetter.setField(engine, engine.getClass().getSuperclass().getDeclaredField("state"), state);
@@ -575,7 +576,7 @@ class TlsClientEngineTest extends EngineTest {
         engine.setTrustManager(createNoOpTrustManager());
         engine.setHostnameVerifier(createNoOpHostnameVerifier());
         engine.received(new CertificateMessage(certificate));
-        engine.received(new CertificateVerifyMessage(TlsConstants.SignatureScheme.rsa_pss_rsae_sha256, validSignature));
+        engine.received(new CertificateVerifyMessage(rsa_pss_rsae_sha256, validSignature));
     }
 
     private byte[] createServerSignature() throws Exception {

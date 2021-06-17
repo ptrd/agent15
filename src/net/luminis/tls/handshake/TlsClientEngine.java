@@ -32,8 +32,6 @@ import java.nio.charset.Charset;
 import java.security.*;
 import java.security.cert.Certificate;
 import java.security.cert.*;
-import java.security.spec.MGF1ParameterSpec;
-import java.security.spec.PSSParameterSpec;
 import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -388,8 +386,7 @@ public class TlsClientEngine extends TlsEngine implements ClientMessageProcessor
         status = Status.CertificateRequestReceived;
     }
 
-
-    protected boolean verifySignature(byte[] signatureToVerify, TlsConstants.SignatureScheme signatureScheme, Certificate certificate, byte[] transcriptHash) {
+    protected boolean verifySignature(byte[] signatureToVerify, TlsConstants.SignatureScheme signatureScheme, Certificate certificate, byte[] transcriptHash) throws HandshakeFailureAlert {
         // https://tools.ietf.org/html/rfc8446#section-4.4.3
         // "The digital signature is then computed over the concatenation of:
         //   -  A string that consists of octet 32 (0x20) repeated 64 times
@@ -410,34 +407,9 @@ public class TlsClientEngine extends TlsEngine implements ClientMessageProcessor
         //      Transcript-Hash(Handshake Context, Certificate)"
         contentToSign.put(transcriptHash);
 
-        Signature signatureAlgorithm = null;
-        // https://tools.ietf.org/html/rfc8446#section-9.1
-        // "A TLS-compliant application MUST support digital signatures with rsa_pkcs1_sha256 (for certificates),
-        // rsa_pss_rsae_sha256 (for CertificateVerify and certificates), and ecdsa_secp256r1_sha256."
-        if (signatureScheme.equals(rsa_pss_rsae_sha256)) {
-            try {
-                signatureAlgorithm = Signature.getInstance("RSASSA-PSS");
-                signatureAlgorithm.setParameter(new PSSParameterSpec("SHA-256", "MGF1", new MGF1ParameterSpec("SHA-256"), 32, 1));
-            } catch (NoSuchAlgorithmException e) {
-                throw new RuntimeException("Missing RSASSA-PSS support");
-            } catch (InvalidAlgorithmParameterException e) {
-                // Fairly impossible (because the parameters is hard coded)
-                throw new RuntimeException(e);
-            }
-        }
-        else if (signatureScheme.equals(ecdsa_secp256r1_sha256)) {
-            try {
-                signatureAlgorithm = Signature.getInstance("SHA256withECDSA");
-            } catch (NoSuchAlgorithmException e) {
-                throw new RuntimeException("Missing SHA256withECDSA support");
-            }
-        }
-        else {
-            // Bad lock, not yet supported.
-            throw new RuntimeException("Signature algorithm (verification) not supported " + signatureScheme);
-        }
         boolean verified = false;
         try {
+            Signature signatureAlgorithm = getSignatureAlgorithm(signatureScheme);
             signatureAlgorithm.initVerify(certificate);
             signatureAlgorithm.update(contentToSign.array());
             verified = signatureAlgorithm.verify(signatureToVerify);

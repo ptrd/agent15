@@ -21,6 +21,7 @@ package net.luminis.tls.handshake;
 import net.luminis.tls.TlsConstants;
 import net.luminis.tls.TlsState;
 import net.luminis.tls.TrafficSecrets;
+import net.luminis.tls.alert.HandshakeFailureAlert;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
@@ -34,6 +35,8 @@ import java.security.spec.NamedParameterSpec;
 import java.security.spec.PSSParameterSpec;
 
 import static net.luminis.tls.TlsConstants.NamedGroup.*;
+import static net.luminis.tls.TlsConstants.SignatureScheme.ecdsa_secp256r1_sha256;
+import static net.luminis.tls.TlsConstants.SignatureScheme.rsa_pss_rsae_sha256;
 
 public abstract class TlsEngine implements MessageProcessor, TrafficSecrets {
 
@@ -136,6 +139,36 @@ public abstract class TlsEngine implements MessageProcessor, TrafficSecrets {
         } catch (InvalidKeyException e) {
             throw new RuntimeException();
         }
+    }
+
+    protected Signature getSignatureAlgorithm(TlsConstants.SignatureScheme signatureScheme) throws HandshakeFailureAlert {
+        Signature signatureAlgorithm = null;
+        // https://tools.ietf.org/html/rfc8446#section-9.1
+        // "A TLS-compliant application MUST support digital signatures with rsa_pkcs1_sha256 (for certificates),
+        // rsa_pss_rsae_sha256 (for CertificateVerify and certificates), and ecdsa_secp256r1_sha256."
+        if (signatureScheme.equals(rsa_pss_rsae_sha256)) {
+            try {
+                signatureAlgorithm = Signature.getInstance("RSASSA-PSS");
+                signatureAlgorithm.setParameter(new PSSParameterSpec("SHA-256", "MGF1", new MGF1ParameterSpec("SHA-256"), 32, 1));
+            } catch (NoSuchAlgorithmException e) {
+                throw new RuntimeException("Missing RSASSA-PSS support");
+            } catch (InvalidAlgorithmParameterException e) {
+                // Fairly impossible (because the parameters is hard coded)
+                throw new RuntimeException(e);
+            }
+        }
+        else if (signatureScheme.equals(ecdsa_secp256r1_sha256)) {
+            try {
+                signatureAlgorithm = Signature.getInstance("SHA256withECDSA");
+            } catch (NoSuchAlgorithmException e) {
+                throw new RuntimeException("Missing SHA256withECDSA support");
+            }
+        }
+        else {
+            // Bad lock, not yet supported.
+            throw new HandshakeFailureAlert("Signature algorithm (verification) not supported " + signatureScheme);
+        }
+        return signatureAlgorithm;
     }
 
     @Override
