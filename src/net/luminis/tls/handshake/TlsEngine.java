@@ -1,5 +1,5 @@
 /*
- * Copyright © 2019, 2020, 2021 Peter Doornbosch
+ * Copyright © 2020, 2021 Peter Doornbosch
  *
  * This file is part of Agent15, an implementation of TLS 1.3 in Java.
  *
@@ -21,16 +21,23 @@ package net.luminis.tls.handshake;
 import net.luminis.tls.TlsConstants;
 import net.luminis.tls.TlsState;
 import net.luminis.tls.TrafficSecrets;
+import net.luminis.tls.alert.ErrorAlert;
+import net.luminis.tls.alert.HandshakeFailureAlert;
+import net.luminis.tls.alert.InternalErrorAlert;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.security.*;
-import java.security.interfaces.ECPrivateKey;
-import java.security.interfaces.ECPublicKey;
 import java.security.spec.ECGenParameterSpec;
+import java.security.spec.MGF1ParameterSpec;
 import java.security.spec.NamedParameterSpec;
+import java.security.spec.PSSParameterSpec;
 
 import static net.luminis.tls.TlsConstants.NamedGroup.*;
+import static net.luminis.tls.TlsConstants.SignatureScheme.*;
 
 public abstract class TlsEngine implements MessageProcessor, TrafficSecrets {
 
@@ -69,6 +76,50 @@ public abstract class TlsEngine implements MessageProcessor, TrafficSecrets {
         }
     }
 
+    /**
+     * Compute the signature used in certificate verify message to proof possession of private key.
+     * @param content  the content to be signed (transcript hash)
+     * @param certificatePrivateKey  the private key associated with the certificate
+     * @param signatureScheme
+     * @param client  whether the signature must be computed
+     * @return
+     */
+    protected byte[] computeSignature(byte[] content, PrivateKey certificatePrivateKey, TlsConstants.SignatureScheme signatureScheme, boolean client) throws ErrorAlert {
+        // https://tools.ietf.org/html/rfc8446#section-4.4.3
+
+        //   The digital signature is then computed over the concatenation of:
+        //   -  A string that consists of octet 32 (0x20) repeated 64 times
+        //   -  The context string
+        //   -  A single 0 byte which serves as the separator
+        //   -  The content to be signed"
+        ByteArrayOutputStream signatureInput = new ByteArrayOutputStream();
+        try {
+            signatureInput.write(new String(new byte[] { 0x20 }).repeat(64).getBytes(StandardCharsets.US_ASCII));
+            String contextString = "TLS 1.3, " + (client? "client": "server") + " CertificateVerify";
+            signatureInput.write(contextString.getBytes(StandardCharsets.US_ASCII));
+            signatureInput.write(0x00);
+            signatureInput.write(content);
+        } catch (IOException e) {
+            // Impossible
+            throw new RuntimeException();
+        }
+
+        try {
+            Signature signatureAlgorithm = getSignatureAlgorithm(signatureScheme);
+            signatureAlgorithm.initSign(certificatePrivateKey);
+            signatureAlgorithm.update(signatureInput.toByteArray());
+            byte[] digitalSignature = signatureAlgorithm.sign();
+            return digitalSignature;
+        }
+        catch (SignatureException e) {
+            // sign() throws SignatureException: if this signature object is not initialized properly or if this
+            //                                   signature algorithm is unable to process the input data provided.
+            throw new RuntimeException();
+        } catch (InvalidKeyException e) {
+            throw new InternalErrorAlert("invalid private key");
+        }
+    }
+
     // https://tools.ietf.org/html/rfc8446#section-4.4.4
     protected byte[] computeFinishedVerifyData(byte[] transcriptHash, byte[] baseKey) {
         short hashLength = state.getHashLength();
@@ -89,6 +140,59 @@ public abstract class TlsEngine implements MessageProcessor, TrafficSecrets {
         }
     }
 
+    protected Signature getSignatureAlgorithm(TlsConstants.SignatureScheme signatureScheme) throws HandshakeFailureAlert {
+        Signature signatureAlgorithm = null;
+        // https://tools.ietf.org/html/rfc8446#section-9.1
+        // "A TLS-compliant application MUST support digital signatures with rsa_pkcs1_sha256 (for certificates),
+        // rsa_pss_rsae_sha256 (for CertificateVerify and certificates), and ecdsa_secp256r1_sha256."
+        if (signatureScheme.equals(rsa_pss_rsae_sha256)) {
+            try {
+                signatureAlgorithm = Signature.getInstance("RSASSA-PSS");
+                signatureAlgorithm.setParameter(new PSSParameterSpec("SHA-256", "MGF1", new MGF1ParameterSpec("SHA-256"), 32, 1));
+            } catch (NoSuchAlgorithmException e) {
+                throw new RuntimeException("Missing RSASSA-PSS support");
+            } catch (InvalidAlgorithmParameterException e) {
+                // Fairly impossible (because the parameters is hard coded)
+                throw new RuntimeException(e);
+            }
+        }
+        else if (signatureScheme.equals(rsa_pss_rsae_sha384)) {
+            try {
+                signatureAlgorithm = Signature.getInstance("RSASSA-PSS");
+                signatureAlgorithm.setParameter(new PSSParameterSpec("SHA-384", "MGF1", new MGF1ParameterSpec("SHA-384"), 48, 1));
+            } catch (NoSuchAlgorithmException e) {
+                throw new RuntimeException("Missing RSASSA-PSS support");
+            } catch (InvalidAlgorithmParameterException e) {
+                // Fairly impossible (because the parameters is hard coded)
+                throw new RuntimeException(e);
+            }
+        }
+        else if (signatureScheme.equals(rsa_pss_rsae_sha512)) {
+            try {
+                signatureAlgorithm = Signature.getInstance("RSASSA-PSS");
+                signatureAlgorithm.setParameter(new PSSParameterSpec("SHA-512", "MGF1", new MGF1ParameterSpec("SHA-512"), 64, 1));
+            } catch (NoSuchAlgorithmException e) {
+                throw new RuntimeException("Missing RSASSA-PSS support");
+            } catch (InvalidAlgorithmParameterException e) {
+                // Fairly impossible (because the parameters is hard coded)
+                throw new RuntimeException(e);
+            }
+        }
+        else if (signatureScheme.equals(ecdsa_secp256r1_sha256)) {
+            try {
+                signatureAlgorithm = Signature.getInstance("SHA256withECDSA");
+            } catch (NoSuchAlgorithmException e) {
+                throw new RuntimeException("Missing SHA256withECDSA support");
+            }
+        }
+        else {
+            // Bad luck, not (yet) supported.
+            throw new HandshakeFailureAlert("Signature algorithm not supported " + signatureScheme);
+        }
+        return signatureAlgorithm;
+    }
+
+    @Override
     public byte[] getClientEarlyTrafficSecret() {
         if (state != null) {
             return state.getClientEarlyTrafficSecret();
@@ -98,6 +202,7 @@ public abstract class TlsEngine implements MessageProcessor, TrafficSecrets {
         }
     }
 
+    @Override
     public byte[] getClientHandshakeTrafficSecret() {
         if (state != null) {
             return state.getClientHandshakeTrafficSecret();
@@ -107,6 +212,7 @@ public abstract class TlsEngine implements MessageProcessor, TrafficSecrets {
         }
     }
 
+    @Override
     public byte[] getServerHandshakeTrafficSecret() {
         if (state != null) {
             return state.getServerHandshakeTrafficSecret();
@@ -116,6 +222,7 @@ public abstract class TlsEngine implements MessageProcessor, TrafficSecrets {
         }
     }
 
+    @Override
     public byte[] getClientApplicationTrafficSecret() {
         if (state != null) {
             return state.getClientApplicationTrafficSecret();
@@ -125,6 +232,7 @@ public abstract class TlsEngine implements MessageProcessor, TrafficSecrets {
         }
     }
 
+    @Override
     public byte[] getServerApplicationTrafficSecret() {
         if (state != null) {
             return state.getServerApplicationTrafficSecret();

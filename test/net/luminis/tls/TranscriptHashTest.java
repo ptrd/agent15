@@ -69,10 +69,10 @@ class TranscriptHashTest {
         transcriptHash.record(ch);
         transcriptHash.record(sh);
         transcriptHash.record(ee);
-        transcriptHash.record(cm);
+        transcriptHash.recordServer(cm);
 
         byte[] expected = computeHash(new byte[]{ 0x01 }, new byte[]{ 0x02 }, new byte[]{ 0x03 }, new byte[]{ 0x04 });
-        assertThat(transcriptHash.getHash(TlsConstants.HandshakeType.certificate)).isEqualTo(expected);
+        assertThat(transcriptHash.getServerHash(TlsConstants.HandshakeType.certificate)).isEqualTo(expected);
     }
 
     @Test

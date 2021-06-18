@@ -1,5 +1,5 @@
 /*
- * Copyright © 2019, 2020, 2021 Peter Doornbosch
+ * Copyright © 2018, 2019, 2020, 2021 Peter Doornbosch
  *
  * This file is part of Agent15, an implementation of TLS 1.3 in Java.
  *
@@ -30,6 +30,7 @@ import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
@@ -44,10 +45,14 @@ public class CertificateMessage extends HandshakeMessage {
     private byte[] raw;
 
     public CertificateMessage(X509Certificate certificate) {
-        Objects.requireNonNull(certificate);
         this.requestContext = new byte[0];
         endEntityCertificate = certificate;
-        certificateChain = List.of(certificate);
+        if (certificate != null) {
+            certificateChain = List.of(certificate);
+        }
+        else {
+            certificateChain = Collections.emptyList();
+        }
 
         serialize();
     }

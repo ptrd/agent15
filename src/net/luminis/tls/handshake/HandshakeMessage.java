@@ -60,60 +60,69 @@ public abstract class HandshakeMessage extends Message {
         }
         List<Extension> extensions = new ArrayList<>();
 
-        int extensionsLength = buffer.getShort() & 0xffff;
-        if (buffer.remaining() < extensionsLength) {
+        int remainingExtensionsLength = buffer.getShort() & 0xffff;
+        if (buffer.remaining() < remainingExtensionsLength) {
             throw new DecodeErrorException("Extensions too short");
         }
 
-        if (extensionsLength > 0) {
-            int startPosition = buffer.position();
+        while (remainingExtensionsLength >= 4) {
+            buffer.mark();
+            int extensionType = buffer.getShort() & 0xffff;
+            int extensionLength = buffer.getShort() & 0xffff;
+            remainingExtensionsLength -= 4;
+            buffer.reset();
+            if (extensionLength > remainingExtensionsLength) {
+                throw new DecodeErrorException("Extension length exceeds extensions length");
+            }
+            int extensionStartPosition = buffer.position();
 
-            while (buffer.position() - startPosition < extensionsLength) {
-                buffer.mark();
-                int extensionType = buffer.getShort() & 0xffff;
-                buffer.reset();
-
-                if (extensionType == TlsConstants.ExtensionType.server_name.value) {
-                    extensions.add(new ServerNameExtension(buffer));
+            if (extensionType == TlsConstants.ExtensionType.server_name.value) {
+                extensions.add(new ServerNameExtension(buffer));
+            }
+            else if (extensionType == TlsConstants.ExtensionType.supported_groups.value) {
+                extensions.add(new SupportedGroupsExtension(buffer));
+            }
+            else if (extensionType == TlsConstants.ExtensionType.signature_algorithms.value) {
+                extensions.add(new SignatureAlgorithmsExtension(buffer));
+            }
+            else if (extensionType == TlsConstants.ExtensionType.application_layer_protocol_negotiation.value) {
+                extensions.add(new ApplicationLayerProtocolNegotiationExtension().parse(buffer));
+            }
+            else if (extensionType == TlsConstants.ExtensionType.pre_shared_key.value) {
+                extensions.add(new ServerPreSharedKeyExtension().parse(buffer));
+            }
+            else if (extensionType == TlsConstants.ExtensionType.early_data.value) {
+                extensions.add(new EarlyDataExtension().parse(buffer));
+            }
+            else if (extensionType == TlsConstants.ExtensionType.supported_versions.value) {
+                extensions.add(new SupportedVersionsExtension(buffer, context));
+            }
+            else if (extensionType == TlsConstants.ExtensionType.psk_key_exchange_modes.value) {
+                extensions.add(new PskKeyExchangeModesExtension(buffer));
+            }
+            else if (extensionType == TlsConstants.ExtensionType.certificate_authorities.value) {
+                extensions.add(new CertificateAuthoritiesExtension(buffer));
+            }
+            else if (extensionType == TlsConstants.ExtensionType.key_share.value) {
+                extensions.add(new KeyShareExtension(buffer, context));
+            }
+            else {
+                Extension extension = null;
+                if (customExtensionParser != null) {
+                    extension = customExtensionParser.apply(buffer, context);
                 }
-                else if (extensionType == TlsConstants.ExtensionType.supported_groups.value) {
-                    extensions.add(new SupportedGroupsExtension(buffer));
-                }
-                else if (extensionType == TlsConstants.ExtensionType.signature_algorithms.value) {
-                    extensions.add(new SignatureAlgorithmsExtension(buffer));
-                }
-                else if (extensionType == TlsConstants.ExtensionType.application_layer_protocol_negotiation.value) {
-                    extensions.add(new ApplicationLayerProtocolNegotiationExtension().parse(buffer));
-                }
-                else if (extensionType == TlsConstants.ExtensionType.pre_shared_key.value) {
-                    extensions.add(new ServerPreSharedKeyExtension().parse(buffer));
-                }
-                else if (extensionType == TlsConstants.ExtensionType.early_data.value) {
-                    extensions.add(new EarlyDataExtension().parse(buffer));
-                }
-                else if (extensionType == TlsConstants.ExtensionType.supported_versions.value) {
-                    extensions.add(new SupportedVersionsExtension(buffer, context));
-                }
-                else if (extensionType == TlsConstants.ExtensionType.psk_key_exchange_modes.value) {
-                    extensions.add(new PskKeyExchangeModesExtension(buffer));
-                }
-                else if (extensionType == TlsConstants.ExtensionType.key_share.value) {
-                    extensions.add(new KeyShareExtension(buffer, context));
+                if (extension != null) {
+                    extensions.add(extension);
                 }
                 else {
-                    Extension extension = null;
-                    if (customExtensionParser != null) {
-                        extension = customExtensionParser.apply(buffer, context);
-                    }
-                    if (extension != null) {
-                        extensions.add(extension);
-                    }
-                    else {
-                        Logger.debug("Unsupported extension, type is: " + extensionType);
-                        extensions.add(new UnknownExtension().parse(buffer));
-                    }
+                    Logger.debug("Unsupported extension, type is: " + extensionType);
+                    extensions.add(new UnknownExtension().parse(buffer));
                 }
             }
+            if (buffer.position() - extensionStartPosition != 4 + extensionLength) {
+                throw new DecodeErrorException("Incorrect extension length");
+            }
+            remainingExtensionsLength -= extensionLength;
         }
         return extensions;
     }

@@ -1,5 +1,5 @@
 /*
- * Copyright © 2020, 2021 Peter Doornbosch
+ * Copyright © 2021 Peter Doornbosch
  *
  * This file is part of Agent15, an implementation of TLS 1.3 in Java.
  *
@@ -16,18 +16,13 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-package net.luminis.tls.handshake;
+package net.luminis.tls.alert;
 
-import java.io.IOException;
+import net.luminis.tls.TlsConstants;
 
+public class InternalErrorAlert extends ErrorAlert {
 
-public interface ClientMessageSender {
-
-    void send(ClientHello clientHello) throws IOException;
-
-    void send(FinishedMessage finishedMessage) throws IOException;
-
-    void send(CertificateMessage certificateMessage) throws IOException;
-
-    void send(CertificateVerifyMessage certificateVerifyMessage);
+    public InternalErrorAlert(String message) {
+        super(message, TlsConstants.AlertDescription.internal_error);
+    }
 }
