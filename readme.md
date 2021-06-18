@@ -78,6 +78,10 @@ As Agent15 does not provide the TLS record layer (that performs the encryption i
 library must check itself that all handshake messages except `ClientHello` and `ServerHello` are encrypted by the 
 handshake keys.
 
+#### Building
+
+Use the gradle wrapper to build the library: `./gradlew build` (or on Windows: `gradlew.bat build`).
+
 ### Security
 
 Certificates are checked using the default Java truststore. Other CA's can be used by setting a custom trustmanager.
