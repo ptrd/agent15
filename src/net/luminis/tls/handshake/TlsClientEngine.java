@@ -41,7 +41,11 @@ import static net.luminis.tls.TlsConstants.SignatureScheme.*;
 
 public class TlsClientEngine extends TlsEngine implements ClientMessageProcessor {
 
-    public static final List<TlsConstants.SignatureScheme> AVAILABLE_SIGNATURES = List.of(rsa_pss_rsae_sha256, ecdsa_secp256r1_sha256);
+    public static final List<TlsConstants.SignatureScheme> AVAILABLE_SIGNATURES = List.of(
+            rsa_pss_rsae_sha256,
+            rsa_pss_rsae_sha384,
+            rsa_pss_rsae_sha512,
+            ecdsa_secp256r1_sha256);
 
     private static final Charset ISO_8859_1 = Charset.forName("ISO-8859-1");
 

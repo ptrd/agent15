@@ -25,6 +25,7 @@ import net.luminis.tls.util.ByteUtils;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.ArgumentMatchers;
 import org.mockito.Mockito;
 import org.mockito.internal.util.reflection.FieldReader;
@@ -48,7 +49,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static net.luminis.tls.TlsConstants.CipherSuite.*;
-import static net.luminis.tls.TlsConstants.SignatureScheme.rsa_pss_rsae_sha256;
+import static net.luminis.tls.TlsConstants.SignatureScheme.*;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.*;
@@ -435,7 +436,7 @@ class TlsClientEngineTest extends EngineTest {
 
     @Test
     void incorrectServerFinishedShouldAbortTls() throws Exception {
-        handshakeUpToFinished(false);
+        handshakeUpToFinished();
         Mockito.when(engine.getState().getServerHandshakeTrafficSecret()).thenReturn(new byte[32]);
         Mockito.when(engine.getState().getHashLength()).thenReturn((short) 32);
 
@@ -450,7 +451,7 @@ class TlsClientEngineTest extends EngineTest {
 
     @Test
     void engineShouldSendClientFinishedWhenHandshakeDone() throws Exception {
-        handshakeUpToFinished(false);
+        handshakeUpToFinished();
 
         FinishedMessage finishedMessage = new FinishedMessage(new byte[32]);
         TlsClientEngine stubbedEngine = Mockito.spy(engine);
@@ -492,7 +493,7 @@ class TlsClientEngineTest extends EngineTest {
     @Test
     void withoutClientCertificateClientAuthLeadsToAdditionalCertificateMessageBeforeFinished() throws Exception {
         // Given
-        handshakeUpToFinished(true);
+        handshakeUpToFinished(List.of(rsa_pss_rsae_sha256), true, null);
 
         FinishedMessage finishedMessage = new FinishedMessage(new byte[32]);
         TlsClientEngine stubbedEngine = Mockito.spy(engine);
@@ -513,7 +514,7 @@ class TlsClientEngineTest extends EngineTest {
         PrivateKey privateKey = CertificateUtils.getPrivateKey();
         engine.setClientCertificateCallback(arg -> new CertificateWithPrivateKey(clientCertificate, privateKey));
 
-        handshakeUpToFinished(true);
+        handshakeUpToFinished(List.of(rsa_pss_rsae_sha256), true, null);
 
         FinishedMessage finishedMessage = new FinishedMessage(new byte[32]);
         TlsClientEngine stubbedEngine = Mockito.spy(engine);
@@ -532,11 +533,10 @@ class TlsClientEngineTest extends EngineTest {
         assertThatThrownBy(() ->
                 // When
                 engine.startHandshake(TlsConstants.NamedGroup.secp256r1,
-                        List.of(rsa_pss_rsae_sha256, TlsConstants.SignatureScheme.rsa_pkcs1_sha1)))
+                        List.of(rsa_pss_rsae_sha256, rsa_pkcs1_sha1)))
                 // Then
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("rsa_pkcs1_sha1");
-
     }
 
     @Test
@@ -549,6 +549,27 @@ class TlsClientEngineTest extends EngineTest {
                 engine.received(new CertificateRequestMessage(new CertificateAuthoritiesExtension(new X500Principal("CN=dummy")))))
                 // Then
                 .isInstanceOf(MissingExtensionAlert.class);
+    }
+
+    @Test
+    void signatureUsedForClientAuthCertVerifyShouldSelectedFromWhatServerOffers() throws Exception {
+        // Given
+        X509Certificate clientCertificate = CertificateUtils.getTestCertificate();
+        PrivateKey privateKey = CertificateUtils.getPrivateKey();
+        engine.setClientCertificateCallback(arg -> new CertificateWithPrivateKey(clientCertificate, privateKey));
+
+        handshakeUpToFinished(List.of(rsa_pss_rsae_sha256, rsa_pss_rsae_sha384), true, rsa_pss_rsae_sha384);
+
+        FinishedMessage finishedMessage = new FinishedMessage(new byte[32]);
+        TlsClientEngine stubbedEngine = Mockito.spy(engine);
+        Mockito.doReturn(new byte[32]).when(stubbedEngine).computeFinishedVerifyData(ArgumentMatchers.any(), ArgumentMatchers.any());
+        // When
+        stubbedEngine.received(finishedMessage);
+
+        // Then
+        ArgumentCaptor<CertificateVerifyMessage> messageCaptor = ArgumentCaptor.forClass(CertificateVerifyMessage.class);
+        verify(messageSender).send(messageCaptor.capture());
+        assertThat(messageCaptor.getValue().getSignatureScheme()).isEqualTo(rsa_pss_rsae_sha384);
     }
 
     private void handshakeUpToEncryptedExtensions() throws Exception {
@@ -579,10 +600,18 @@ class TlsClientEngineTest extends EngineTest {
         engine.received(new EncryptedExtensions());
     }
 
-    private void handshakeUpToFinished(boolean requestClientCert) throws Exception {
-        handshakeUpToCertificate(List.of(rsa_pss_rsae_sha256));
+    private void handshakeUpToFinished() throws Exception {
+        handshakeUpToFinished(List.of(rsa_pss_rsae_sha256), false, null);
+    }
+
+    private void handshakeUpToFinished(List<TlsConstants.SignatureScheme> signatureSchemes, boolean requestClientCert,
+                                       TlsConstants.SignatureScheme clientAuthRequiredSignatureScheme) throws Exception {
+        handshakeUpToCertificate(signatureSchemes);
         if (requestClientCert) {
-            engine.received(new CertificateRequestMessage(new SignatureAlgorithmsExtension(rsa_pss_rsae_sha256)));
+            if (clientAuthRequiredSignatureScheme == null) {
+                clientAuthRequiredSignatureScheme = rsa_pss_rsae_sha256;
+            }
+            engine.received(new CertificateRequestMessage(new SignatureAlgorithmsExtension(clientAuthRequiredSignatureScheme)));
         }
         TlsState state = Mockito.spy(engine.getState());
         FieldSetter.setField(engine, engine.getClass().getSuperclass().getDeclaredField("state"), state);

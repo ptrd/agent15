@@ -37,8 +37,7 @@ import java.security.spec.NamedParameterSpec;
 import java.security.spec.PSSParameterSpec;
 
 import static net.luminis.tls.TlsConstants.NamedGroup.*;
-import static net.luminis.tls.TlsConstants.SignatureScheme.ecdsa_secp256r1_sha256;
-import static net.luminis.tls.TlsConstants.SignatureScheme.rsa_pss_rsae_sha256;
+import static net.luminis.tls.TlsConstants.SignatureScheme.*;
 
 public abstract class TlsEngine implements MessageProcessor, TrafficSecrets {
 
@@ -157,6 +156,28 @@ public abstract class TlsEngine implements MessageProcessor, TrafficSecrets {
                 throw new RuntimeException(e);
             }
         }
+        else if (signatureScheme.equals(rsa_pss_rsae_sha384)) {
+            try {
+                signatureAlgorithm = Signature.getInstance("RSASSA-PSS");
+                signatureAlgorithm.setParameter(new PSSParameterSpec("SHA-384", "MGF1", new MGF1ParameterSpec("SHA-384"), 48, 1));
+            } catch (NoSuchAlgorithmException e) {
+                throw new RuntimeException("Missing RSASSA-PSS support");
+            } catch (InvalidAlgorithmParameterException e) {
+                // Fairly impossible (because the parameters is hard coded)
+                throw new RuntimeException(e);
+            }
+        }
+        else if (signatureScheme.equals(rsa_pss_rsae_sha512)) {
+            try {
+                signatureAlgorithm = Signature.getInstance("RSASSA-PSS");
+                signatureAlgorithm.setParameter(new PSSParameterSpec("SHA-512", "MGF1", new MGF1ParameterSpec("SHA-512"), 64, 1));
+            } catch (NoSuchAlgorithmException e) {
+                throw new RuntimeException("Missing RSASSA-PSS support");
+            } catch (InvalidAlgorithmParameterException e) {
+                // Fairly impossible (because the parameters is hard coded)
+                throw new RuntimeException(e);
+            }
+        }
         else if (signatureScheme.equals(ecdsa_secp256r1_sha256)) {
             try {
                 signatureAlgorithm = Signature.getInstance("SHA256withECDSA");
@@ -165,8 +186,8 @@ public abstract class TlsEngine implements MessageProcessor, TrafficSecrets {
             }
         }
         else {
-            // Bad lock, not yet supported.
-            throw new HandshakeFailureAlert("Signature algorithm (verification) not supported " + signatureScheme);
+            // Bad luck, not (yet) supported.
+            throw new HandshakeFailureAlert("Signature algorithm not supported " + signatureScheme);
         }
         return signatureAlgorithm;
     }

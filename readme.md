@@ -46,6 +46,8 @@ The following digital signatures are supported:
 
 - rsa_pkcs1_sha256 (for certificates only, in accordance with TLS 1.3 specification)
 - rsa_pss_rsae_sha256
+- rsa_pss_rsae_sha384
+- rsa_pss_rsae_sha512
 - ecdsa_secp256r1_sha256
 
 The following elliptic curves are supported:
