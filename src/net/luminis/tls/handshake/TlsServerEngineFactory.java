@@ -91,7 +91,7 @@ public class TlsServerEngineFactory {
             PKCS8EncodedKeySpec keySpec = new PKCS8EncodedKeySpec(encoded);
             return (RSAPrivateKey) keyFactory.generatePrivate(keySpec);
         } catch (NoSuchAlgorithmException e) {
-            throw new RemoteException("Missing key algorithm RSA");
+            throw new RuntimeException("Missing key algorithm RSA");
         }
     }
 }
