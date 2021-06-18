@@ -491,9 +491,11 @@ public class TlsClientEngine extends TlsEngine implements ClientMessageProcessor
         if (certSignAlg.toLowerCase().contains("withrsa")) {
             return List.of(rsa_pss_rsae_sha256, rsa_pss_rsae_sha384).contains(signatureScheme);
         }
-        else {
-            // Assume EC
+        else if (certSignAlg.toLowerCase().contains("withecdsa")) {
             return List.of(ecdsa_secp256r1_sha256).contains(signatureScheme);
+        }
+        else {
+            return false;
         }
     }
 
