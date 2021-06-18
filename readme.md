@@ -18,7 +18,6 @@ Not all TLS 1.3 handshake messages are implemented (yet); some because they are 
 because the Kwik project does not use them. The messages that are not implemented are:
 
 - HelloRetryRequest
-- CertificateRequest
 - End of Early Data: not used by QUIC, see https://www.rfc-editor.org/rfc/rfc9001.html#name-removing-the-endofearlydata
 - KeyUpdateRequest: not used by QUIC, see https://www.rfc-editor.org/rfc/rfc9001.html#name-key-update
 
@@ -58,7 +57,7 @@ The following elliptic curves are supported:
 ### Features
 
 The client engine supports session resumption with a PSK (obtained via a NewSessionTicket message), the server does not.
-Client authentication (by means of a client certificate) is not supported yet (but is work in progress).
+Client authentication (by means of a client certificate) is supported in the client engine, but not yet for the server engine.
 
 ### Usage
 
