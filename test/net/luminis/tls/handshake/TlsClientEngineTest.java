@@ -31,6 +31,7 @@ import org.mockito.internal.util.reflection.FieldReader;
 import org.mockito.internal.util.reflection.FieldSetter;
 
 import javax.net.ssl.X509TrustManager;
+import javax.security.auth.x500.X500Principal;
 import java.nio.ByteBuffer;
 import java.security.*;
 import java.security.cert.Certificate;
@@ -529,11 +530,25 @@ class TlsClientEngineTest extends EngineTest {
     @Test
     void unsupportedSignatureSchemeLeadsToException() throws Exception {
         assertThatThrownBy(() ->
+                // When
                 engine.startHandshake(TlsConstants.NamedGroup.secp256r1,
-                        List.of(rsa_pss_rsae_sha256, TlsConstants.SignatureScheme.rsa_pkcs1_sha1))
-        ).isInstanceOf(IllegalArgumentException.class)
+                        List.of(rsa_pss_rsae_sha256, TlsConstants.SignatureScheme.rsa_pkcs1_sha1)))
+                // Then
+                .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("rsa_pkcs1_sha1");
 
+    }
+
+    @Test
+    void certificateRequestMessageShouldContainSignatureAlgorithmsExtension() throws Exception {
+        // Given
+        handshakeUpToCertificate();
+
+        assertThatThrownBy(() ->
+                // When
+                engine.received(new CertificateRequestMessage(new CertificateAuthoritiesExtension(new X500Principal("CN=dummy")))))
+                // Then
+                .isInstanceOf(MissingExtensionAlert.class);
     }
 
     private void handshakeUpToEncryptedExtensions() throws Exception {

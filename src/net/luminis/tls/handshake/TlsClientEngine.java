@@ -36,8 +36,7 @@ import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-import static net.luminis.tls.TlsConstants.SignatureScheme.ecdsa_secp256r1_sha256;
-import static net.luminis.tls.TlsConstants.SignatureScheme.rsa_pss_rsae_sha256;
+import static net.luminis.tls.TlsConstants.SignatureScheme.*;
 
 
 public class TlsClientEngine extends TlsEngine implements ClientMessageProcessor {
@@ -79,6 +78,7 @@ public class TlsClientEngine extends TlsEngine implements ClientMessageProcessor
     private boolean clientAuthRequested;
     private List<X500Principal> clientCertificateAuthorities;
     private Function<List<X500Principal>, CertificateWithPrivateKey> clientCertificateSelector;
+    private List<TlsConstants.SignatureScheme> serverSupportedSignatureSchemes;
 
 
     public TlsClientEngine(ClientMessageSender clientMessageSender, TlsStatusEventHandler tlsStatusHandler) {
@@ -317,7 +317,7 @@ public class TlsClientEngine extends TlsEngine implements ClientMessageProcessor
     }
 
     @Override
-    public void received(FinishedMessage finishedMessage) throws DecryptErrorAlert, UnexpectedMessageAlert, IOException {
+    public void received(FinishedMessage finishedMessage) throws ErrorAlert, IOException {
         Status expectedStatus;
         if (pskAccepted) {
             expectedStatus = Status.EncryptedExtensionsReceived;
@@ -371,9 +371,19 @@ public class TlsClientEngine extends TlsEngine implements ClientMessageProcessor
     }
 
     @Override
-    public void received(CertificateRequestMessage certificateRequestMessage) throws TlsProtocolException, IOException { if (status != Status.EncryptedExtensionsReceived) {
+    public void received(CertificateRequestMessage certificateRequestMessage) throws TlsProtocolException, IOException {
+        if (status != Status.EncryptedExtensionsReceived) {
             throw new UnexpectedMessageAlert("unexpected certificate request message");
         }
+
+        serverSupportedSignatureSchemes = certificateRequestMessage.getExtensions().stream()
+                .filter(extension -> extension instanceof SignatureAlgorithmsExtension)
+                .findFirst()
+                .map(extension -> ((SignatureAlgorithmsExtension) extension).getSignatureAlgorithms())
+                // https://datatracker.ietf.org/doc/html/rfc8446#section-4.3.2
+                // "The "signature_algorithms" extension MUST be specified..."
+                .orElseThrow(() -> new MissingExtensionAlert());
+
         transcriptHash.record(certificateRequestMessage);
 
         clientCertificateAuthorities = certificateRequestMessage.getExtensions().stream()
@@ -446,7 +456,7 @@ public class TlsClientEngine extends TlsEngine implements ClientMessageProcessor
         }
     }
 
-    private void sendClientAuth() throws IOException {
+    private void sendClientAuth() throws IOException, ErrorAlert {
         CertificateWithPrivateKey certificateWithKey = clientCertificateSelector.apply(clientCertificateAuthorities);
 
         // Send certificate message (with possible null value for client certificate)
@@ -454,12 +464,32 @@ public class TlsClientEngine extends TlsEngine implements ClientMessageProcessor
                 new CertificateMessage(certificateWithKey != null? certificateWithKey.getCertificate(): null);
         sender.send(certificateMessage);
         transcriptHash.recordClient(certificateMessage);
+
+        // When certificate is sent, also send a certificate verify message
         if (certificateWithKey != null) {
+            TlsConstants.SignatureScheme selectedSignatureScheme = serverSupportedSignatureSchemes.stream()
+                    .filter(supportedSignatures::contains)
+                    .filter(scheme -> certificateSupportsSignature(certificateWithKey.getCertificate(), scheme))
+                    .findFirst()
+                    .orElseThrow(() -> new HandshakeFailureAlert("failed to negotiate signature scheme"));
+
             PrivateKey privateKey = certificateWithKey.getPrivateKey();
-            byte[] signature = computeSignature(transcriptHash.getClientHash(TlsConstants.HandshakeType.certificate), privateKey, true);
-            CertificateVerifyMessage certificateVerify = new CertificateVerifyMessage(rsa_pss_rsae_sha256, signature);
+            byte[] hash = transcriptHash.getClientHash(TlsConstants.HandshakeType.certificate);
+            byte[] signature = computeSignature(hash, privateKey, selectedSignatureScheme, true);
+            CertificateVerifyMessage certificateVerify = new CertificateVerifyMessage(selectedSignatureScheme, signature);
             sender.send(certificateVerify);
             transcriptHash.recordClient(certificateVerify);
+        }
+    }
+
+    private boolean certificateSupportsSignature(X509Certificate cert, TlsConstants.SignatureScheme signatureScheme) {
+        String certSignAlg = cert.getSigAlgName();
+        if (certSignAlg.toLowerCase().contains("withrsa")) {
+            return List.of(rsa_pss_rsae_sha256, rsa_pss_rsae_sha384).contains(signatureScheme);
+        }
+        else {
+            // Assume EC
+            return List.of(ecdsa_secp256r1_sha256).contains(signatureScheme);
         }
     }
 

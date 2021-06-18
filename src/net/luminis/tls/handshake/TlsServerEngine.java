@@ -27,16 +27,10 @@ import net.luminis.tls.alert.HandshakeFailureAlert;
 import net.luminis.tls.alert.IllegalParameterAlert;
 import net.luminis.tls.alert.MissingExtensionAlert;
 import net.luminis.tls.extension.*;
-import net.luminis.tls.util.ByteUtils;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.nio.charset.Charset;
-import java.nio.charset.StandardCharsets;
 import java.security.*;
 import java.security.cert.X509Certificate;
-import java.security.spec.MGF1ParameterSpec;
-import java.security.spec.PSSParameterSpec;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -158,7 +152,7 @@ public class TlsServerEngine extends TlsEngine implements ServerMessageProcessor
         // "The content that is covered under the signature is the hash output as described in Section 4.4.1, namely:
         //      Transcript-Hash(Handshake Context, Certificate)
         byte[] hash = transcriptHash.getServerHash(TlsConstants.HandshakeType.certificate);
-        byte[] signature = computeSignature(hash, certificatePrivateKey, false);
+        byte[] signature = computeSignature(hash, certificatePrivateKey, rsa_pss_rsae_sha256, false);
         CertificateVerifyMessage certificateVerify = new CertificateVerifyMessage(rsa_pss_rsae_sha256, signature);
         serverMessageSender.send(certificateVerify);
         transcriptHash.recordServer(certificateVerify);

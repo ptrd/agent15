@@ -21,7 +21,9 @@ package net.luminis.tls.handshake;
 import net.luminis.tls.TlsConstants;
 import net.luminis.tls.TlsState;
 import net.luminis.tls.TrafficSecrets;
+import net.luminis.tls.alert.ErrorAlert;
 import net.luminis.tls.alert.HandshakeFailureAlert;
+import net.luminis.tls.alert.InternalErrorAlert;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
@@ -79,10 +81,11 @@ public abstract class TlsEngine implements MessageProcessor, TrafficSecrets {
      * Compute the signature used in certificate verify message to proof possession of private key.
      * @param content  the content to be signed (transcript hash)
      * @param certificatePrivateKey  the private key associated with the certificate
+     * @param signatureScheme
      * @param client  whether the signature must be computed
      * @return
      */
-    protected byte[] computeSignature(byte[] content, PrivateKey certificatePrivateKey, boolean client) {
+    protected byte[] computeSignature(byte[] content, PrivateKey certificatePrivateKey, TlsConstants.SignatureScheme signatureScheme, boolean client) throws ErrorAlert {
         // https://tools.ietf.org/html/rfc8446#section-4.4.3
 
         //   The digital signature is then computed over the concatenation of:
@@ -103,21 +106,18 @@ public abstract class TlsEngine implements MessageProcessor, TrafficSecrets {
         }
 
         try {
-            Signature signatureAlgorithm = Signature.getInstance("RSASSA-PSS");
-            signatureAlgorithm.setParameter(new PSSParameterSpec("SHA-256", "MGF1", new MGF1ParameterSpec("SHA-256"), 32, 1));
+            Signature signatureAlgorithm = getSignatureAlgorithm(signatureScheme);
             signatureAlgorithm.initSign(certificatePrivateKey);
             signatureAlgorithm.update(signatureInput.toByteArray());
             byte[] digitalSignature = signatureAlgorithm.sign();
             return digitalSignature;
         }
-        catch (NoSuchAlgorithmException e) {
-            throw new RuntimeException("Missing " + "RSASSA-PSS" + " support");
-        }
-        catch (InvalidAlgorithmParameterException | InvalidKeyException e) {
-            // Impossible
+        catch (SignatureException e) {
+            // sign() throws SignatureException: if this signature object is not initialized properly or if this
+            //                                   signature algorithm is unable to process the input data provided.
             throw new RuntimeException();
-        } catch (SignatureException e) {
-            throw new RuntimeException();
+        } catch (InvalidKeyException e) {
+            throw new InternalErrorAlert("invalid private key");
         }
     }
 
