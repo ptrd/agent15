@@ -158,7 +158,7 @@ public class TranscriptHash {
      * Record a server handshake message for computing the transcript hash. This method is needed because the
      * <code>TlsConstants.HandshakeType</code> type does not differentiate between client and server variants, whilst
      * these variants have a different position in the transcript hash computation.
-     * Note that the term "server" here refers to the message type, not whether it is sent or received by a client.
+     * Note that the term "server" here refers to the message type, not whether it is sent or received by a server.
      * For example, a server certificate message is sent by the server and received by the client; both need to use
      * this method to record the message.
      * @param msg
