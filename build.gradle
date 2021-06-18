@@ -10,13 +10,13 @@ repositories {
 
 dependencies {
     // https://mvnrepository.com/artifact/at.favre.lib/hkdf
-    compile group: 'at.favre.lib', name: 'hkdf', version: '1.0.1'
+    implementation group: 'at.favre.lib', name: 'hkdf', version: '1.0.1'
 
-    testCompile('org.junit.jupiter:junit-jupiter-api:5.5.2')
-    testCompile('org.junit.jupiter:junit-jupiter-params:5.5.2')
-    testRuntime('org.junit.jupiter:junit-jupiter-engine:5.5.2')
-    testCompile("org.mockito:mockito-core:3.2.4")
-    testCompile("org.assertj:assertj-core:3.14.0")
+    testImplementation('org.junit.jupiter:junit-jupiter-api:5.5.2')
+    testImplementation('org.junit.jupiter:junit-jupiter-params:5.5.2')
+    testRuntimeOnly('org.junit.jupiter:junit-jupiter-engine:5.5.2')
+    testImplementation("org.mockito:mockito-core:3.2.4")
+    testImplementation("org.assertj:assertj-core:3.14.0")
 }
 
 sourceSets {
