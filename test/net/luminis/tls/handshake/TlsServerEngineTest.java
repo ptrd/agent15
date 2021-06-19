@@ -20,6 +20,7 @@ package net.luminis.tls.handshake;
 
 import net.luminis.tls.CertificateUtils;
 import net.luminis.tls.KeyUtils;
+import net.luminis.tls.ProtectionKeysType;
 import net.luminis.tls.TlsConstants;
 import net.luminis.tls.alert.DecryptErrorAlert;
 import net.luminis.tls.alert.HandshakeFailureAlert;
@@ -80,7 +81,7 @@ public class TlsServerEngineTest extends EngineTest {
 
         assertThatThrownBy(() ->
                 // When
-                engine.received(clientHello))
+                engine.received(clientHello, ProtectionKeysType.None))
                 // Then
                 .isInstanceOf(HandshakeFailureAlert.class);
     }
@@ -98,7 +99,7 @@ public class TlsServerEngineTest extends EngineTest {
 
         assertThatThrownBy(() ->
                 // When
-                engine.received(clientHello))
+                engine.received(clientHello, ProtectionKeysType.None))
                 // Then
                 .isInstanceOf(MissingExtensionAlert.class);
     }
@@ -116,7 +117,7 @@ public class TlsServerEngineTest extends EngineTest {
 
         assertThatThrownBy(() ->
                 // When
-                engine.received(clientHello))
+                engine.received(clientHello, ProtectionKeysType.None))
                 // Then
                 .isInstanceOf(MissingExtensionAlert.class);
     }
@@ -134,7 +135,7 @@ public class TlsServerEngineTest extends EngineTest {
 
         assertThatThrownBy(() ->
                 // When
-                engine.received(clientHello))
+                engine.received(clientHello, ProtectionKeysType.None))
                 // Then
                 .isInstanceOf(MissingExtensionAlert.class);
     }
@@ -145,7 +146,7 @@ public class TlsServerEngineTest extends EngineTest {
         ClientHello clientHello = createDefaultClientHello();
 
         // When
-        engine.received(clientHello);
+        engine.received(clientHello, ProtectionKeysType.None);
 
         // Then
         ArgumentCaptor<List<Extension>> captor = ArgumentCaptor.forClass(List.class);
@@ -162,7 +163,7 @@ public class TlsServerEngineTest extends EngineTest {
         ClientHello clientHello = createDefaultClientHello();
 
         // When
-        engine.received(clientHello);
+        engine.received(clientHello, ProtectionKeysType.None);
 
         // Then
         verify(tlsStatusHandler).earlySecretsKnown();
@@ -178,7 +179,7 @@ public class TlsServerEngineTest extends EngineTest {
                 TlsConstants.NamedGroup.secp256r1, Collections.emptyList());
 
         // When
-        engine.received(clientHello);
+        engine.received(clientHello, ProtectionKeysType.None);
 
         // Then
         verify(messageSender).send(argThat((ServerHello sh) -> sh.getCipherSuite().equals(TLS_AES_128_GCM_SHA256)));
@@ -190,7 +191,7 @@ public class TlsServerEngineTest extends EngineTest {
         ClientHello clientHello = createDefaultClientHello();
 
         // When
-        engine.received(clientHello);
+        engine.received(clientHello, ProtectionKeysType.None);
 
         // Then
         verify(tlsStatusHandler).handshakeSecretsKnown();
@@ -204,7 +205,7 @@ public class TlsServerEngineTest extends EngineTest {
         engine.addServerExtensions(new ApplicationLayerProtocolNegotiationExtension("foobar"));
 
         // When
-        engine.received(clientHello);
+        engine.received(clientHello, ProtectionKeysType.None);
 
         // Then
         ArgumentCaptor<EncryptedExtensions> captor = ArgumentCaptor.forClass(EncryptedExtensions.class);
@@ -216,11 +217,11 @@ public class TlsServerEngineTest extends EngineTest {
     void incorrectClientFinishedMessageLeadsToDecryptError() throws Exception {
         // Given
         ClientHello clientHello = createDefaultClientHello();
-        engine.received(clientHello);
+        engine.received(clientHello, ProtectionKeysType.None);
 
         assertThatThrownBy(() ->
                 // When
-                engine.received(new FinishedMessage(new byte[32])))
+                engine.received(new FinishedMessage(new byte[32]), ProtectionKeysType.Handshake))
         // Then
         .isInstanceOf(DecryptErrorAlert.class);
     }

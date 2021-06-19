@@ -144,10 +144,11 @@ public class TlsClientEngine extends TlsEngine implements ClientMessageProcessor
     /**
      * Updates the (handshake) state with a received Server Hello message.
      * @param serverHello
+     * @param protectedBy
      * @throws MissingExtensionAlert
      */
     @Override
-    public void received(ServerHello serverHello) throws MissingExtensionAlert, IllegalParameterAlert {
+    public void received(ServerHello serverHello, ProtectionKeysType protectedBy) throws MissingExtensionAlert, IllegalParameterAlert {
         boolean containsSupportedVersionExt = serverHello.getExtensions().stream().anyMatch(ext -> ext instanceof SupportedVersionsExtension);
         boolean containsKeyExt = serverHello.getExtensions().stream().anyMatch(ext -> ext instanceof PreSharedKeyExtension || ext instanceof KeyShareExtension);
         // https://tools.ietf.org/html/rfc8446#section-4.1.3
@@ -228,7 +229,10 @@ public class TlsClientEngine extends TlsEngine implements ClientMessageProcessor
     }
 
     @Override
-    public void received(EncryptedExtensions encryptedExtensions) throws TlsProtocolException {
+    public void received(EncryptedExtensions encryptedExtensions, ProtectionKeysType protectedBy) throws TlsProtocolException {
+        if (protectedBy != ProtectionKeysType.Handshake) {
+            throw new UnexpectedMessageAlert("incorrect protection level");
+        }
         if (status != Status.ServerHelloReceived) {
             // https://tools.ietf.org/html/rfc8446#section-4.3.1
             // "the server MUST send the EncryptedExtensions message immediately after the ServerHello message"
@@ -263,7 +267,10 @@ public class TlsClientEngine extends TlsEngine implements ClientMessageProcessor
     }
 
     @Override
-    public void received(CertificateMessage certificateMessage) throws TlsProtocolException {
+    public void received(CertificateMessage certificateMessage, ProtectionKeysType protectedBy) throws TlsProtocolException {
+        if (protectedBy != ProtectionKeysType.Handshake) {
+            throw new UnexpectedMessageAlert("incorrect protection level");
+        }
         if (status != Status.EncryptedExtensionsReceived && status != Status.CertificateRequestReceived) {
             // https://tools.ietf.org/html/rfc8446#section-4.4
             // "TLS generally uses a common set of messages for authentication, key confirmation, and handshake
@@ -289,7 +296,10 @@ public class TlsClientEngine extends TlsEngine implements ClientMessageProcessor
     }
 
     @Override
-    public void received(CertificateVerifyMessage certificateVerifyMessage) throws TlsProtocolException {
+    public void received(CertificateVerifyMessage certificateVerifyMessage, ProtectionKeysType protectedBy) throws TlsProtocolException {
+        if (protectedBy != ProtectionKeysType.Handshake) {
+            throw new UnexpectedMessageAlert("incorrect protection level");
+        }
         if (status != Status.CertificateReceived) {
             // https://tools.ietf.org/html/rfc8446#section-4.4.3
             // "When sent, this message MUST appear immediately after the Certificate message and immediately prior to
@@ -321,7 +331,10 @@ public class TlsClientEngine extends TlsEngine implements ClientMessageProcessor
     }
 
     @Override
-    public void received(FinishedMessage finishedMessage) throws ErrorAlert, IOException {
+    public void received(FinishedMessage finishedMessage, ProtectionKeysType protectedBy) throws ErrorAlert, IOException {
+        if (protectedBy != ProtectionKeysType.Handshake) {
+            throw new UnexpectedMessageAlert("incorrect protection level");
+        }
         Status expectedStatus;
         if (pskAccepted) {
             expectedStatus = Status.EncryptedExtensionsReceived;
@@ -368,14 +381,20 @@ public class TlsClientEngine extends TlsEngine implements ClientMessageProcessor
     }
 
     @Override
-    public void received(NewSessionTicketMessage nst) {
+    public void received(NewSessionTicketMessage nst, ProtectionKeysType protectedBy) throws UnexpectedMessageAlert {
+        if (protectedBy != ProtectionKeysType.Application) {
+            throw new UnexpectedMessageAlert("incorrect protection level");
+        }
         NewSessionTicket ticket = new NewSessionTicket(state, nst);
         obtainedNewSessionTickets.add(ticket);
         statusHandler.newSessionTicketReceived(ticket);
     }
 
     @Override
-    public void received(CertificateRequestMessage certificateRequestMessage) throws TlsProtocolException, IOException {
+    public void received(CertificateRequestMessage certificateRequestMessage, ProtectionKeysType protectedBy) throws TlsProtocolException, IOException {
+        if (protectedBy != ProtectionKeysType.Handshake) {
+            throw new UnexpectedMessageAlert("incorrect protection level");
+        }
         if (status != Status.EncryptedExtensionsReceived) {
             throw new UnexpectedMessageAlert("unexpected certificate request message");
         }

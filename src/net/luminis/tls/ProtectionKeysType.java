@@ -1,5 +1,5 @@
 /*
- * Copyright © 2019, 2020, 2021 Peter Doornbosch
+ * Copyright © 2021 Peter Doornbosch
  *
  * This file is part of Agent15, an implementation of TLS 1.3 in Java.
  *
@@ -16,17 +16,11 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-package net.luminis.tls.handshake;
+package net.luminis.tls;
 
+public enum ProtectionKeysType {
 
-import net.luminis.tls.ProtectionKeysType;
-import net.luminis.tls.TlsProtocolException;
-import net.luminis.tls.alert.UnexpectedMessageAlert;
-
-public interface ClientMessageProcessor extends MessageProcessor {
-
-    default void received(ClientHello ch, ProtectionKeysType protectedBy) throws TlsProtocolException {
-        throw new UnexpectedMessageAlert("no client hello expected");
-    }
-
+    None,
+    Handshake,
+    Application
 }

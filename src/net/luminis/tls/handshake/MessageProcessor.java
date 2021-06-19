@@ -18,25 +18,26 @@
  */
 package net.luminis.tls.handshake;
 
+import net.luminis.tls.ProtectionKeysType;
 import net.luminis.tls.TlsProtocolException;
 
 import java.io.IOException;
 
 public interface MessageProcessor {
 
-    void received(ClientHello ch) throws TlsProtocolException, IOException;
+    void received(ClientHello ch, ProtectionKeysType protectedBy) throws TlsProtocolException, IOException;
 
-    void received(ServerHello sh) throws TlsProtocolException, IOException;
+    void received(ServerHello sh, ProtectionKeysType protectedBy) throws TlsProtocolException, IOException;
 
-    void received(EncryptedExtensions ee) throws TlsProtocolException, IOException;
+    void received(EncryptedExtensions ee, ProtectionKeysType protectedBy) throws TlsProtocolException, IOException;
 
-    void received(CertificateMessage cm) throws TlsProtocolException, IOException;
+    void received(CertificateMessage cm, ProtectionKeysType protectedBy) throws TlsProtocolException, IOException;
 
-    void received(CertificateVerifyMessage cv) throws TlsProtocolException, IOException;
+    void received(CertificateVerifyMessage cv, ProtectionKeysType protectedBy) throws TlsProtocolException, IOException;
 
-    void received(FinishedMessage fm) throws TlsProtocolException, IOException;
+    void received(FinishedMessage fm, ProtectionKeysType protectedBy) throws TlsProtocolException, IOException;
 
-    void received(NewSessionTicketMessage nst) throws TlsProtocolException, IOException;
+    void received(NewSessionTicketMessage nst, ProtectionKeysType protectedBy) throws TlsProtocolException, IOException;
 
-    void received(CertificateRequestMessage cr) throws TlsProtocolException, IOException;
+    void received(CertificateRequestMessage cr, ProtectionKeysType protectedBy) throws TlsProtocolException, IOException;
 }

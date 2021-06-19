@@ -18,14 +18,8 @@
  */
 package net.luminis.tls.handshake;
 
-import net.luminis.tls.TlsConstants;
-import net.luminis.tls.TlsProtocolException;
-import net.luminis.tls.TlsState;
-import net.luminis.tls.TranscriptHash;
-import net.luminis.tls.alert.DecryptErrorAlert;
-import net.luminis.tls.alert.HandshakeFailureAlert;
-import net.luminis.tls.alert.IllegalParameterAlert;
-import net.luminis.tls.alert.MissingExtensionAlert;
+import net.luminis.tls.*;
+import net.luminis.tls.alert.*;
 import net.luminis.tls.extension.*;
 
 import java.io.IOException;
@@ -68,7 +62,7 @@ public class TlsServerEngine extends TlsEngine implements ServerMessageProcessor
     }
 
     @Override
-    public void received(ClientHello clientHello) throws TlsProtocolException, IOException {
+    public void received(ClientHello clientHello, ProtectionKeysType protectedBy) throws TlsProtocolException, IOException {
         // Find first cipher that server supports
         selectedCipher = clientHello.getCipherSuites().stream()
                 .filter(it -> supportedCiphers.contains(it))
@@ -165,7 +159,10 @@ public class TlsServerEngine extends TlsEngine implements ServerMessageProcessor
     }
 
     @Override
-    public void received(FinishedMessage clientFinished) throws TlsProtocolException, IOException {
+    public void received(FinishedMessage clientFinished, ProtectionKeysType protectedBy) throws TlsProtocolException, IOException {
+        if (protectedBy != ProtectionKeysType.Handshake) {
+            throw new UnexpectedMessageAlert("incorrect protection level");
+        }
         // https://tools.ietf.org/html/rfc8446#section-4.4
         // "   | Mode      | Handshake Context       | Base Key                    |
         //     +-----------+-------------------------+-----------------------------+

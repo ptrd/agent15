@@ -18,6 +18,7 @@
  */
 package net.luminis.tls.handshake;
 
+import net.luminis.tls.ProtectionKeysType;
 import net.luminis.tls.TlsProtocolException;
 import net.luminis.tls.extension.ExtensionParser;
 
@@ -38,7 +39,7 @@ public class TlsMessageParser {
         this.customExtensionParser = customExtensionParser;
     }
 
-    public HandshakeMessage parseAndProcessHandshakeMessage(ByteBuffer buffer, MessageProcessor messageProcessor) throws TlsProtocolException, IOException {
+    public HandshakeMessage parseAndProcessHandshakeMessage(ByteBuffer buffer, MessageProcessor messageProcessor, ProtectionKeysType protectedBy) throws TlsProtocolException, IOException {
         // https://tools.ietf.org/html/rfc8446#section-4
         // "      struct {
         //          HandshakeType msg_type;    /* handshake type */
@@ -54,42 +55,42 @@ public class TlsMessageParser {
         if (messageType == client_hello.value) {
             ClientHello ch = new ClientHello(buffer, customExtensionParser);
             parsedMessage = ch;
-            messageProcessor.received(ch);
+            messageProcessor.received(ch, protectedBy);
         }
         else if (messageType == server_hello.value) {
             ServerHello sh = new ServerHello().parse(buffer, length + 4);
             parsedMessage = sh;
-            messageProcessor.received(sh);
+            messageProcessor.received(sh, protectedBy);
         }
         else if (messageType == encrypted_extensions.value) {
             EncryptedExtensions ee = new EncryptedExtensions().parse(buffer, length + 4, customExtensionParser);
             parsedMessage = ee;
-            messageProcessor.received(ee);
+            messageProcessor.received(ee, protectedBy);
         }
         else if (messageType == certificate.value) {
             CertificateMessage cm = new CertificateMessage().parse(buffer);
             parsedMessage = cm;
-            messageProcessor.received(cm);
+            messageProcessor.received(cm, protectedBy);
         }
         else if (messageType == certificate_request.value) {
             CertificateRequestMessage cr = new CertificateRequestMessage().parse(buffer);
             parsedMessage = cr;
-            messageProcessor.received(cr);
+            messageProcessor.received(cr, protectedBy);
         }
         else if (messageType == certificate_verify.value) {
             CertificateVerifyMessage cv = new CertificateVerifyMessage().parse(buffer, length + 4);
             parsedMessage = cv;
-            messageProcessor.received(cv);
+            messageProcessor.received(cv, protectedBy);
         }
         else if (messageType == finished.value) {
             FinishedMessage fm = new FinishedMessage().parse(buffer, length + 4);
             parsedMessage = fm;
-            messageProcessor.received(fm);
+            messageProcessor.received(fm, protectedBy);
         }
         else if (messageType == new_session_ticket.value) {
             NewSessionTicketMessage nst = new NewSessionTicketMessage().parse(buffer, length + 4);
             parsedMessage = nst;
-            messageProcessor.received(nst);
+            messageProcessor.received(nst, protectedBy);
         }
         else {
             throw new TlsProtocolException("Invalid/unsupported message type (" + messageType + ")");
