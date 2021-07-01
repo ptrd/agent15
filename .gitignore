@@ -1,6 +1,6 @@
 out
 keys
 .idea
-agent15.iml
+*.iml
 .gradle
 build
