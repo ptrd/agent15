@@ -22,7 +22,6 @@ import net.luminis.tls.alert.DecodeErrorException;
 import net.luminis.tls.alert.IllegalParameterAlert;
 import net.luminis.tls.alert.UnsupportedExtensionAlert;
 import net.luminis.tls.extension.EarlyDataExtension;
-import net.luminis.tls.handshake.NewSessionTicketMessage;
 import net.luminis.tls.util.ByteUtils;
 import org.junit.jupiter.api.Test;
 
@@ -36,7 +35,7 @@ class NewSessionTicketMessageTest {
     @Test
     void parseValidMessage() throws Exception {
         byte[] rawData = ByteUtils.hexToBytes("0400004f 00093a80 fab00e11 04 01020304 0040 " + "00".repeat(64) + "0000");
-        NewSessionTicketMessage message = new NewSessionTicketMessage().parse(ByteBuffer.wrap(rawData), rawData.length);
+        NewSessionTicketMessage message = new NewSessionTicketMessage().parse(ByteBuffer.wrap(rawData));
 
         assertThat(message.getTicketLifetime()).isEqualTo(604800);
         assertThat(message.getTicketNonce()).isEqualTo(new byte[] { 1, 2, 3, 4});
@@ -48,7 +47,7 @@ class NewSessionTicketMessageTest {
         byte[] rawData = ByteUtils.hexToBytes("0400004f 00093a81 fab00e11 04 01020304 0040 " + "00".repeat(64) + "0000");
 
         assertThatThrownBy(() ->
-                new NewSessionTicketMessage().parse(ByteBuffer.wrap(rawData), rawData.length)
+                new NewSessionTicketMessage().parse(ByteBuffer.wrap(rawData))
         ).isInstanceOf(IllegalParameterAlert.class);
     }
 
@@ -58,7 +57,7 @@ class NewSessionTicketMessageTest {
         byte[] rawData = ByteUtils.hexToBytes("04000017 00093a80 fab00e11 04 01020304 0004 01020304 0004 fab0 0000");
 
         assertThatThrownBy(() ->
-                new NewSessionTicketMessage().parse(ByteBuffer.wrap(rawData), rawData.length)
+                new NewSessionTicketMessage().parse(ByteBuffer.wrap(rawData))
         ).isInstanceOf(UnsupportedExtensionAlert.class);
     }
 
@@ -66,7 +65,7 @@ class NewSessionTicketMessageTest {
     void parseNoMessage() throws Exception {
         byte[] rawData = ByteUtils.hexToBytes("0400");
         assertThatThrownBy(() ->
-                new NewSessionTicketMessage().parse(ByteBuffer.wrap(rawData), rawData.length)
+                new NewSessionTicketMessage().parse(ByteBuffer.wrap(rawData))
         ).isInstanceOf(DecodeErrorException.class);
     }
 
@@ -74,7 +73,7 @@ class NewSessionTicketMessageTest {
     void parseMessageWithInconsistentNonceLength() throws Exception {
         byte[] rawData = ByteUtils.hexToBytes("04000017 0000cafe cafebabe ff 01020304 0008 0102030405060708");
         assertThatThrownBy(() ->
-                new NewSessionTicketMessage().parse(ByteBuffer.wrap(rawData), rawData.length)
+                new NewSessionTicketMessage().parse(ByteBuffer.wrap(rawData))
         ).isInstanceOf(DecodeErrorException.class);
     }
 
@@ -82,13 +81,13 @@ class NewSessionTicketMessageTest {
     void parseMessageWithInconsistentTicketLength() throws Exception {
         byte[] rawData = ByteUtils.hexToBytes("04000017 0000cafe cafebabe 04 01020304 04ff 0102030405060708");
         assertThatThrownBy(() ->
-                new NewSessionTicketMessage().parse(ByteBuffer.wrap(rawData), rawData.length)
+                new NewSessionTicketMessage().parse(ByteBuffer.wrap(rawData))
         ).isInstanceOf(DecodeErrorException.class);
     }
 
     @Test
     void newSessionTicketMessageMayContainGreasedExtensionType() throws Exception {
-        //                                              lifetime age_add  nonce       ticket
+        // ...                                          lifetime age_add  nonce       ticket
         byte[] rawData = ByteUtils.hexToBytes("0400001f 00093a80 fab00e11 04 01020304 0004 01020304"
                 // extensions length
                 + "000c"
@@ -96,8 +95,25 @@ class NewSessionTicketMessageTest {
                 + "002a 0004 01ff ffff"
         );
 
-        EarlyDataExtension earlyDataExtension = new NewSessionTicketMessage().parse(ByteBuffer.wrap(rawData), rawData.length).getEarlyDataExtension();
+        EarlyDataExtension earlyDataExtension = new NewSessionTicketMessage().parse(ByteBuffer.wrap(rawData)).getEarlyDataExtension();
 
         assertThat(earlyDataExtension).isNotNull();
+    }
+
+    @Test
+    void testSerializedMessageCanBeParsedCorrectly() throws Exception {
+        int lifetime = 604800;
+        int ageAdd = 12341234;
+        byte[] nonce = new byte[] { 0x0f, 0x0e, 0x0d, 0x0c, 0x0b, 0x0a, 0x09, 0x08, 0x07, 0x06, 0x05, 0x04, 0x03, 0x02, 0x01, 0x00 };
+        byte[] ticket = new byte[] { 0x0d, 0x0e, 0x0d, 0x0e, 0x0d, 0x0e, 0x0d, 0x0e, 0x0d, 0x0e };
+        NewSessionTicketMessage message = new NewSessionTicketMessage(lifetime, ageAdd, nonce, ticket);
+        byte[] serializedMsg = message.getBytes();
+        NewSessionTicketMessage parsedMsg = new NewSessionTicketMessage();
+        parsedMsg.parse(ByteBuffer.wrap(serializedMsg));
+
+        assertThat(parsedMsg.getTicketLifetime()).isEqualTo(lifetime);
+        assertThat(parsedMsg.getTicketAgeAdd()).isEqualTo(ageAdd);
+        assertThat(parsedMsg.getTicketNonce()).isEqualTo(nonce);
+        assertThat(parsedMsg.getTicket()).isEqualTo(ticket);
     }
 }

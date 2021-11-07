@@ -41,7 +41,18 @@ public class NewSessionTicketMessage extends HandshakeMessage {
     // "The sole extension currently defined for NewSessionTicket is "early_data", ..."
     private EarlyDataExtension earlyDataExtension;
 
-    public NewSessionTicketMessage parse(ByteBuffer buffer, int length) throws TlsProtocolException {
+
+    public NewSessionTicketMessage() {
+    }
+
+    public NewSessionTicketMessage(int ticketLifetime, long ticketAgeAdd, byte[] ticketNonce, byte[] ticket) {
+        this.ticketAgeAdd = ticketAgeAdd;
+        this.ticket = ticket;
+        this.ticketNonce = ticketNonce;
+        this.ticketLifetime = ticketLifetime;
+    }
+
+    public NewSessionTicketMessage parse(ByteBuffer buffer) throws TlsProtocolException {
         int remainingLength = parseHandshakeHeader(buffer, TlsConstants.HandshakeType.new_session_ticket, MINIMUM_MESSAGE_SIZE);
 
         // "ticket_lifetime: Indicates the lifetime in seconds as a 32-bit unsigned integer (...)"
@@ -109,7 +120,18 @@ public class NewSessionTicketMessage extends HandshakeMessage {
 
     @Override
     public byte[] getBytes() {
-        return new byte[0];
+        int dataLength = 4 + 4 + 1 + ticketNonce.length + 2 + ticket.length + 2;
+        ByteBuffer buffer = ByteBuffer.allocate(4 + dataLength);
+        buffer.putInt((TlsConstants.HandshakeType.new_session_ticket.value << 24) | dataLength);
+        buffer.putInt(ticketLifetime);
+        buffer.putInt((int) ticketAgeAdd);
+        buffer.put((byte) ticketNonce.length);
+        buffer.put(ticketNonce);
+        buffer.putShort((short) ticket.length);
+        buffer.put(ticket);
+        buffer.putShort((short) 0);  // No extensions
+
+        return buffer.array();
     }
 
     public int getTicketLifetime() {
