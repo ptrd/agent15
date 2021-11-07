@@ -18,8 +18,9 @@
  */
 package net.luminis.tls.extension;
 
-import net.luminis.tls.extension.Extension;
-
-// https://tools.ietf.org/html/rfc8446#section-4.2.11
+/**
+ * TLS Pre-Shared Key extension.
+ * see https://datatracker.ietf.org/doc/html/rfc8446#section-4.2.11
+ */
 public abstract class PreSharedKeyExtension extends Extension {
 }
