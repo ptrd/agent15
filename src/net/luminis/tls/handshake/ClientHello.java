@@ -18,6 +18,7 @@
  */
 package net.luminis.tls.handshake;
 
+import net.luminis.tls.TlsState;
 import net.luminis.tls.extension.ClientHelloPreSharedKeyExtension;
 import net.luminis.tls.alert.DecodeErrorException;
 import net.luminis.tls.TlsConstants;
@@ -114,15 +115,26 @@ public class ClientHello extends HandshakeMessage {
     }
 
     public ClientHello(String serverName, ECPublicKey publicKey) {
-        this(serverName, publicKey, true, SUPPORTED_CIPHERS, SUPPORTED_SIGNATURES, secp256r1, Collections.emptyList());
+        this(serverName, publicKey, true, SUPPORTED_CIPHERS, SUPPORTED_SIGNATURES, secp256r1, Collections.emptyList(), null);
     }
 
     public ClientHello(String serverName, ECPublicKey publicKey, boolean compatibilityMode, List<Extension> extraExtensions) {
-        this(serverName, publicKey, compatibilityMode, SUPPORTED_CIPHERS, SUPPORTED_SIGNATURES, secp256r1, extraExtensions);
+        this(serverName, publicKey, compatibilityMode, SUPPORTED_CIPHERS, SUPPORTED_SIGNATURES, secp256r1, extraExtensions, null);
     }
 
+    /**
+     *
+     * @param serverName
+     * @param publicKey
+     * @param compatibilityMode
+     * @param supportedCiphers
+     * @param supportedSignatures
+     * @param ecCurve
+     * @param extraExtensions
+     * @param tlsState              can be null when no ClientHelloPreSharedKeyExtension is present, must be non-null when ClientHelloPreSharedKeyExtension is present.
+     */
     public ClientHello(String serverName, PublicKey publicKey, boolean compatibilityMode, List<TlsConstants.CipherSuite> supportedCiphers,
-                       List<TlsConstants.SignatureScheme> supportedSignatures, TlsConstants.NamedGroup ecCurve, List<Extension> extraExtensions) {
+                       List<TlsConstants.SignatureScheme> supportedSignatures, TlsConstants.NamedGroup ecCurve, List<Extension> extraExtensions, TlsState tlsState) {
         this.cipherSuites = supportedCiphers;
 
         ByteBuffer buffer = ByteBuffer.allocate(MAX_CLIENT_HELLO_SIZE);
@@ -201,7 +213,10 @@ public class ClientHello extends HandshakeMessage {
         buffer.get(data);
 
         if (pskExtension != null) {
-            pskExtension.calculateBinder(data, pskExtensionStartPosition);
+            if (tlsState == null) {
+                throw new IllegalArgumentException("TlsState cannot be null when ClientHelloPreSharedKeyExtension is present");
+            }
+            pskExtension.calculateBinder(data, pskExtensionStartPosition, tlsState);
             buffer.position(pskExtensionStartPosition);
             buffer.put(pskExtension.getBytes());
             buffer.rewind();

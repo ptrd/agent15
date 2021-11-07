@@ -123,13 +123,13 @@ public class TlsClientEngine extends TlsEngine implements ClientMessageProcessor
             extensions = new ArrayList<>();
             extensions.addAll(requestedExtensions);
             state = new TlsState(transcriptHash, newSessionTicket.getPSK());
-            extensions.add(new ClientHelloPreSharedKeyExtension(state, newSessionTicket));
+            extensions.add(new ClientHelloPreSharedKeyExtension(newSessionTicket));
         }
         else {
             state = new TlsState(transcriptHash);
         }
 
-        clientHello = new ClientHello(serverName, publicKey, compatibilityMode, supportedCiphers, supportedSignatures, ecCurve, extensions);
+        clientHello = new ClientHello(serverName, publicKey, compatibilityMode, supportedCiphers, supportedSignatures, ecCurve, extensions, state);
         sentExtensions = clientHello.getExtensions();
         sender.send(clientHello);
         status = Status.ClientHelloSent;

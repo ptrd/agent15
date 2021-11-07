@@ -31,13 +31,11 @@ public class ClientHelloPreSharedKeyExtension extends PreSharedKeyExtension {
     private byte[] sessionTicketIdentity;
     private long obfuscatedTicketAge;
     private long ticketAgeAdd;
-    private final TlsState tlsState;
     private Date ticketCreationDate;
     private int binderPosition;
     private byte[] binder;
 
-    public ClientHelloPreSharedKeyExtension(TlsState state, NewSessionTicket newSessionTicket) {
-        tlsState = state;
+    public ClientHelloPreSharedKeyExtension(NewSessionTicket newSessionTicket) {
         ticketCreationDate = newSessionTicket.getTicketCreationDate();
         ticketAgeAdd = newSessionTicket.getTicketAgeAdd();
         sessionTicketIdentity = newSessionTicket.getSessionTicketIdentity();
@@ -73,7 +71,7 @@ public class ClientHelloPreSharedKeyExtension extends PreSharedKeyExtension {
         return data;
     }
 
-    public void calculateBinder(byte[] clientHello, int pskExtensionStartPosition) {
+    public void calculateBinder(byte[] clientHello, int pskExtensionStartPosition, TlsState tlsState) {
         int partialHelloSize = pskExtensionStartPosition + binderPosition;
         byte[] partialHello = new byte[partialHelloSize];
         ByteBuffer.wrap(clientHello).get(partialHello);

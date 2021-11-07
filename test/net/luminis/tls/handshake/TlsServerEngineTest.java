@@ -77,7 +77,7 @@ public class TlsServerEngineTest extends EngineTest {
         ClientHello clientHello = new ClientHello("localhost", publicKey, false,
                 List.of(TLS_CHACHA20_POLY1305_SHA256),
                 List.of(TlsConstants.SignatureScheme.rsa_pss_rsae_sha256),
-                TlsConstants.NamedGroup.secp256r1, Collections.emptyList());
+                TlsConstants.NamedGroup.secp256r1, Collections.emptyList(), null);
 
         assertThatThrownBy(() ->
                 // When
@@ -176,7 +176,7 @@ public class TlsServerEngineTest extends EngineTest {
         ClientHello clientHello = new ClientHello("localhost", publicKey, false,
                 List.of(TLS_CHACHA20_POLY1305_SHA256, TLS_AES_128_GCM_SHA256),
                 List.of(TlsConstants.SignatureScheme.rsa_pss_rsae_sha256),
-                TlsConstants.NamedGroup.secp256r1, Collections.emptyList());
+                TlsConstants.NamedGroup.secp256r1, Collections.emptyList(), null);
 
         // When
         engine.received(clientHello, ProtectionKeysType.None);
@@ -231,6 +231,6 @@ public class TlsServerEngineTest extends EngineTest {
         return new ClientHello("localhost", publicKey, false,
                 List.of(TLS_AES_128_GCM_SHA256),
                 List.of(TlsConstants.SignatureScheme.rsa_pss_rsae_sha256),
-                TlsConstants.NamedGroup.secp256r1, Collections.emptyList());
+                TlsConstants.NamedGroup.secp256r1, Collections.emptyList(), null);
     }
 }
