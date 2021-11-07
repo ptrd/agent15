@@ -67,6 +67,7 @@ public class TlsState {
     private int clientRecordCount = 0;
     private final TranscriptHash transcriptHash;
     private byte[] sharedSecret;
+    private byte[] masterSecret;
 
     public TlsState(TranscriptHash transcriptHash, byte[] psk) {
         this.psk = psk;
@@ -204,13 +205,12 @@ public class TlsState {
 
     void computeApplicationSecrets(byte[] handshakeSecret) {
         byte[] serverFinishedHash = transcriptHash.getServerHash(TlsConstants.HandshakeType.finished);
-        byte[] clientFinishedHash = transcriptHash.getClientHash(TlsConstants.HandshakeType.finished);
 
         byte[] derivedSecret = hkdfExpandLabel(handshakeSecret, "derived", emptyHash, hashLength);
         Logger.debug("Derived secret: " + bytesToHex(derivedSecret));
 
         byte[] zeroKey = new byte[hashLength];
-        byte[] masterSecret = hkdf.extract(derivedSecret, zeroKey);
+        masterSecret = hkdf.extract(derivedSecret, zeroKey);
         Logger.debug("Master secret: "+ bytesToHex(masterSecret));
 
         clientApplicationTrafficSecret = hkdfExpandLabel(masterSecret, "c ap traffic", serverFinishedHash, hashLength);
@@ -218,9 +218,6 @@ public class TlsState {
 
         serverApplicationTrafficSecret = hkdfExpandLabel(masterSecret, "s ap traffic", serverFinishedHash, hashLength);
         Logger.debug("Server application traffic secret: " + bytesToHex(serverApplicationTrafficSecret));
-
-        resumptionMasterSecret = hkdfExpandLabel(masterSecret, "res master", clientFinishedHash, hashLength);
-        Logger.debug("Resumption master secret: " + bytesToHex(resumptionMasterSecret));
 
         byte[] clientApplicationKey = hkdfExpandLabel(clientApplicationTrafficSecret, "key", "", keyLength);
         Logger.debug("Client application key: " + bytesToHex(clientApplicationKey));
@@ -237,6 +234,13 @@ public class TlsState {
         byte[] serverApplicationIv = hkdfExpandLabel(serverApplicationTrafficSecret, "iv", "", iv_length);
         Logger.debug("Server application iv: " + bytesToHex(serverApplicationIv));
         serverIv = serverApplicationIv;
+    }
+
+    public void computeResumptionMasterSecret() {
+        byte[] clientFinishedHash = transcriptHash.getClientHash(TlsConstants.HandshakeType.finished);
+
+        resumptionMasterSecret = hkdfExpandLabel(masterSecret, "res master", clientFinishedHash, hashLength);
+        Logger.debug("Resumption master secret: " + bytesToHex(resumptionMasterSecret));
     }
 
     // https://tools.ietf.org/html/rfc8446#section-4.6.1

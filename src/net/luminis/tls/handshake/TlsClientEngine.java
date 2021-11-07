@@ -384,6 +384,7 @@ public class TlsClientEngine extends TlsEngine implements ClientMessageProcessor
 
         transcriptHash.recordClient(clientFinished);
         state.computeApplicationSecrets();
+        state.computeResumptionMasterSecret();
         status = Status.Finished;
         statusHandler.handshakeFinished();
     }

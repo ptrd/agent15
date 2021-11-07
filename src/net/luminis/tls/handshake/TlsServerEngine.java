@@ -163,6 +163,9 @@ public class TlsServerEngine extends TlsEngine implements ServerMessageProcessor
         if (protectedBy != ProtectionKeysType.Handshake) {
             throw new UnexpectedMessageAlert("incorrect protection level");
         }
+
+        transcriptHash.recordClient(clientFinished);
+
         // https://tools.ietf.org/html/rfc8446#section-4.4
         // "   | Mode      | Handshake Context       | Base Key                    |
         //     +-----------+-------------------------+-----------------------------+
@@ -179,9 +182,9 @@ public class TlsServerEngine extends TlsEngine implements ServerMessageProcessor
         if (!Arrays.equals(clientFinished.getVerifyData(), serverHmac)) {
             throw new DecryptErrorAlert("incorrect finished message");
         }
-        else {
-            statusHandler.handshakeFinished();
-        }
+
+        state.computeResumptionMasterSecret();
+        statusHandler.handshakeFinished();
     }
 
     public void addSupportedCiphers(List<TlsConstants.CipherSuite> cipherSuites) {
