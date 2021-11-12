@@ -43,9 +43,12 @@ public class TlsServerEngine extends TlsEngine implements ServerMessageProcessor
     private TranscriptHash transcriptHash;
     private TlsConstants.CipherSuite selectedCipher;
     private List<Extension> serverExtensions;
+    private List<TlsConstants.PskKeyExchangeMode> clientSupportedKeyExchangeModes;
+    private TlsSessionRegistry sessionRegistry;
+    private byte currentTicketNumber = 0;
 
 
-    public TlsServerEngine(List<X509Certificate> certificates, PrivateKey certificateKey, ServerMessageSender serverMessageSender, TlsStatusEventHandler tlsStatusHandler) {
+    public TlsServerEngine(List<X509Certificate> certificates, PrivateKey certificateKey, ServerMessageSender serverMessageSender, TlsStatusEventHandler tlsStatusHandler, TlsSessionRegistry tlsSessionRegistry) {
         this.serverCertificateChain = certificates;
         this.certificatePrivateKey = certificateKey;
         this.serverMessageSender = serverMessageSender;
@@ -55,10 +58,12 @@ public class TlsServerEngine extends TlsEngine implements ServerMessageProcessor
         extensions = new ArrayList<>();
         serverExtensions = new ArrayList<>();
         transcriptHash = new TranscriptHash(32);
+        clientSupportedKeyExchangeModes = new ArrayList<>();
+        sessionRegistry = tlsSessionRegistry;
     }
 
-    public TlsServerEngine(X509Certificate serverCertificate, PrivateKey certificateKey, ServerMessageSender serverMessageSender, TlsStatusEventHandler tlsStatusHandler) {
-        this(List.of(serverCertificate), certificateKey, serverMessageSender, tlsStatusHandler);
+    public TlsServerEngine(X509Certificate serverCertificate, PrivateKey certificateKey, ServerMessageSender serverMessageSender, TlsStatusEventHandler tlsStatusHandler, TlsSessionRegistry tlsSessionRegistry) {
+        this(List.of(serverCertificate), certificateKey, serverMessageSender, tlsStatusHandler, tlsSessionRegistry);
     }
 
     @Override
@@ -100,6 +105,13 @@ public class TlsServerEngine extends TlsEngine implements ServerMessageProcessor
                 .filter(ext -> ext instanceof SignatureAlgorithmsExtension)
                 .findFirst()
                 .orElseThrow(() -> new MissingExtensionAlert("signature algorithms extension is required in Client Hello"));
+
+       clientHello.getExtensions().stream()
+               .filter(ext -> ext instanceof PskKeyExchangeModesExtension)
+               .findFirst()
+               .ifPresent(extension -> {
+                   clientSupportedKeyExchangeModes.addAll(((PskKeyExchangeModesExtension) extension).getKeyExchangeModes());
+               });
 
         // This implementation (yet) only supports rsa_pss_rsae_sha256 (non compliant, see https://tools.ietf.org/html/rfc8446#section-9.1)
         if (!signatureAlgorithmsExtension.getSignatureAlgorithms().contains(rsa_pss_rsae_sha256)) {
@@ -185,6 +197,11 @@ public class TlsServerEngine extends TlsEngine implements ServerMessageProcessor
 
         state.computeResumptionMasterSecret();
         statusHandler.handshakeFinished();
+
+        if (sessionRegistry != null && ! clientSupportedKeyExchangeModes.isEmpty()) {
+            NewSessionTicketMessage newSessionTicketMessage = sessionRegistry.createNewSessionTicketMessage(currentTicketNumber++, state);
+            serverMessageSender.send(newSessionTicketMessage);
+        }
     }
 
     public void addSupportedCiphers(List<TlsConstants.CipherSuite> cipherSuites) {

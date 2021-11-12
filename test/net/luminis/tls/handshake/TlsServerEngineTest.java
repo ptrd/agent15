@@ -65,7 +65,7 @@ public class TlsServerEngineTest extends EngineTest {
 
         serverCertificate = CertificateUtils.inflateCertificate(encodedCertificate);
         tlsStatusHandler = mock(TlsStatusEventHandler.class);
-        engine = new TlsServerEngine(serverCertificate, privateKey, messageSender, tlsStatusHandler);
+        engine = new TlsServerEngine(serverCertificate, privateKey, messageSender, tlsStatusHandler, null);
         engine.addSupportedCiphers(List.of(TLS_AES_128_GCM_SHA256));
 
         publicKey = KeyUtils.generatePublicKey();

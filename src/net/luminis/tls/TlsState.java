@@ -246,7 +246,7 @@ public class TlsState {
     // https://tools.ietf.org/html/rfc8446#section-4.6.1
     // "The PSK associated with the ticket is computed as:
     //       HKDF-Expand-Label(resumption_master_secret, "resumption", ticket_nonce, Hash.length)"
-    byte[] computePSK(byte[] ticketNonce) {
+    public byte[] computePSK(byte[] ticketNonce) {
         byte[] psk = hkdfExpandLabel(resumptionMasterSecret, "resumption", ticketNonce, hashLength);
         return psk;
     }
