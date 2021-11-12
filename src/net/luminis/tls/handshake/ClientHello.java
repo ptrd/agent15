@@ -108,6 +108,14 @@ public class ClientHello extends HandshakeMessage {
         }
 
         extensions = parseExtensions(buffer, TlsConstants.HandshakeType.client_hello, customExtensionParser);
+        if (extensions.stream().anyMatch(ext -> ext instanceof PreSharedKeyExtension)) {
+            // https://datatracker.ietf.org/doc/html/rfc8446#section-4.2.11
+            // "The "pre_shared_key" extension MUST be the last extension in the ClientHello (...). Servers MUST check
+            //  that it is the last extension and otherwise fail the handshake with an "illegal_parameter" alert."
+            if (! (extensions.get(extensions.size() - 1) instanceof PreSharedKeyExtension)) {
+                throw new IllegalParameterAlert("pre_shared_key extension MUST be the last extension in the ClientHello");
+            }
+        }
 
         data = new byte[buffer.position() - startPosition];
         buffer.position(startPosition);

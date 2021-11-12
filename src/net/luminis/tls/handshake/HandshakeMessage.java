@@ -20,10 +20,12 @@ package net.luminis.tls.handshake;
 
 import net.luminis.tls.*;
 import net.luminis.tls.alert.DecodeErrorException;
+import net.luminis.tls.alert.IllegalParameterAlert;
 import net.luminis.tls.extension.*;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 public abstract class HandshakeMessage extends Message {
@@ -89,7 +91,15 @@ public abstract class HandshakeMessage extends Message {
                 extensions.add(new ApplicationLayerProtocolNegotiationExtension().parse(buffer));
             }
             else if (extensionType == TlsConstants.ExtensionType.pre_shared_key.value) {
-                extensions.add(new ServerPreSharedKeyExtension().parse(buffer));
+                if (context == TlsConstants.HandshakeType.server_hello) {
+                    extensions.add(new ServerPreSharedKeyExtension().parse(buffer));
+                }
+                else if (context == TlsConstants.HandshakeType.client_hello) {
+                    extensions.add(new ClientHelloPreSharedKeyExtension().parse(buffer));
+                }
+                else {
+                    throw new IllegalParameterAlert("Extension not allowed in " + Arrays.stream(TlsConstants.HandshakeType.values()).filter(it -> it.value == context.value).findFirst().get());
+                }
             }
             else if (extensionType == TlsConstants.ExtensionType.early_data.value) {
                 extensions.add(new EarlyDataExtension().parse(buffer));
