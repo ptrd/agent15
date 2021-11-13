@@ -25,6 +25,7 @@ import org.junit.jupiter.api.Test;
 
 import java.nio.ByteBuffer;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 
@@ -40,6 +41,22 @@ class HandshakeMessageTest {
                 .isInstanceOf(IllegalParameterAlert.class)
                 .hasMessageContaining("Extension not allowed")
                 .hasMessageContaining("encrypted_extensions");
+    }
+
+    @Test
+    void findPositionLastExtensionIfThereIsOnlyOne() {
+        // ...                                 size
+        byte[] rawData = ByteUtils.hexToBytes("0006 0029 0002 0000 cafebabe");
+
+        assertThat(HandshakeMessage.findPositionLastExtension(ByteBuffer.wrap(rawData))).isEqualTo(2);
+    }
+
+    @Test
+    void findPositionLastExtensionWithMultipleExtenions() {
+        // ...                                 size 18 bytes                             24 bytes                                         6 bytes      not part of extensions
+        byte[] rawData = ByteUtils.hexToBytes("0030 0000000e000c0000096c6f63616c686f7374 000d00140012040308040401050308050501080606010201 002900020000 cafebabe");
+
+        assertThat(HandshakeMessage.findPositionLastExtension(ByteBuffer.wrap(rawData))).isEqualTo(44);
     }
 
 }

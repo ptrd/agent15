@@ -118,12 +118,34 @@ public class TlsServerEngine extends TlsEngine implements ServerMessageProcessor
             throw new HandshakeFailureAlert("Failed to negotiate signature algorithm (server only supports rsa_pss_rsae_sha256");
         }
 
+        Optional<Extension> pskExtension = clientHello.getExtensions().stream().filter(ext -> ext instanceof ClientHelloPreSharedKeyExtension).findFirst();
+
         // So: ClientHello is valid and negotiation was successful, as far as this engine is concerned.
         // Use callback to let context check other prerequisites, for example appropriate ALPN extension
         statusHandler.extensionsReceived(clientHello.getExtensions());
 
-        // Start building TLS state and prepare response
-        state = new TlsState(transcriptHash);
+        // Start building TLS state and prepare response. First check whether client wants to use PSK (resumption)
+        Integer selectedIdentity = null;
+        if (pskExtension.isPresent()) {
+            ClientHelloPreSharedKeyExtension preSharedKeyExtension = (ClientHelloPreSharedKeyExtension) pskExtension.get();
+            selectedIdentity = sessionRegistry.selectIdentity(preSharedKeyExtension.getIdentities(), selectedCipher);
+            if (selectedIdentity != null) {
+                // https://datatracker.ietf.org/doc/html/rfc8446#section-4.2.11
+                // "Prior to accepting PSK key establishment, the server MUST validate the corresponding binder value.
+                //  If this value is not present or does not validate, the server MUST abort the handshake.
+                //  Servers SHOULD NOT attempt to validate multiple binders; rather, they SHOULD select a single PSK
+                //  and validate solely the binder that corresponds to that PSK."
+                byte[] psk = sessionRegistry.getPsk(preSharedKeyExtension.getIdentities().get(selectedIdentity));
+                state = new TlsState(transcriptHash, psk);
+                if (! validateBinder(preSharedKeyExtension.getBinders().get(selectedIdentity), preSharedKeyExtension.getBinderPosition(), psk, clientHello)) {
+                    state = null;
+                    throw new DecryptErrorAlert("Invalid PSK binder");
+                }
+            }
+        }
+        if (state == null) {
+            state = new TlsState(transcriptHash);
+        }
         transcriptHash.record(clientHello);
 
         generateKeys(keyShareEntry.getNamedGroup());
@@ -131,10 +153,15 @@ public class TlsServerEngine extends TlsEngine implements ServerMessageProcessor
         state.computeEarlyTrafficSecret();
         statusHandler.earlySecretsKnown();
 
-        ServerHello serverHello = new ServerHello(selectedCipher, List.of(
+        List<Extension> extensions = List.of(
                 new SupportedVersionsExtension(TlsConstants.HandshakeType.server_hello),
-                new KeyShareExtension(publicKey, keyShareEntry.getNamedGroup(), TlsConstants.HandshakeType.server_hello)
-        ));
+                new KeyShareExtension(publicKey, keyShareEntry.getNamedGroup(), TlsConstants.HandshakeType.server_hello));
+        if (selectedIdentity != null) {
+            extensions = new ArrayList<>(extensions);
+            extensions.add(new ServerPreSharedKeyExtension(selectedIdentity.shortValue()));
+        }
+        ServerHello serverHello = new ServerHello(selectedCipher, extensions);
+
         // Send server hello back to client
         serverMessageSender.send(serverHello);
 
@@ -151,17 +178,20 @@ public class TlsServerEngine extends TlsEngine implements ServerMessageProcessor
         serverMessageSender.send(encryptedExtensions);
         transcriptHash.record(encryptedExtensions);
 
-        CertificateMessage certificate = new CertificateMessage(serverCertificateChain);
-        serverMessageSender.send(certificate);
-        transcriptHash.recordServer(certificate);
+        // Only if session is not started with a PSK resumption, send certificate and certificate verify
+        if (selectedIdentity == null) {
+            CertificateMessage certificate = new CertificateMessage(serverCertificateChain);
+            serverMessageSender.send(certificate);
+            transcriptHash.recordServer(certificate);
 
-        // "The content that is covered under the signature is the hash output as described in Section 4.4.1, namely:
-        //      Transcript-Hash(Handshake Context, Certificate)
-        byte[] hash = transcriptHash.getServerHash(TlsConstants.HandshakeType.certificate);
-        byte[] signature = computeSignature(hash, certificatePrivateKey, rsa_pss_rsae_sha256, false);
-        CertificateVerifyMessage certificateVerify = new CertificateVerifyMessage(rsa_pss_rsae_sha256, signature);
-        serverMessageSender.send(certificateVerify);
-        transcriptHash.recordServer(certificateVerify);
+            // "The content that is covered under the signature is the hash output as described in Section 4.4.1, namely:
+            //      Transcript-Hash(Handshake Context, Certificate)
+            byte[] hash = transcriptHash.getServerHash(TlsConstants.HandshakeType.certificate);
+            byte[] signature = computeSignature(hash, certificatePrivateKey, rsa_pss_rsae_sha256, false);
+            CertificateVerifyMessage certificateVerify = new CertificateVerifyMessage(rsa_pss_rsae_sha256, signature);
+            serverMessageSender.send(certificateVerify);
+            transcriptHash.recordServer(certificateVerify);
+        }
 
         byte[] hmac = computeFinishedVerifyData(transcriptHash.getServerHash(TlsConstants.HandshakeType.certificate_verify), state.getServerHandshakeTrafficSecret());
         FinishedMessage finished = new FinishedMessage(hmac);
@@ -199,9 +229,17 @@ public class TlsServerEngine extends TlsEngine implements ServerMessageProcessor
         statusHandler.handshakeFinished();
 
         if (sessionRegistry != null && ! clientSupportedKeyExchangeModes.isEmpty()) {
-            NewSessionTicketMessage newSessionTicketMessage = sessionRegistry.createNewSessionTicketMessage(currentTicketNumber++, state);
+            NewSessionTicketMessage newSessionTicketMessage = sessionRegistry.createNewSessionTicketMessage(currentTicketNumber++, selectedCipher, state);
             serverMessageSender.send(newSessionTicketMessage);
         }
+    }
+
+    private boolean validateBinder(ClientHelloPreSharedKeyExtension.PskBinderEntry pskBinderEntry, int binderPosition, byte[] psk, ClientHello clientHello) {
+        // https://datatracker.ietf.org/doc/html/rfc8446#section-4.2.11, section 4.2.11.2
+        byte[] partialCH = Arrays.copyOfRange(clientHello.getBytes(), 0, clientHello.getPskExtensionStartPosition() + binderPosition);
+        byte[] binder = state.computePskBinder(partialCH);
+        boolean valid = Arrays.equals(pskBinderEntry.getHmac(), binder);
+        return valid;
     }
 
     public void addSupportedCiphers(List<TlsConstants.CipherSuite> cipherSuites) {

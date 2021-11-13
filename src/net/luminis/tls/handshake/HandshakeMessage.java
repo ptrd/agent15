@@ -137,5 +137,24 @@ public abstract class HandshakeMessage extends Message {
         return extensions;
     }
 
+    /**
+     * Returns the (relative) position of the last extension.
+     * @param buffer  data to parse, buffer position should be at the point where extensions start.
+     *                on return, the buffer position will be right after the last extension.
+     * @return the start position of the last extension, relative to the start of all extensions.
+     */
+    static public int findPositionLastExtension(ByteBuffer buffer) {
+        int extensionsLength = buffer.getShort() & 0xffff;
+        int remaining = extensionsLength;
+        int lastExtensionStart = 0;
+        while (remaining > 4) {
+            lastExtensionStart = buffer.position();
+            int type = buffer.getShort();
+            int length = buffer.getShort();
+            buffer.get(new byte[length]);
+            remaining -= (2 + 2 + length);
+        }
+        return lastExtensionStart;
+    }
 
 }

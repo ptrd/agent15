@@ -56,6 +56,7 @@ public class ClientHelloPreSharedKeyExtension extends PreSharedKeyExtension {
     }
 
     public ClientHelloPreSharedKeyExtension parse(ByteBuffer buffer) throws DecodeErrorException {
+        int startPosition = buffer.position();
         int extensionDataLength = parseExtensionHeader(buffer, TlsConstants.ExtensionType.pre_shared_key, MINIMUM_EXTENSION_DATA_SIZE);
 
         identities = new ArrayList<>();
@@ -85,6 +86,7 @@ public class ClientHelloPreSharedKeyExtension extends PreSharedKeyExtension {
             throw new DecodeErrorException("Incorrect identities length value");
         }
 
+        binderPosition = buffer.position() - startPosition;
         binders = new ArrayList<>();
         if (remaining < 2) {
             throw new DecodeErrorException("Incomplete binders");
@@ -169,6 +171,10 @@ public class ClientHelloPreSharedKeyExtension extends PreSharedKeyExtension {
 
     public List<PskBinderEntry> getBinders() {
         return binders;
+    }
+
+    public int getBinderPosition() {
+        return binderPosition;
     }
 
     public static class PskIdentity {

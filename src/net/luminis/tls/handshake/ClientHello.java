@@ -46,6 +46,7 @@ public class ClientHello extends HandshakeMessage {
     private static Random random = new Random();
     private static SecureRandom secureRandom = new SecureRandom();
     private final byte[] data;
+    private final int pskExtensionStartPosition;
     private byte[] clientRandom;
 
     private List<TlsConstants.CipherSuite> cipherSuites = new ArrayList<>();
@@ -107,14 +108,20 @@ public class ClientHello extends HandshakeMessage {
             throw new IllegalParameterAlert("Invalid legacy compression method");
         }
 
+        int extensionStart = buffer.position();
         extensions = parseExtensions(buffer, TlsConstants.HandshakeType.client_hello, customExtensionParser);
         if (extensions.stream().anyMatch(ext -> ext instanceof PreSharedKeyExtension)) {
+            buffer.position(extensionStart);
+            pskExtensionStartPosition = findPositionLastExtension(buffer);
             // https://datatracker.ietf.org/doc/html/rfc8446#section-4.2.11
             // "The "pre_shared_key" extension MUST be the last extension in the ClientHello (...). Servers MUST check
             //  that it is the last extension and otherwise fail the handshake with an "illegal_parameter" alert."
             if (! (extensions.get(extensions.size() - 1) instanceof PreSharedKeyExtension)) {
                 throw new IllegalParameterAlert("pre_shared_key extension MUST be the last extension in the ClientHello");
             }
+        }
+        else {
+            pskExtensionStartPosition = -1;
         }
 
         data = new byte[buffer.position() - startPosition];
@@ -200,10 +207,10 @@ public class ClientHello extends HandshakeMessage {
         extensions.addAll(List.of(defaultExtensions));
         extensions.addAll(extraExtensions);
 
-        int pskExtensionStartPosition = 0;
         ClientHelloPreSharedKeyExtension pskExtension = null;
         int extensionsLength = extensions.stream().mapToInt(ext -> ext.getBytes().length).sum();
         buffer.putShort((short) extensionsLength);
+        int pskExtensionStartPosition = -1;
         for (Extension extension: extensions) {
             if (extension instanceof ClientHelloPreSharedKeyExtension) {
                 pskExtension = (ClientHelloPreSharedKeyExtension) extension;
@@ -211,6 +218,7 @@ public class ClientHello extends HandshakeMessage {
             }
             buffer.put(extension.getBytes());
         }
+        this.pskExtensionStartPosition = pskExtensionStartPosition;  // Copy value into member field, necessary because field is final.
 
         buffer.limit(buffer.position());
         int clientHelloLength = buffer.position() - 4;
@@ -252,6 +260,14 @@ public class ClientHello extends HandshakeMessage {
 
     public List<Extension> getExtensions() {
         return extensions;
+    }
+
+    /**
+     * Returns the start position of the PreSharedKeyExtension in the serialized ClientHello. This is needed for computing binders.
+     * @return  the start position or -1 if not present.
+     */
+    public int getPskExtensionStartPosition() {
+        return pskExtensionStartPosition;
     }
 
     @Override
