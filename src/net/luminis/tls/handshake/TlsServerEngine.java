@@ -137,7 +137,7 @@ public class TlsServerEngine extends TlsEngine implements ServerMessageProcessor
                 //  and validate solely the binder that corresponds to that PSK."
                 byte[] psk = sessionRegistry.getPsk(preSharedKeyExtension.getIdentities().get(selectedIdentity));
                 state = new TlsState(transcriptHash, psk);
-                if (! validateBinder(preSharedKeyExtension.getBinders().get(selectedIdentity), preSharedKeyExtension.getBinderPosition(), psk, clientHello)) {
+                if (! validateBinder(preSharedKeyExtension.getBinders().get(selectedIdentity), preSharedKeyExtension.getBinderPosition(), clientHello)) {
                     state = null;
                     throw new DecryptErrorAlert("Invalid PSK binder");
                 }
@@ -234,7 +234,7 @@ public class TlsServerEngine extends TlsEngine implements ServerMessageProcessor
         }
     }
 
-    private boolean validateBinder(ClientHelloPreSharedKeyExtension.PskBinderEntry pskBinderEntry, int binderPosition, byte[] psk, ClientHello clientHello) {
+    private boolean validateBinder(ClientHelloPreSharedKeyExtension.PskBinderEntry pskBinderEntry, int binderPosition, ClientHello clientHello) {
         // https://datatracker.ietf.org/doc/html/rfc8446#section-4.2.11, section 4.2.11.2
         byte[] partialCH = Arrays.copyOfRange(clientHello.getBytes(), 0, clientHello.getPskExtensionStartPosition() + binderPosition);
         byte[] binder = state.computePskBinder(partialCH);
