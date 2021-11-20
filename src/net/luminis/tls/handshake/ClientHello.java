@@ -38,6 +38,13 @@ import static net.luminis.tls.TlsConstants.NamedGroup.secp256r1;
 
 public class ClientHello extends HandshakeMessage {
 
+    public enum PskKeyEstablishmentMode {
+        none,
+        PSKonly,
+        PSKwithDHE,
+        both
+    };
+
     private static final int MAX_CLIENT_HELLO_SIZE = 3000;
     public static final List<TlsConstants.CipherSuite> SUPPORTED_CIPHERS = List.of(TlsConstants.CipherSuite.TLS_AES_128_GCM_SHA256);
     private static final int MINIMAL_MESSAGE_LENGTH = 1 + 3 + 2 + 32 + 1 + 2 + 2 + 2 + 2;
@@ -130,16 +137,15 @@ public class ClientHello extends HandshakeMessage {
     }
 
     public ClientHello(String serverName, ECPublicKey publicKey) {
-        this(serverName, publicKey, true, SUPPORTED_CIPHERS, SUPPORTED_SIGNATURES, secp256r1, Collections.emptyList(), null);
+        this(serverName, publicKey, true, SUPPORTED_CIPHERS, SUPPORTED_SIGNATURES, secp256r1, Collections.emptyList(), null, PskKeyEstablishmentMode.both);
     }
 
     public ClientHello(String serverName, ECPublicKey publicKey, boolean compatibilityMode, List<Extension> extraExtensions) {
-        this(serverName, publicKey, compatibilityMode, SUPPORTED_CIPHERS, SUPPORTED_SIGNATURES, secp256r1, extraExtensions, null);
+        this(serverName, publicKey, compatibilityMode, SUPPORTED_CIPHERS, SUPPORTED_SIGNATURES, secp256r1, extraExtensions, null, PskKeyEstablishmentMode.both);
     }
 
     /**
-     *
-     * @param serverName
+     *  @param serverName
      * @param publicKey
      * @param compatibilityMode
      * @param supportedCiphers
@@ -147,9 +153,10 @@ public class ClientHello extends HandshakeMessage {
      * @param ecCurve
      * @param extraExtensions
      * @param tlsState              can be null when no ClientHelloPreSharedKeyExtension is present, must be non-null when ClientHelloPreSharedKeyExtension is present.
+     * @param pskKeyEstablishmentMode
      */
     public ClientHello(String serverName, PublicKey publicKey, boolean compatibilityMode, List<TlsConstants.CipherSuite> supportedCiphers,
-                       List<TlsConstants.SignatureScheme> supportedSignatures, TlsConstants.NamedGroup ecCurve, List<Extension> extraExtensions, TlsState tlsState) {
+                       List<TlsConstants.SignatureScheme> supportedSignatures, TlsConstants.NamedGroup ecCurve, List<Extension> extraExtensions, TlsState tlsState, PskKeyEstablishmentMode pskKeyEstablishmentMode) {
         this.cipherSuites = supportedCiphers;
 
         ByteBuffer buffer = ByteBuffer.allocate(MAX_CLIENT_HELLO_SIZE);
@@ -200,11 +207,13 @@ public class ClientHello extends HandshakeMessage {
                 new SupportedGroupsExtension(ecCurve),
                 new SignatureAlgorithmsExtension(supportedSignatures),
                 new KeyShareExtension(publicKey, ecCurve, TlsConstants.HandshakeType.client_hello),
-                new PskKeyExchangeModesExtension(TlsConstants.PskKeyExchangeMode.psk_dhe_ke)
         };
 
         extensions = new ArrayList<>();
         extensions.addAll(List.of(defaultExtensions));
+        if (pskKeyEstablishmentMode != PskKeyEstablishmentMode.none) {
+            extensions.add(createPskKeyExchangeModesExtension(pskKeyEstablishmentMode));
+        }
         extensions.addAll(extraExtensions);
 
         ClientHelloPreSharedKeyExtension pskExtension = null;
@@ -237,6 +246,19 @@ public class ClientHello extends HandshakeMessage {
             buffer.put(pskExtension.getBytes());
             buffer.rewind();
             buffer.get(data);
+        }
+    }
+
+    private PskKeyExchangeModesExtension createPskKeyExchangeModesExtension(PskKeyEstablishmentMode pskKeyEstablishmentMode) {
+        switch (pskKeyEstablishmentMode) {
+            case PSKonly:
+                return new PskKeyExchangeModesExtension(TlsConstants.PskKeyExchangeMode.psk_ke);
+            case PSKwithDHE:
+                return new PskKeyExchangeModesExtension(TlsConstants.PskKeyExchangeMode.psk_dhe_ke);
+            case both:
+                return new PskKeyExchangeModesExtension(TlsConstants.PskKeyExchangeMode.psk_ke, TlsConstants.PskKeyExchangeMode.psk_dhe_ke);
+            default:
+                throw new IllegalArgumentException();
         }
     }
 

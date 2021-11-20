@@ -30,6 +30,7 @@ import java.util.stream.Collectors;
 
 import static net.luminis.tls.TlsConstants.CipherSuite.TLS_AES_128_GCM_SHA256;
 import static net.luminis.tls.TlsConstants.NamedGroup.*;
+import static net.luminis.tls.TlsConstants.PskKeyExchangeMode.psk_dhe_ke;
 import static net.luminis.tls.TlsConstants.SignatureScheme.rsa_pss_rsae_sha256;
 
 public class TlsServerEngine extends TlsEngine implements ServerMessageProcessor {
@@ -99,7 +100,7 @@ public class TlsServerEngine extends TlsEngine implements ServerMessageProcessor
         KeyShareExtension.KeyShareEntry keyShareEntry = keyShareExtension.getKeyShareEntries().stream()
                 .filter(entry -> serverSupportedGroups.contains(entry.getNamedGroup()))
                 .findFirst()
-                .orElseThrow(() -> new IllegalParameterAlert("key share named group no supported (and no HelloRetryRequest support)"));
+                .orElseThrow(() -> new IllegalParameterAlert("key share named group not supported (and no HelloRetryRequest support)"));
 
        SignatureAlgorithmsExtension signatureAlgorithmsExtension = (SignatureAlgorithmsExtension) clientHello.getExtensions().stream()
                 .filter(ext -> ext instanceof SignatureAlgorithmsExtension)
@@ -127,19 +128,26 @@ public class TlsServerEngine extends TlsEngine implements ServerMessageProcessor
         // Start building TLS state and prepare response. First check whether client wants to use PSK (resumption)
         Integer selectedIdentity = null;
         if (pskExtension.isPresent()) {
-            ClientHelloPreSharedKeyExtension preSharedKeyExtension = (ClientHelloPreSharedKeyExtension) pskExtension.get();
-            selectedIdentity = sessionRegistry.selectIdentity(preSharedKeyExtension.getIdentities(), selectedCipher);
-            if (selectedIdentity != null) {
-                // https://datatracker.ietf.org/doc/html/rfc8446#section-4.2.11
-                // "Prior to accepting PSK key establishment, the server MUST validate the corresponding binder value.
-                //  If this value is not present or does not validate, the server MUST abort the handshake.
-                //  Servers SHOULD NOT attempt to validate multiple binders; rather, they SHOULD select a single PSK
-                //  and validate solely the binder that corresponds to that PSK."
-                byte[] psk = sessionRegistry.getPsk(preSharedKeyExtension.getIdentities().get(selectedIdentity));
-                state = new TlsState(transcriptHash, psk);
-                if (! validateBinder(preSharedKeyExtension.getBinders().get(selectedIdentity), preSharedKeyExtension.getBinderPosition(), clientHello)) {
-                    state = null;
-                    throw new DecryptErrorAlert("Invalid PSK binder");
+            // "If clients offer "pre_shared_key" without a "psk_key_exchange_modes" extension, servers MUST abort the handshake."
+            if (clientSupportedKeyExchangeModes.isEmpty()) {
+                throw new MissingExtensionAlert("psk_key_exchange_modes extension required with pre_shared_key");
+            }
+            // Check for PSK Exchange mode; server only supports psk_dhe_ke
+            if (clientSupportedKeyExchangeModes.contains(psk_dhe_ke)) {
+                ClientHelloPreSharedKeyExtension preSharedKeyExtension = (ClientHelloPreSharedKeyExtension) pskExtension.get();
+                selectedIdentity = sessionRegistry.selectIdentity(preSharedKeyExtension.getIdentities(), selectedCipher);
+                if (selectedIdentity != null) {
+                    // https://datatracker.ietf.org/doc/html/rfc8446#section-4.2.11
+                    // "Prior to accepting PSK key establishment, the server MUST validate the corresponding binder value.
+                    //  If this value is not present or does not validate, the server MUST abort the handshake.
+                    //  Servers SHOULD NOT attempt to validate multiple binders; rather, they SHOULD select a single PSK
+                    //  and validate solely the binder that corresponds to that PSK."
+                    byte[] psk = sessionRegistry.getPsk(preSharedKeyExtension.getIdentities().get(selectedIdentity));
+                    state = new TlsState(transcriptHash, psk);
+                    if (!validateBinder(preSharedKeyExtension.getBinders().get(selectedIdentity), preSharedKeyExtension.getBinderPosition(), clientHello)) {
+                        state = null;
+                        throw new DecryptErrorAlert("Invalid PSK binder");
+                    }
                 }
             }
         }
@@ -228,7 +236,7 @@ public class TlsServerEngine extends TlsEngine implements ServerMessageProcessor
         state.computeResumptionMasterSecret();
         statusHandler.handshakeFinished();
 
-        if (sessionRegistry != null && ! clientSupportedKeyExchangeModes.isEmpty()) {
+        if (sessionRegistry != null && clientSupportedKeyExchangeModes.contains(psk_dhe_ke)) {  // Server only supports psk_dhe_ke
             NewSessionTicketMessage newSessionTicketMessage = sessionRegistry.createNewSessionTicketMessage(currentTicketNumber++, selectedCipher, state);
             serverMessageSender.send(newSessionTicketMessage);
         }

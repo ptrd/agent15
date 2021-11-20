@@ -18,10 +18,7 @@
  */
 package net.luminis.tls.handshake;
 
-import net.luminis.tls.CertificateUtils;
-import net.luminis.tls.KeyUtils;
-import net.luminis.tls.ProtectionKeysType;
-import net.luminis.tls.TlsConstants;
+import net.luminis.tls.*;
 import net.luminis.tls.alert.DecryptErrorAlert;
 import net.luminis.tls.alert.HandshakeFailureAlert;
 import net.luminis.tls.alert.MissingExtensionAlert;
@@ -44,8 +41,7 @@ import static net.luminis.tls.TlsConstants.CipherSuite.TLS_CHACHA20_POLY1305_SHA
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.argThat;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.*;
 
 public class TlsServerEngineTest extends EngineTest {
 
@@ -65,7 +61,7 @@ public class TlsServerEngineTest extends EngineTest {
 
         serverCertificate = CertificateUtils.inflateCertificate(encodedCertificate);
         tlsStatusHandler = mock(TlsStatusEventHandler.class);
-        engine = new TlsServerEngine(serverCertificate, privateKey, messageSender, tlsStatusHandler, null);
+        engine = new TlsServerEngine(serverCertificate, privateKey, messageSender, tlsStatusHandler, new TlsSessionRegistryImpl());
         engine.addSupportedCiphers(List.of(TLS_AES_128_GCM_SHA256));
 
         publicKey = KeyUtils.generatePublicKey();
@@ -77,7 +73,7 @@ public class TlsServerEngineTest extends EngineTest {
         ClientHello clientHello = new ClientHello("localhost", publicKey, false,
                 List.of(TLS_CHACHA20_POLY1305_SHA256),
                 List.of(TlsConstants.SignatureScheme.rsa_pss_rsae_sha256),
-                TlsConstants.NamedGroup.secp256r1, Collections.emptyList(), null);
+                TlsConstants.NamedGroup.secp256r1, Collections.emptyList(), null, ClientHello.PskKeyEstablishmentMode.both);
 
         assertThatThrownBy(() ->
                 // When
@@ -176,7 +172,7 @@ public class TlsServerEngineTest extends EngineTest {
         ClientHello clientHello = new ClientHello("localhost", publicKey, false,
                 List.of(TLS_CHACHA20_POLY1305_SHA256, TLS_AES_128_GCM_SHA256),
                 List.of(TlsConstants.SignatureScheme.rsa_pss_rsae_sha256),
-                TlsConstants.NamedGroup.secp256r1, Collections.emptyList(), null);
+                TlsConstants.NamedGroup.secp256r1, Collections.emptyList(), null, ClientHello.PskKeyEstablishmentMode.both);
 
         // When
         engine.received(clientHello, ProtectionKeysType.None);
@@ -226,11 +222,30 @@ public class TlsServerEngineTest extends EngineTest {
         .isInstanceOf(DecryptErrorAlert.class);
     }
 
+    @Test
+    void clientProvidingPreSharedKeyShouldAlsoProvidePskKeyExchangeMode() throws Exception {
+        // Given
+        TlsState tlsState = mock(TlsState.class);
+        when(tlsState.computePskBinder(any())).thenReturn(new byte[32]);
+        NewSessionTicket ticket = new NewSessionTicket(tlsState,
+                new NewSessionTicketMessage(3600, 0xffffffff, new byte[]{ 0x00 }, new byte[]{ 0x00, 0x01, 0x02, 0x03 }));
+        ClientHello clientHello = createDefaultClientHello(List.of(new ClientHelloPreSharedKeyExtension(ticket)), tlsState);
+
+        assertThatThrownBy(() ->
+                // When
+                engine.received(clientHello, ProtectionKeysType.None))
+                // Then
+                .isInstanceOf(MissingExtensionAlert.class);
+    }
 
     private ClientHello createDefaultClientHello() {
+        return createDefaultClientHello(Collections.emptyList(), null);
+    }
+
+    private ClientHello createDefaultClientHello(List<Extension> extensions, TlsState state) {
         return new ClientHello("localhost", publicKey, false,
                 List.of(TLS_AES_128_GCM_SHA256),
                 List.of(TlsConstants.SignatureScheme.rsa_pss_rsae_sha256),
-                TlsConstants.NamedGroup.secp256r1, Collections.emptyList(), null);
+                TlsConstants.NamedGroup.secp256r1, extensions, state, ClientHello.PskKeyEstablishmentMode.none);
     }
 }

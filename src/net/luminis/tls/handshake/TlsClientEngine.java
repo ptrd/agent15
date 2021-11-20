@@ -129,7 +129,8 @@ public class TlsClientEngine extends TlsEngine implements ClientMessageProcessor
             state = new TlsState(transcriptHash);
         }
 
-        clientHello = new ClientHello(serverName, publicKey, compatibilityMode, supportedCiphers, supportedSignatures, ecCurve, extensions, state);
+        clientHello = new ClientHello(serverName, publicKey, compatibilityMode, supportedCiphers, supportedSignatures,
+                ecCurve, extensions, state, ClientHello.PskKeyEstablishmentMode.PSKwithDHE);
         sentExtensions = clientHello.getExtensions();
         sender.send(clientHello);
         status = Status.ClientHelloSent;
