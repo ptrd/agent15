@@ -1,5 +1,5 @@
 /*
- * Copyright © 2019, 2020, 2021 Peter Doornbosch
+ * Copyright © 2021 Peter Doornbosch
  *
  * This file is part of Agent15, an implementation of TLS 1.3 in Java.
  *
@@ -18,20 +18,17 @@
  */
 package net.luminis.tls.handshake;
 
-import java.io.IOException;
+import net.luminis.tls.TlsConstants;
+import net.luminis.tls.TlsState;
+import net.luminis.tls.extension.ClientHelloPreSharedKeyExtension;
 
-public interface ServerMessageSender {
+import java.util.List;
 
-    void send(ServerHello sh) throws IOException;
+public interface TlsSessionRegistry {
 
-    void send(EncryptedExtensions ee) throws IOException;
+    NewSessionTicketMessage createNewSessionTicketMessage(byte ticketNonce, TlsConstants.CipherSuite selectedCipher, TlsState tlsState);
 
-    void send(CertificateMessage cm) throws IOException;
+    Integer selectIdentity(List<ClientHelloPreSharedKeyExtension.PskIdentity> identities, TlsConstants.CipherSuite selectedCipher);
 
-    void send(CertificateVerifyMessage cv) throws IOException;
-
-    void send(FinishedMessage finished) throws IOException;
-
-    void send(NewSessionTicketMessage ticket) throws IOException;
+    byte[] getPsk(ClientHelloPreSharedKeyExtension.PskIdentity pskIdentity);
 }
-

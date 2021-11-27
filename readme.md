@@ -11,8 +11,9 @@ Agent15 is created and maintained by Peter Doornbosch. The latest greatest can a
 ## Status
 
 Agent15 implements all of the handshake protocol that is needed to setup and maintain a QUIC connection.
-[Session resumption](https://datatracker.ietf.org/doc/html/rfc8446#section-2.2) and [0-RTT](https://datatracker.ietf.org/doc/html/rfc8446#section-2.3)
-are only supported for client connections.
+[Session resumption](https://datatracker.ietf.org/doc/html/rfc8446#section-2.2) is supported for both roles (client and server),
+[0-RTT](https://datatracker.ietf.org/doc/html/rfc8446#section-2.3)
+is only supported for client connections.
 
 Not all TLS 1.3 handshake messages are implemented (yet); some because they are not used at all in QUIC and others 
 because the Kwik project does not use them. The messages that are not implemented are:
@@ -56,7 +57,8 @@ The following elliptic curves are supported:
 
 ### Features
 
-The client engine supports session resumption with a PSK (obtained via a NewSessionTicket message), the server does not.
+The engines support session resumption with a PSK (obtained via a NewSessionTicket message). The server uses an in-memory
+cache to store session tickets, so a restart invalidates all tickets.
 Client authentication (by means of a client certificate) is supported in the client engine, but not yet for the server engine.
 
 ### Usage

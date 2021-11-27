@@ -18,6 +18,7 @@
  */
 package net.luminis.tls.handshake;
 
+import net.luminis.tls.TlsState;
 import net.luminis.tls.extension.ClientHelloPreSharedKeyExtension;
 import net.luminis.tls.alert.DecodeErrorException;
 import net.luminis.tls.TlsConstants;
@@ -37,6 +38,13 @@ import static net.luminis.tls.TlsConstants.NamedGroup.secp256r1;
 
 public class ClientHello extends HandshakeMessage {
 
+    public enum PskKeyEstablishmentMode {
+        none,
+        PSKonly,
+        PSKwithDHE,
+        both
+    };
+
     private static final int MAX_CLIENT_HELLO_SIZE = 3000;
     public static final List<TlsConstants.CipherSuite> SUPPORTED_CIPHERS = List.of(TlsConstants.CipherSuite.TLS_AES_128_GCM_SHA256);
     private static final int MINIMAL_MESSAGE_LENGTH = 1 + 3 + 2 + 32 + 1 + 2 + 2 + 2 + 2;
@@ -45,6 +53,7 @@ public class ClientHello extends HandshakeMessage {
     private static Random random = new Random();
     private static SecureRandom secureRandom = new SecureRandom();
     private final byte[] data;
+    private final int pskExtensionStartPosition;
     private byte[] clientRandom;
 
     private List<TlsConstants.CipherSuite> cipherSuites = new ArrayList<>();
@@ -106,7 +115,21 @@ public class ClientHello extends HandshakeMessage {
             throw new IllegalParameterAlert("Invalid legacy compression method");
         }
 
+        int extensionStart = buffer.position();
         extensions = parseExtensions(buffer, TlsConstants.HandshakeType.client_hello, customExtensionParser);
+        if (extensions.stream().anyMatch(ext -> ext instanceof PreSharedKeyExtension)) {
+            buffer.position(extensionStart);
+            pskExtensionStartPosition = findPositionLastExtension(buffer);
+            // https://datatracker.ietf.org/doc/html/rfc8446#section-4.2.11
+            // "The "pre_shared_key" extension MUST be the last extension in the ClientHello (...). Servers MUST check
+            //  that it is the last extension and otherwise fail the handshake with an "illegal_parameter" alert."
+            if (! (extensions.get(extensions.size() - 1) instanceof PreSharedKeyExtension)) {
+                throw new IllegalParameterAlert("pre_shared_key extension MUST be the last extension in the ClientHello");
+            }
+        }
+        else {
+            pskExtensionStartPosition = -1;
+        }
 
         data = new byte[buffer.position() - startPosition];
         buffer.position(startPosition);
@@ -114,15 +137,26 @@ public class ClientHello extends HandshakeMessage {
     }
 
     public ClientHello(String serverName, ECPublicKey publicKey) {
-        this(serverName, publicKey, true, SUPPORTED_CIPHERS, SUPPORTED_SIGNATURES, secp256r1, Collections.emptyList());
+        this(serverName, publicKey, true, SUPPORTED_CIPHERS, SUPPORTED_SIGNATURES, secp256r1, Collections.emptyList(), null, PskKeyEstablishmentMode.both);
     }
 
     public ClientHello(String serverName, ECPublicKey publicKey, boolean compatibilityMode, List<Extension> extraExtensions) {
-        this(serverName, publicKey, compatibilityMode, SUPPORTED_CIPHERS, SUPPORTED_SIGNATURES, secp256r1, extraExtensions);
+        this(serverName, publicKey, compatibilityMode, SUPPORTED_CIPHERS, SUPPORTED_SIGNATURES, secp256r1, extraExtensions, null, PskKeyEstablishmentMode.both);
     }
 
+    /**
+     *  @param serverName
+     * @param publicKey
+     * @param compatibilityMode
+     * @param supportedCiphers
+     * @param supportedSignatures
+     * @param ecCurve
+     * @param extraExtensions
+     * @param tlsState              can be null when no ClientHelloPreSharedKeyExtension is present, must be non-null when ClientHelloPreSharedKeyExtension is present.
+     * @param pskKeyEstablishmentMode
+     */
     public ClientHello(String serverName, PublicKey publicKey, boolean compatibilityMode, List<TlsConstants.CipherSuite> supportedCiphers,
-                       List<TlsConstants.SignatureScheme> supportedSignatures, TlsConstants.NamedGroup ecCurve, List<Extension> extraExtensions) {
+                       List<TlsConstants.SignatureScheme> supportedSignatures, TlsConstants.NamedGroup ecCurve, List<Extension> extraExtensions, TlsState tlsState, PskKeyEstablishmentMode pskKeyEstablishmentMode) {
         this.cipherSuites = supportedCiphers;
 
         ByteBuffer buffer = ByteBuffer.allocate(MAX_CLIENT_HELLO_SIZE);
@@ -173,17 +207,19 @@ public class ClientHello extends HandshakeMessage {
                 new SupportedGroupsExtension(ecCurve),
                 new SignatureAlgorithmsExtension(supportedSignatures),
                 new KeyShareExtension(publicKey, ecCurve, TlsConstants.HandshakeType.client_hello),
-                new PskKeyExchangeModesExtension(TlsConstants.PskKeyExchangeMode.psk_dhe_ke)
         };
 
         extensions = new ArrayList<>();
         extensions.addAll(List.of(defaultExtensions));
+        if (pskKeyEstablishmentMode != PskKeyEstablishmentMode.none) {
+            extensions.add(createPskKeyExchangeModesExtension(pskKeyEstablishmentMode));
+        }
         extensions.addAll(extraExtensions);
 
-        int pskExtensionStartPosition = 0;
         ClientHelloPreSharedKeyExtension pskExtension = null;
         int extensionsLength = extensions.stream().mapToInt(ext -> ext.getBytes().length).sum();
         buffer.putShort((short) extensionsLength);
+        int pskExtensionStartPosition = -1;
         for (Extension extension: extensions) {
             if (extension instanceof ClientHelloPreSharedKeyExtension) {
                 pskExtension = (ClientHelloPreSharedKeyExtension) extension;
@@ -191,6 +227,7 @@ public class ClientHello extends HandshakeMessage {
             }
             buffer.put(extension.getBytes());
         }
+        this.pskExtensionStartPosition = pskExtensionStartPosition;  // Copy value into member field, necessary because field is final.
 
         buffer.limit(buffer.position());
         int clientHelloLength = buffer.position() - 4;
@@ -201,11 +238,27 @@ public class ClientHello extends HandshakeMessage {
         buffer.get(data);
 
         if (pskExtension != null) {
-            pskExtension.calculateBinder(data, pskExtensionStartPosition);
+            if (tlsState == null) {
+                throw new IllegalArgumentException("TlsState cannot be null when ClientHelloPreSharedKeyExtension is present");
+            }
+            pskExtension.calculateBinder(data, pskExtensionStartPosition, tlsState);
             buffer.position(pskExtensionStartPosition);
             buffer.put(pskExtension.getBytes());
             buffer.rewind();
             buffer.get(data);
+        }
+    }
+
+    private PskKeyExchangeModesExtension createPskKeyExchangeModesExtension(PskKeyEstablishmentMode pskKeyEstablishmentMode) {
+        switch (pskKeyEstablishmentMode) {
+            case PSKonly:
+                return new PskKeyExchangeModesExtension(TlsConstants.PskKeyExchangeMode.psk_ke);
+            case PSKwithDHE:
+                return new PskKeyExchangeModesExtension(TlsConstants.PskKeyExchangeMode.psk_dhe_ke);
+            case both:
+                return new PskKeyExchangeModesExtension(TlsConstants.PskKeyExchangeMode.psk_ke, TlsConstants.PskKeyExchangeMode.psk_dhe_ke);
+            default:
+                throw new IllegalArgumentException();
         }
     }
 
@@ -229,6 +282,14 @@ public class ClientHello extends HandshakeMessage {
 
     public List<Extension> getExtensions() {
         return extensions;
+    }
+
+    /**
+     * Returns the start position of the PreSharedKeyExtension in the serialized ClientHello. This is needed for computing binders.
+     * @return  the start position or -1 if not present.
+     */
+    public int getPskExtensionStartPosition() {
+        return pskExtensionStartPosition;
     }
 
     @Override

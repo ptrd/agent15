@@ -18,7 +18,9 @@
  */
 package net.luminis.tls.handshake;
 
+import net.luminis.tls.TlsConstants;
 import net.luminis.tls.alert.DecodeErrorException;
+import net.luminis.tls.alert.IllegalParameterAlert;
 import net.luminis.tls.extension.*;
 import net.luminis.tls.handshake.ClientHello;
 import net.luminis.tls.util.ByteUtils;
@@ -104,5 +106,22 @@ class ClientHelloTest {
 
         ClientHello ch = new ClientHello(ByteBuffer.wrap(data), null);
         assertThat(ch.getCipherSuites()).isEmpty();
+    }
+
+    @Test
+    void parseClientHelloWithPreSharedKeyExtensionNotAsLast() throws Exception {
+        byte[] data = ByteUtils.hexToBytes(("01 00002b 0303 2411ec38adb041713ca81a04182a655b567ecc8c4935e082ec20bb233d57aff2"
+                //    cipher    comp ext's length
+                + "00 0002 1301 0100 0046"
+                // pre shared key ext
+                + "0029 003b 0016 0010 000102030405060708090a0b0c0d0e0f ffffffff 0021 20 000102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0f"
+                // version ext
+                + "002b0003020304"));
+
+        assertThatThrownBy(() ->
+                new ClientHello(ByteBuffer.wrap(data), null)
+        )
+                .isInstanceOf(IllegalParameterAlert.class)
+                .hasMessageContaining("last extensio");
     }
 }

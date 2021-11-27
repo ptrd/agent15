@@ -18,28 +18,39 @@
  */
 package net.luminis.tls.extension;
 
+import net.luminis.tls.TlsConstants;
+import net.luminis.tls.alert.DecodeErrorException;
+
 import java.nio.ByteBuffer;
 
+/**
+ * TLS Pre-Shared Key Extension, ServerHello variant.
+ * see https://datatracker.ietf.org/doc/html/rfc8446#section-4.2.11
+ */
 public class ServerPreSharedKeyExtension extends PreSharedKeyExtension {
 
     private int selectedIdentity;
 
+    public ServerPreSharedKeyExtension(int selectedIdentity) {
+        this.selectedIdentity = selectedIdentity;
+    }
+
     public ServerPreSharedKeyExtension() {
     }
 
-    public ServerPreSharedKeyExtension parse(ByteBuffer buffer) {
-        // Parsing server variant!
-        buffer.getShort();
-        int extensionDataLength = buffer.getShort();
+    public ServerPreSharedKeyExtension parse(ByteBuffer buffer) throws DecodeErrorException {
+        parseExtensionHeader(buffer, TlsConstants.ExtensionType.pre_shared_key, 2);
         selectedIdentity = buffer.getShort();
-
         return this;
     }
 
-
     @Override
     public byte[] getBytes() {
-        return new byte[0];
+        ByteBuffer buffer = ByteBuffer.allocate(6);
+        buffer.putShort(TlsConstants.ExtensionType.pre_shared_key.value);
+        buffer.putShort((short) 0x02);
+        buffer.putShort((short) selectedIdentity);
+        return buffer.array();
     }
 
     public int getSelectedIdentity() {

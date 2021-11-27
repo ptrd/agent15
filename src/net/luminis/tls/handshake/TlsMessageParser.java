@@ -88,7 +88,7 @@ public class TlsMessageParser {
             messageProcessor.received(fm, protectedBy);
         }
         else if (messageType == new_session_ticket.value) {
-            NewSessionTicketMessage nst = new NewSessionTicketMessage().parse(buffer, length + 4);
+            NewSessionTicketMessage nst = new NewSessionTicketMessage().parse(buffer);
             parsedMessage = nst;
             messageProcessor.received(nst, protectedBy);
         }

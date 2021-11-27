@@ -123,13 +123,14 @@ public class TlsClientEngine extends TlsEngine implements ClientMessageProcessor
             extensions = new ArrayList<>();
             extensions.addAll(requestedExtensions);
             state = new TlsState(transcriptHash, newSessionTicket.getPSK());
-            extensions.add(new ClientHelloPreSharedKeyExtension(state, newSessionTicket));
+            extensions.add(new ClientHelloPreSharedKeyExtension(newSessionTicket));
         }
         else {
             state = new TlsState(transcriptHash);
         }
 
-        clientHello = new ClientHello(serverName, publicKey, compatibilityMode, supportedCiphers, supportedSignatures, ecCurve, extensions);
+        clientHello = new ClientHello(serverName, publicKey, compatibilityMode, supportedCiphers, supportedSignatures,
+                ecCurve, extensions, state, ClientHello.PskKeyEstablishmentMode.PSKwithDHE);
         sentExtensions = clientHello.getExtensions();
         sender.send(clientHello);
         status = Status.ClientHelloSent;
@@ -354,6 +355,10 @@ public class TlsClientEngine extends TlsEngine implements ClientMessageProcessor
         //     | Server    | ClientHello ... later   | server_handshake_traffic_   |
         //     |           | of EncryptedExtensions/ | secret                      |
         //     |           | CertificateRequest      |                             |"
+        // https://datatracker.ietf.org/doc/html/rfc8446#section-4.4.4
+        // "The verify_data value is computed as follows:
+        //   verify_data = HMAC(finished_key, Transcript-Hash(Handshake Context, Certificate*, CertificateVerify*))
+        //      * Only included if present."
         byte[] serverHmac = computeFinishedVerifyData(transcriptHash.getServerHash(TlsConstants.HandshakeType.certificate_verify), state.getServerHandshakeTrafficSecret());
         // https://tools.ietf.org/html/rfc8446#section-4.4
         // "Recipients of Finished messages MUST verify that the contents are correct and if incorrect MUST terminate the connection with a "decrypt_error" alert."
@@ -370,12 +375,17 @@ public class TlsClientEngine extends TlsEngine implements ClientMessageProcessor
         //     | Client    | ClientHello ... later   | client_handshake_traffic_   |
         //     |           | of server               | secret                      |
         //     |           | Finished/EndOfEarlyData |                             |"
+        // https://datatracker.ietf.org/doc/html/rfc8446#section-4.4.4
+        // "The verify_data value is computed as follows:
+        //   verify_data = HMAC(finished_key, Transcript-Hash(Handshake Context, Certificate*, CertificateVerify*))
+        //      * Only included if present."
         byte[] clientHmac = computeFinishedVerifyData(transcriptHash.getClientHash(TlsConstants.HandshakeType.certificate_verify), state.getClientHandshakeTrafficSecret());
         FinishedMessage clientFinished = new FinishedMessage(clientHmac);
         sender.send(clientFinished);
 
         transcriptHash.recordClient(clientFinished);
         state.computeApplicationSecrets();
+        state.computeResumptionMasterSecret();
         status = Status.Finished;
         statusHandler.handshakeFinished();
     }
