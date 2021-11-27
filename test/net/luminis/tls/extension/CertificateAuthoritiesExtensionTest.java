@@ -75,4 +75,11 @@ class CertificateAuthoritiesExtensionTest {
         ).isInstanceOf(DecodeErrorException.class);
     }
 
+    @Test
+    void possibleNegativeDnLength() throws Exception {
+        var buffer = ByteBuffer.wrap(ByteUtils.hexToBytes("002f 001a 0018 f016 30143112301006035504030c096c6f63616c686f7374"));
+        assertThatThrownBy(() ->
+                new CertificateAuthoritiesExtension(buffer)
+        ).isInstanceOf(DecodeErrorException.class);
+    }
 }

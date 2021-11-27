@@ -148,15 +148,13 @@ public class CertificateMessage extends HandshakeMessage {
 
             remainingCertificateBytes -= (3 + certSize);
             certCount++;
-            int extensionsSize = buffer.getShort();
-            if (extensionsSize > 0) {
-                // https://tools.ietf.org/html/rfc8446#section-4.4.2
-                // "Valid extensions for server certificates at present include the OCSP Status extension [RFC6066]
-                // and the SignedCertificateTimestamp extension [RFC6962];..."
-                // None of them is (yet) supported by this implementation.
-                byte[] extensionData = new byte[extensionsSize];
-                buffer.get(extensionData);
-            }
+            int extensionsSize = buffer.getShort() & 0xffff;
+            // https://tools.ietf.org/html/rfc8446#section-4.4.2
+            // "Valid extensions for server certificates at present include the OCSP Status extension [RFC6066]
+            // and the SignedCertificateTimestamp extension [RFC6962];..."
+            // None of them is (yet) supported by this implementation.
+            byte[] extensionData = new byte[extensionsSize];
+            buffer.get(extensionData);
             remainingCertificateBytes -= (2 + extensionsSize);
         }
         return certCount;

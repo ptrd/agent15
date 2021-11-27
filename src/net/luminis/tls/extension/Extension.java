@@ -41,7 +41,7 @@ public abstract class Extension {
         if (extensionType != expectedType) {
             throw new IllegalStateException();  // i.e. programming error
         }
-        int extensionDataLength = buffer.getShort();
+        int extensionDataLength = buffer.getShort() & 0xffff;
         if (extensionDataLength < minimumExtensionSize) {
             throw new DecodeErrorException(getClass().getSimpleName() + " can't be less than " + minimumExtensionSize + " bytes");
         }

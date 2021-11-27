@@ -62,19 +62,22 @@ public class ServerNameExtension extends Extension {
         }
     }
 
-    private String parseServerName(ByteBuffer buffer) {
+    private String parseServerName(ByteBuffer buffer) throws DecodeErrorException {
         int nameType = buffer.get();
         switch (nameType) {
             case 0:
                 // host_name
-                int hostNameLength = buffer.getShort();
+                int hostNameLength = buffer.getShort() & 0xffff;
+                if (hostNameLength > buffer.remaining()) {
+                    throw new DecodeErrorException("extension underflow");
+                }
                 byte[] hostNameBytes = new byte[hostNameLength];
                 buffer.get(hostNameBytes);
                 // "The hostname is represented as a byte string using ASCII encoding without a trailing dot. "
                 return new String(hostNameBytes, Charset.forName("ASCII"));
         }
         // unsupported type, RFC 6066 only defines hostname
-        throw new RuntimeException();
+        throw new DecodeErrorException("invalid NameType");
     }
 
     @Override

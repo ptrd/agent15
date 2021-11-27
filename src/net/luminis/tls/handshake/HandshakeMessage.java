@@ -150,7 +150,7 @@ public abstract class HandshakeMessage extends Message {
         while (remaining > 4) {
             lastExtensionStart = buffer.position();
             int type = buffer.getShort();
-            int length = buffer.getShort();
+            int length = buffer.getShort() & 0xffff;
             buffer.get(new byte[length]);
             remaining -= (2 + 2 + length);
         }

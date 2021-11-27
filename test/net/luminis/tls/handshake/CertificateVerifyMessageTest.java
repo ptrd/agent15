@@ -90,4 +90,15 @@ class CertificateVerifyMessageTest {
         CertificateVerifyMessage parsedMsg = msg.parse(ByteBuffer.wrap(data), data.length);
         assertThat(parsedMsg.getSignature()).isEqualTo(signature);
     }
+
+    @Test
+    void parseCertificateVerifyWithLargeSignatureLength() throws Exception {
+        byte[] rawData = ByteUtils.hexToBytes("0f00 0014 0804 8010000102030405060708090a0b0c0d0e0f");
+        CertificateVerifyMessage msg = new CertificateVerifyMessage();
+
+        assertThatThrownBy(() ->
+                msg.parse(ByteBuffer.wrap(rawData), 0)
+        ).isInstanceOf(DecodeErrorException.class);
+
+    }
 }

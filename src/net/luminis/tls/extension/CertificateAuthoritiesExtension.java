@@ -49,7 +49,7 @@ public class CertificateAuthoritiesExtension extends Extension {
                 throw new DecodeErrorException("inconsistent length fields");
             }
             remaining -= 2;
-            int dnLength = buffer.getShort();
+            int dnLength = buffer.getShort() & 0xffff;
             if (dnLength > remaining) {
                 throw new DecodeErrorException("inconsistent length fields");
             }

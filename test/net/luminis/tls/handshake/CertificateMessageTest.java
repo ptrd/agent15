@@ -171,6 +171,16 @@ public class CertificateMessageTest {
         assertThat(parsedCertificateMessage.getEndEntityCertificate()).isEqualTo(cert);
     }
 
+    @Test
+    void parseMessageWithVeryLargeExtensionSize() throws Exception {
+        byte[] rawData = ByteUtils.hexToBytes("0b000400" + "00"
+                // cert list size cert data size
+                + "0004d6" +      "0004d1" + gmailCertificateBytes + "8000");
+
+        assertThatThrownBy(() ->
+                new CertificateMessage().parse(ByteBuffer.wrap(rawData))
+        ).isInstanceOf(DecodeErrorException.class);
+    }
 
     String gmailCertificateMessageBytes = "0b00092d000009290004d1308204cd308203b5a003020102021100a07defd2e6ff026c08"
             + "000000003ebf0d300d06092a864886f70d01010b05003042310b3009060355040613025553311e301c060355040a1315476f6f67"

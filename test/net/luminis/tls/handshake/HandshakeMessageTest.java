@@ -59,4 +59,12 @@ class HandshakeMessageTest {
         assertThat(HandshakeMessage.findPositionLastExtension(ByteBuffer.wrap(rawData))).isEqualTo(44);
     }
 
+    @Test
+    void findPositionLastExtensionWithLargeLength() {
+        // ...                                 size
+        byte[] rawData = new byte[6 + 32768];
+        System.arraycopy(ByteUtils.hexToBytes("0006 0029 8000"), 0, rawData, 0, 6);
+
+        assertThat(HandshakeMessage.findPositionLastExtension(ByteBuffer.wrap(rawData))).isEqualTo(2);
+    }
 }

@@ -64,7 +64,7 @@ public class CertificateVerifyMessage extends HandshakeMessage {
                     .findAny()
                     .orElseThrow(() -> new DecodeErrorException("Unknown signature schema"));
 
-            short signatureLength = buffer.getShort();
+            int signatureLength = buffer.getShort() & 0xffff;
             signature = new byte[signatureLength];
             buffer.get(signature);
             if (buffer.position() - startPosition != 4 + remainingLength) {

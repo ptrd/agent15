@@ -102,4 +102,12 @@ class ServerNameExtensionTest {
         ).isInstanceOf(DecodeErrorException.class);
     }
 
+    @Test
+    void parseExtensionWithVeryLargeHostname() throws Exception {
+        ByteBuffer buffer = ByteBuffer.wrap(ByteUtils.hexToBytes("0000" + "000e" + "000c" + "00" + "8009" + "6c6f63616c686f7374"));
+
+        assertThatThrownBy(() ->
+                new ServerNameExtension(buffer)
+        ).isInstanceOf(DecodeErrorException.class);
+    }
 }

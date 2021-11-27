@@ -34,7 +34,7 @@ public class UnknownExtension extends Extension {
 
         buffer.mark();
         type = buffer.getShort() & 0xffff;
-        int length = buffer.getShort();
+        int length = buffer.getShort() & 0xffff;
         if (buffer.remaining() < length) {
             throw new DecodeErrorException("Invalid extension length");
         }
