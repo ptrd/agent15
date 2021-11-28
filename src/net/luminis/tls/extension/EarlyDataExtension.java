@@ -19,28 +19,36 @@
 package net.luminis.tls.extension;
 
 import net.luminis.tls.TlsConstants;
-import net.luminis.tls.extension.Extension;
+import net.luminis.tls.alert.DecodeErrorException;
 
 import java.nio.ByteBuffer;
 
-// https://tools.ietf.org/html/rfc8446#section-4.2.10
+/**
+ * TLS Early Data Indication extension.
+ * See https://tools.ietf.org/html/rfc8446#section-4.2.10
+ */
 public class EarlyDataExtension extends Extension {
 
     private Long maxEarlyDataSize;
 
-    public Extension parse(ByteBuffer buffer) {
-        int extensionType = buffer.getShort();
-        if (extensionType != TlsConstants.ExtensionType.early_data.value) {
-            throw new RuntimeException();  // Must be programming error
-        }
+    public EarlyDataExtension() {
+    }
 
-        int extensionLength = buffer.getShort();
+    public EarlyDataExtension(ByteBuffer buffer, TlsConstants.HandshakeType context) throws DecodeErrorException {
+        int extensionDataLength = parseExtensionHeader(buffer, TlsConstants.ExtensionType.early_data.value, 0);
+
         // Only when used in New Session Ticket (message), the EarlyDataIndication value is non-empty.
-        if (extensionLength == 4) {
-            maxEarlyDataSize = buffer.getInt() & 0xffffffffL;
+        if (context == TlsConstants.HandshakeType.new_session_ticket) {
+            if (extensionDataLength == 4) {
+                maxEarlyDataSize = buffer.getInt() & 0xffffffffL;
+            }
+            else {
+                throw new DecodeErrorException("invalid extension data length");
+            }
         }
-
-        return this;
+        else if (extensionDataLength != 0) {
+            throw new DecodeErrorException("invalid extension data length");
+        }
     }
 
     @Override

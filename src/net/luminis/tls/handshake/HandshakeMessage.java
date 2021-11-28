@@ -102,7 +102,7 @@ public abstract class HandshakeMessage extends Message {
                 }
             }
             else if (extensionType == TlsConstants.ExtensionType.early_data.value) {
-                extensions.add(new EarlyDataExtension().parse(buffer));
+                extensions.add(new EarlyDataExtension(buffer, context));
             }
             else if (extensionType == TlsConstants.ExtensionType.supported_versions.value) {
                 extensions.add(new SupportedVersionsExtension(buffer, context));
