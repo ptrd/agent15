@@ -608,9 +608,4 @@ public class TlsClientEngine extends TlsEngine implements ClientMessageProcessor
     public void setClientCertificateCallback(Function<List<X500Principal>, CertificateWithPrivateKey> callback) {
         clientCertificateSelector = callback;
     }
-
-    // TODO: remove this
-    public TlsState getState() {
-        return state;
-    }
 }

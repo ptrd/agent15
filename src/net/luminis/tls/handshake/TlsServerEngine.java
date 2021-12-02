@@ -271,11 +271,6 @@ public class TlsServerEngine extends TlsEngine implements ServerMessageProcessor
         return serverExtensions;
     }
 
-    // TODO: remove this
-    public TlsState getState() {
-        return state;
-    }
-
     public void addServerExtensions(Extension extension) {
         serverExtensions.add(extension);
     }

@@ -437,8 +437,6 @@ class TlsClientEngineTest extends EngineTest {
     @Test
     void incorrectServerFinishedShouldAbortTls() throws Exception {
         handshakeUpToFinished();
-        Mockito.when(engine.getState().getServerHandshakeTrafficSecret()).thenReturn(new byte[32]);
-        Mockito.when(engine.getState().getHashLength()).thenReturn((short) 32);
 
         FinishedMessage finishedMessage = new FinishedMessage(new byte[256]);
 
@@ -613,8 +611,6 @@ class TlsClientEngineTest extends EngineTest {
             }
             engine.received(new CertificateRequestMessage(new SignatureAlgorithmsExtension(clientAuthRequiredSignatureScheme)), ProtectionKeysType.Handshake);
         }
-        TlsState state = Mockito.spy(engine.getState());
-        FieldSetter.setField(engine, engine.getClass().getSuperclass().getDeclaredField("state"), state);
         X509Certificate certificate = CertificateUtils.inflateCertificate(encodedCertificate);
         byte[] validSignature = createServerSignature();
         engine.setTrustManager(createNoOpTrustManager());
