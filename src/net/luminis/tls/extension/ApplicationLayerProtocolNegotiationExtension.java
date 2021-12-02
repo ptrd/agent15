@@ -19,61 +19,63 @@
 package net.luminis.tls.extension;
 
 import net.luminis.tls.TlsConstants;
+import net.luminis.tls.alert.DecodeErrorException;
 
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 
 public class ApplicationLayerProtocolNegotiationExtension extends Extension {
 
-    private final byte[] data;
-    private List<String> protocols;
+    private final List<String> protocols;
 
-    public ApplicationLayerProtocolNegotiationExtension() {
-        data = null;
-    }
 
     public ApplicationLayerProtocolNegotiationExtension(String protocol) {
-        byte[] protocolName = protocol.getBytes(Charset.forName("UTF-8"));
         protocols = List.of(protocol);
-
-        ByteBuffer buffer = ByteBuffer.allocate(7 + protocolName.length);
-        buffer.putShort(TlsConstants.ExtensionType.application_layer_protocol_negotiation.value);
-
-        buffer.putShort((byte) (2 + 1 + protocolName.length));
-        buffer.putShort((byte) (1 + protocolName.length));
-        buffer.put((byte) protocolName.length);
-        buffer.put(protocolName);
-
-        data = new byte[buffer.limit()];
-        buffer.flip();
-        buffer.get(data);
     }
 
-    public ApplicationLayerProtocolNegotiationExtension parse(ByteBuffer buffer) {
-        int extensionType = buffer.getShort();
-        if (extensionType != TlsConstants.ExtensionType.application_layer_protocol_negotiation.value) {
-            throw new RuntimeException();  // Must be programming error
+    public ApplicationLayerProtocolNegotiationExtension(List<String> protocols) {
+        this.protocols = protocols;
+    }
+
+    public ApplicationLayerProtocolNegotiationExtension(ByteBuffer buffer) throws DecodeErrorException {
+        int extensionDataLength = parseExtensionHeader(buffer, TlsConstants.ExtensionType.application_layer_protocol_negotiation.value, 3);
+
+        int protocolsLength = buffer.getShort();
+        if (protocolsLength != extensionDataLength - 2) {
+            throw new DecodeErrorException("inconsistent lengths");
         }
 
-        int extensionLength = buffer.getShort();
-        int protocolsLength = buffer.getShort();
         protocols = new ArrayList<>();
         while (protocolsLength > 0) {
             int protocolNameLength = buffer.get() & 0xff;
+            if (protocolNameLength > protocolsLength - 1) {
+                throw new DecodeErrorException("incorrect length");
+            }
             byte[] protocolBytes = new byte[protocolNameLength];
             buffer.get(protocolBytes);
             protocols.add(new String(protocolBytes));
             protocolsLength -= (1 + protocolNameLength);
         }
-
-        return this;
     }
 
     @Override
     public byte[] getBytes() {
-        return data;
+        int protocolNamesLength = protocols.stream().mapToInt(p -> p.getBytes(Charset.forName("UTF-8")).length).sum();
+        int size = 4 + 2 + protocols.size() + protocolNamesLength;
+        ByteBuffer buffer = ByteBuffer.allocate(size);
+        buffer.putShort(TlsConstants.ExtensionType.application_layer_protocol_negotiation.value);
+        buffer.putShort((short) (size - 4));
+        buffer.putShort((short) (size - 6));
+        protocols.forEach(protocol -> {
+            byte[] protocolName = protocol.getBytes(Charset.forName("UTF-8"));
+            buffer.put((byte) protocolName.length);
+            buffer.put(protocolName);
+        });
+
+        return buffer.array();
     }
 
     public List<String> getProtocols() {

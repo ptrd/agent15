@@ -88,7 +88,7 @@ public abstract class HandshakeMessage extends Message {
                 extensions.add(new SignatureAlgorithmsExtension(buffer));
             }
             else if (extensionType == TlsConstants.ExtensionType.application_layer_protocol_negotiation.value) {
-                extensions.add(new ApplicationLayerProtocolNegotiationExtension().parse(buffer));
+                extensions.add(new ApplicationLayerProtocolNegotiationExtension(buffer));
             }
             else if (extensionType == TlsConstants.ExtensionType.pre_shared_key.value) {
                 if (context == TlsConstants.HandshakeType.server_hello) {
