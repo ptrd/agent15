@@ -52,6 +52,14 @@ public class NewSessionTicketMessage extends HandshakeMessage {
         this.ticketLifetime = ticketLifetime;
     }
 
+    public NewSessionTicketMessage(int ticketLifetime, long ticketAgeAdd, byte[] ticketNonce, byte[] ticket, long maxEarlyDataSize) {
+        this.ticketAgeAdd = ticketAgeAdd;
+        this.ticket = ticket;
+        this.ticketNonce = ticketNonce;
+        this.ticketLifetime = ticketLifetime;
+        earlyDataExtension = new EarlyDataExtension(maxEarlyDataSize);
+    }
+
     public NewSessionTicketMessage parse(ByteBuffer buffer) throws TlsProtocolException {
         int remainingLength = parseHandshakeHeader(buffer, TlsConstants.HandshakeType.new_session_ticket, MINIMUM_MESSAGE_SIZE);
 
@@ -120,7 +128,8 @@ public class NewSessionTicketMessage extends HandshakeMessage {
 
     @Override
     public byte[] getBytes() {
-        int dataLength = 4 + 4 + 1 + ticketNonce.length + 2 + ticket.length + 2;
+        int extensionLength = earlyDataExtension != null? earlyDataExtension.getBytes().length: 0;
+        int dataLength = 4 + 4 + 1 + ticketNonce.length + 2 + ticket.length + 2 + extensionLength;
         ByteBuffer buffer = ByteBuffer.allocate(4 + dataLength);
         buffer.putInt((TlsConstants.HandshakeType.new_session_ticket.value << 24) | dataLength);
         buffer.putInt(ticketLifetime);
@@ -129,7 +138,10 @@ public class NewSessionTicketMessage extends HandshakeMessage {
         buffer.put(ticketNonce);
         buffer.putShort((short) ticket.length);
         buffer.put(ticket);
-        buffer.putShort((short) 0);  // No extensions
+        buffer.putShort((short) extensionLength);
+        if (earlyDataExtension != null) {
+            buffer.put(earlyDataExtension.getBytes());
+        }
 
         return buffer.array();
     }

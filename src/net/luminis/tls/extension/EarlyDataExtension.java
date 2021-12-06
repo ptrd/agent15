@@ -34,6 +34,10 @@ public class EarlyDataExtension extends Extension {
     public EarlyDataExtension() {
     }
 
+    public EarlyDataExtension(long maxEarlyDataSize) {
+        this.maxEarlyDataSize = maxEarlyDataSize;
+    }
+
     public EarlyDataExtension(ByteBuffer buffer, TlsConstants.HandshakeType context) throws DecodeErrorException {
         int extensionDataLength = parseExtensionHeader(buffer, TlsConstants.ExtensionType.early_data.value, 0);
 

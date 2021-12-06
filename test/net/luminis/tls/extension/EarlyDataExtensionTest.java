@@ -45,4 +45,16 @@ class EarlyDataExtensionTest {
                 new EarlyDataExtension(ByteBuffer.wrap(ByteUtils.hexToBytes("002a 0004 0000")), TlsConstants.HandshakeType.client_hello)
         ).isInstanceOf(DecodeErrorException.class);
     }
+
+    @Test
+    void serializeEarlyDataExtensionWithEarlyDataSize() {
+        var earlyDataExtension = new EarlyDataExtension(1024 * 1024);
+        assertThat(earlyDataExtension.getBytes()).isEqualTo(ByteUtils.hexToBytes("002a 0004 00100000"));
+    }
+
+    @Test
+    void serializeEarlyDataExtensionWithLargeEarlyDataSize() {
+        var earlyDataExtension = new EarlyDataExtension(0x80000000L);
+        assertThat(earlyDataExtension.getBytes()).isEqualTo(ByteUtils.hexToBytes("002a 0004 80000000"));
+    }
 }

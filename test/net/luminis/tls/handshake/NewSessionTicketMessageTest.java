@@ -116,4 +116,24 @@ class NewSessionTicketMessageTest {
         assertThat(parsedMsg.getTicketNonce()).isEqualTo(nonce);
         assertThat(parsedMsg.getTicket()).isEqualTo(ticket);
     }
+
+    @Test
+    void testSerializedMessageWithEarlyDataExtensionCanBeParsedCorrectly() throws Exception {
+        int lifetime = 604800;
+        int ageAdd = 12341234;
+        byte[] nonce = new byte[] { 0x0f, 0x0e, 0x0d, 0x0c, 0x0b, 0x0a, 0x09, 0x08, 0x07, 0x06, 0x05, 0x04, 0x03, 0x02, 0x01, 0x00 };
+        byte[] ticket = new byte[] { 0x0d, 0x0e, 0x0d, 0x0e, 0x0d, 0x0e, 0x0d, 0x0e, 0x0d, 0x0e };
+        long maxEarlyDataSize = 0x90008000L;
+        NewSessionTicketMessage message = new NewSessionTicketMessage(lifetime, ageAdd, nonce, ticket, maxEarlyDataSize);
+        byte[] serializedMsg = message.getBytes();
+        NewSessionTicketMessage parsedMsg = new NewSessionTicketMessage();
+        parsedMsg.parse(ByteBuffer.wrap(serializedMsg));
+
+        assertThat(parsedMsg.getTicketLifetime()).isEqualTo(lifetime);
+        assertThat(parsedMsg.getTicketAgeAdd()).isEqualTo(ageAdd);
+        assertThat(parsedMsg.getTicketNonce()).isEqualTo(nonce);
+        assertThat(parsedMsg.getTicket()).isEqualTo(ticket);
+        assertThat(parsedMsg.getEarlyDataExtension()).isNotNull();
+        assertThat(parsedMsg.getEarlyDataExtension().getMaxEarlyDataSize()).isEqualTo(0x90008000L);
+    }
 }
