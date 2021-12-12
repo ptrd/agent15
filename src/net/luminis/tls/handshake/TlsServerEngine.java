@@ -126,6 +126,7 @@ public class TlsServerEngine extends TlsEngine implements ServerMessageProcessor
         statusHandler.extensionsReceived(clientHello.getExtensions());
 
         // Start building TLS state and prepare response. First check whether client wants to use PSK (resumption)
+        boolean earlyDataAccepted = false;
         Integer selectedIdentity = null;
         if (pskExtension.isPresent()) {
             // "If clients offer "pre_shared_key" without a "psk_key_exchange_modes" extension, servers MUST abort the handshake."
@@ -147,6 +148,11 @@ public class TlsServerEngine extends TlsEngine implements ServerMessageProcessor
                     if (!validateBinder(preSharedKeyExtension.getBinders().get(selectedIdentity), preSharedKeyExtension.getBinderPosition(), clientHello)) {
                         state = null;
                         throw new DecryptErrorAlert("Invalid PSK binder");
+                    }
+                    // Now PSK is accepted, check for early-data-indication
+                    if (clientHello.getExtensions().stream().filter(ext -> ext instanceof EarlyDataExtension).findAny().isPresent()) {
+                        // Client intends to send early data, use callback to determine if it will be accepted.
+                        earlyDataAccepted = statusHandler.isEarlyDataAccepted();
                     }
                 }
             }
@@ -182,6 +188,9 @@ public class TlsServerEngine extends TlsEngine implements ServerMessageProcessor
         state.computeHandshakeSecrets();
         statusHandler.handshakeSecretsKnown();
 
+        if (earlyDataAccepted) {
+            serverExtensions.add(new EarlyDataExtension());
+        }
         EncryptedExtensions encryptedExtensions = new EncryptedExtensions(serverExtensions);
         serverMessageSender.send(encryptedExtensions);
         transcriptHash.record(encryptedExtensions);

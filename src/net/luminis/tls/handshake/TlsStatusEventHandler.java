@@ -24,6 +24,9 @@ import net.luminis.tls.extension.Extension;
 
 import java.util.List;
 
+/**
+ * Notifies state changes in the TLS layer.
+ */
 public interface TlsStatusEventHandler {
 
     void earlySecretsKnown();
@@ -35,5 +38,13 @@ public interface TlsStatusEventHandler {
     void newSessionTicketReceived(NewSessionTicket ticket);
 
     void extensionsReceived(List<Extension> extensions) throws TlsProtocolException;
+
+    /**
+     * Determines whether early data is accepted by the server. This method is called when the client has indicated
+     * it wants to use early data and the TLS layer of the server can accept it; this callback is used to let the
+     * server (that uses this library) decide whether it will accept early data.
+     * @return
+     */
+    boolean isEarlyDataAccepted();
 }
 
