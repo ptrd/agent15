@@ -39,9 +39,9 @@ class TlsSessionRegistryImplTest {
         var registry = new TlsSessionRegistryImpl();
         TlsState tlsState = mock(TlsState.class);
         when(tlsState.computePSK(any())).thenReturn(new byte[16]);
-        var ticketMessage1 = registry.createNewSessionTicketMessage((byte) 0, TlsConstants.CipherSuite.TLS_AES_256_GCM_SHA384, tlsState);
-        var ticketMessage2 = registry.createNewSessionTicketMessage((byte) 1, TlsConstants.CipherSuite.TLS_CHACHA20_POLY1305_SHA256, tlsState);
-        var ticketMessage3 = registry.createNewSessionTicketMessage((byte) 2, TlsConstants.CipherSuite.TLS_AES_128_GCM_SHA256, tlsState);
+        var ticketMessage1 = registry.createNewSessionTicketMessage((byte) 0, TlsConstants.CipherSuite.TLS_AES_256_GCM_SHA384, tlsState, "");
+        var ticketMessage2 = registry.createNewSessionTicketMessage((byte) 1, TlsConstants.CipherSuite.TLS_CHACHA20_POLY1305_SHA256, tlsState, "");
+        var ticketMessage3 = registry.createNewSessionTicketMessage((byte) 2, TlsConstants.CipherSuite.TLS_AES_128_GCM_SHA256, tlsState, "");
 
         // When
         Integer selectedIdentity = registry.selectIdentity(List.of(
@@ -60,9 +60,9 @@ class TlsSessionRegistryImplTest {
         var registry = new TlsSessionRegistryImpl(1);
         TlsState tlsState = mock(TlsState.class);
         when(tlsState.computePSK(any())).thenReturn(new byte[16]);
-        var ticketMessage1 = registry.createNewSessionTicketMessage((byte) 0, TlsConstants.CipherSuite.TLS_AES_128_GCM_SHA256, tlsState);
+        var ticketMessage1 = registry.createNewSessionTicketMessage((byte) 0, TlsConstants.CipherSuite.TLS_AES_128_GCM_SHA256, tlsState, "");
         Thread.sleep(500);
-        var ticketMessage2 = registry.createNewSessionTicketMessage((byte) 2, TlsConstants.CipherSuite.TLS_AES_128_GCM_SHA256, tlsState);
+        var ticketMessage2 = registry.createNewSessionTicketMessage((byte) 2, TlsConstants.CipherSuite.TLS_AES_128_GCM_SHA256, tlsState, "");
 
         // When
         Thread.sleep(505);
@@ -79,7 +79,7 @@ class TlsSessionRegistryImplTest {
         var registry = new TlsSessionRegistryImpl(1);
         TlsState tlsState = mock(TlsState.class);
         when(tlsState.computePSK(any())).thenReturn(new byte[16]);
-        var ticketMessage1 = registry.createNewSessionTicketMessage((byte) 0, TlsConstants.CipherSuite.TLS_AES_128_GCM_SHA256, tlsState);
+        var ticketMessage1 = registry.createNewSessionTicketMessage((byte) 0, TlsConstants.CipherSuite.TLS_AES_128_GCM_SHA256, tlsState, "");
 
         // When
         Thread.sleep(1005);

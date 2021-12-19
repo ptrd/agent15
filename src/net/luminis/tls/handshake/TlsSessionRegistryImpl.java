@@ -50,13 +50,13 @@ public class TlsSessionRegistryImpl implements TlsSessionRegistry {
         this.ticketLifeTimeInSeconds = ticketLifeTimeInSeconds;
     }
 
-    public NewSessionTicketMessage createNewSessionTicketMessage(byte ticketNonce, TlsConstants.CipherSuite cipher, TlsState tlsState) {
+    public NewSessionTicketMessage createNewSessionTicketMessage(byte ticketNonce, TlsConstants.CipherSuite cipher, TlsState tlsState, String applicationProtocol) {
         byte[] psk = tlsState.computePSK(new byte[] { ticketNonce });
         long ageAdd = randomGenerator.nextLong();
         byte[] ticketId = new byte[DEFAULT_TICKET_LENGTH];
         randomGenerator.nextBytes(ticketId);
         Instant expiry = Instant.now().plusMillis(TimeUnit.SECONDS.toMillis(ticketLifeTimeInSeconds));
-        sessions.put(new BytesKey(ticketId), new Session(ticketId, ticketNonce, ageAdd, psk, cipher, Instant.now(), expiry));
+        sessions.put(new BytesKey(ticketId), new Session(ticketId, ticketNonce, ageAdd, psk, cipher, Instant.now(), expiry, applicationProtocol));
         return new NewSessionTicketMessage(ticketLifeTimeInSeconds, ageAdd, new byte[] { ticketNonce }, ticketId);
     }
 
@@ -105,8 +105,9 @@ public class TlsSessionRegistryImpl implements TlsSessionRegistry {
         final TlsConstants.CipherSuite cipher;
         final Instant created;
         private final Instant expiry;
+        final String applicationProtocol;
 
-        public Session(byte[] ticketId, byte ticketNonce, long addAdd, byte[] psk, TlsConstants.CipherSuite cipher, Instant created, Instant expiry) {
+        public Session(byte[] ticketId, byte ticketNonce, long addAdd, byte[] psk, TlsConstants.CipherSuite cipher, Instant created, Instant expiry, String applicationProtocol) {
             this.ticketId = ticketId;
             this.ticketNonce = ticketNonce;
             this.addAdd = addAdd;
@@ -114,11 +115,17 @@ public class TlsSessionRegistryImpl implements TlsSessionRegistry {
             this.cipher = cipher;
             this.created = created;
             this.expiry = expiry;
+            this.applicationProtocol = applicationProtocol;
         }
 
         @Override
         public byte[] getPsk() {
             return psk;
+        }
+
+        @Override
+        public String getApplicationLayerProtocol() {
+            return applicationProtocol;
         }
     }
 

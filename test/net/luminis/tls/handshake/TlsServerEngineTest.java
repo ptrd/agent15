@@ -26,12 +26,17 @@ import net.luminis.tls.extension.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.mockito.internal.util.reflection.FieldSetter;
+import org.mockito.invocation.InvocationOnMock;
+import org.mockito.stubbing.Answer;
 
+import javax.crypto.Cipher;
 import java.security.KeyFactory;
 import java.security.PrivateKey;
 import java.security.cert.X509Certificate;
 import java.security.interfaces.ECPublicKey;
 import java.security.spec.PKCS8EncodedKeySpec;
+import java.util.Arrays;
 import java.util.Base64;
 import java.util.Collections;
 import java.util.List;
@@ -50,6 +55,7 @@ public class TlsServerEngineTest extends EngineTest {
     private ServerMessageSender messageSender;
     private X509Certificate serverCertificate;
     private TlsStatusEventHandler tlsStatusHandler;
+    private TlsSessionRegistryImpl tlsSessionRegistry;
 
     @BeforeEach
     private void initObjectUnderTest() throws Exception {
@@ -61,7 +67,12 @@ public class TlsServerEngineTest extends EngineTest {
 
         serverCertificate = CertificateUtils.inflateCertificate(encodedCertificate);
         tlsStatusHandler = mock(TlsStatusEventHandler.class);
-        engine = new TlsServerEngine(serverCertificate, privateKey, messageSender, tlsStatusHandler, new TlsSessionRegistryImpl());
+        tlsSessionRegistry = new TlsSessionRegistryImpl();
+        engine = new TlsServerEngine(serverCertificate, privateKey, messageSender, tlsStatusHandler, tlsSessionRegistry) {
+            protected boolean validateBinder(ClientHelloPreSharedKeyExtension.PskBinderEntry pskBinderEntry, int binderPosition, ClientHello clientHello) {
+                return true;
+            }
+        };
         engine.addSupportedCiphers(List.of(TLS_AES_128_GCM_SHA256));
 
         publicKey = KeyUtils.generatePublicKey();
@@ -238,6 +249,71 @@ public class TlsServerEngineTest extends EngineTest {
                 .isInstanceOf(MissingExtensionAlert.class);
     }
 
+    @Test
+    void whenALPNsMatchEarlyDataShouldBeEnabled() throws Exception {
+        // Given
+        TlsState tlsState = mock(TlsState.class);
+        when(tlsState.computePskBinder(any())).thenReturn(new byte[32]);
+        NewSessionTicketMessage ticketMessage = tlsSessionRegistry.createNewSessionTicketMessage((byte) 0, TLS_AES_128_GCM_SHA256, tlsState, "h3");
+        // And given a server that implements application protocol layer negotiation and sets the selected protocol....
+        simulateAlpnNegotation();
+
+        // When
+        ClientHello clientHello = createDefaultClientHello(List.of(
+                new PskKeyExchangeModesExtension(TlsConstants.PskKeyExchangeMode.psk_dhe_ke),
+                new ClientHelloPreSharedKeyExtension(new NewSessionTicket(tlsState, ticketMessage)),
+                new EarlyDataExtension(),
+                new ApplicationLayerProtocolNegotiationExtension("h3")
+        ), tlsState);
+        engine.received(clientHello, ProtectionKeysType.None);
+
+        // Then
+        verify(tlsStatusHandler).isEarlyDataAccepted();
+    }
+
+    @Test
+    void whenSelectedALPNnotSetEarlyDataShouldBeEnabled() throws Exception {
+        // Given
+        TlsState tlsState = mock(TlsState.class);
+        when(tlsState.computePskBinder(any())).thenReturn(new byte[32]);
+        NewSessionTicketMessage ticketMessage = tlsSessionRegistry.createNewSessionTicketMessage((byte) 0, TLS_AES_128_GCM_SHA256, tlsState, "h3");
+        // And given a server that implements application protocol layer negotiation and sets the selected protocol....
+        simulateAlpnNegotation();
+
+        // When
+        ClientHello clientHello = createDefaultClientHello(List.of(
+                new PskKeyExchangeModesExtension(TlsConstants.PskKeyExchangeMode.psk_dhe_ke),
+                new ClientHelloPreSharedKeyExtension(new NewSessionTicket(tlsState, ticketMessage)),
+                new EarlyDataExtension()
+        ), tlsState);
+        engine.received(clientHello, ProtectionKeysType.None);
+
+        // Then
+        verify(tlsStatusHandler, never()).isEarlyDataAccepted();
+    }
+
+    @Test
+    void whenALPNdontMatchEarlyDataShouldNotBeEnabled() throws Exception {
+        // Given
+        TlsState tlsState = mock(TlsState.class);
+        when(tlsState.computePskBinder(any())).thenReturn(new byte[32]);
+        NewSessionTicketMessage ticketMessage = tlsSessionRegistry.createNewSessionTicketMessage((byte) 0, TLS_AES_128_GCM_SHA256, tlsState, "h3");
+        // And given a server that implements application protocol layer negotiation and sets the selected protocol....
+        simulateAlpnNegotation();
+
+        // When
+        ClientHello clientHello = createDefaultClientHello(List.of(
+                new PskKeyExchangeModesExtension(TlsConstants.PskKeyExchangeMode.psk_dhe_ke),
+                new ClientHelloPreSharedKeyExtension(new NewSessionTicket(tlsState, ticketMessage)),
+                new EarlyDataExtension(),
+                new ApplicationLayerProtocolNegotiationExtension("http/1.1")
+        ), tlsState);
+        engine.received(clientHello, ProtectionKeysType.None);
+
+        // Then
+        verify(tlsStatusHandler, never()).isEarlyDataAccepted();
+    }
+
     private ClientHello createDefaultClientHello() {
         return createDefaultClientHello(Collections.emptyList(), null);
     }
@@ -247,5 +323,21 @@ public class TlsServerEngineTest extends EngineTest {
                 List.of(TLS_AES_128_GCM_SHA256),
                 List.of(TlsConstants.SignatureScheme.rsa_pss_rsae_sha256),
                 TlsConstants.NamedGroup.secp256r1, extensions, state, ClientHello.PskKeyEstablishmentMode.none);
+    }
+
+    private void simulateAlpnNegotation() throws Exception {
+        // A server is supposed to select an application layer protocol while processing client extensions...
+        doAnswer(new Answer<Void>() {
+            public Void answer(InvocationOnMock invocation) {
+                ((List) invocation.getArgument(0)).stream()
+                        // Find the ApplicationLayerProtocolNegotiationExtension, extra the first protocol and use that as selected
+                        .filter(ext -> ext instanceof ApplicationLayerProtocolNegotiationExtension)
+                        .map(ext -> ((ApplicationLayerProtocolNegotiationExtension) ext).getProtocols().get(0))
+                        .forEach(protocol -> engine.setSelectedApplicationLayerProtocol((String) protocol));
+                return null;
+            }
+        }
+        // ... in the extensionsReceived method
+        ).when(tlsStatusHandler).extensionsReceived(anyList());
     }
 }

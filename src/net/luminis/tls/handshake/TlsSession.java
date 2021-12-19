@@ -23,4 +23,5 @@ public interface TlsSession {
 
     byte[] getPsk();
 
+    String getApplicationLayerProtocol();
 }

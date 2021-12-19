@@ -26,7 +26,7 @@ import java.util.List;
 
 public interface TlsSessionRegistry {
 
-    NewSessionTicketMessage createNewSessionTicketMessage(byte ticketNonce, TlsConstants.CipherSuite selectedCipher, TlsState tlsState);
+    NewSessionTicketMessage createNewSessionTicketMessage(byte ticketNonce, TlsConstants.CipherSuite selectedCipher, TlsState tlsState, String selectedApplicationLayerProtocol);
 
     Integer selectIdentity(List<ClientHelloPreSharedKeyExtension.PskIdentity> identities, TlsConstants.CipherSuite selectedCipher);
 

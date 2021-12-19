@@ -47,6 +47,7 @@ public class TlsServerEngine extends TlsEngine implements ServerMessageProcessor
     private List<TlsConstants.PskKeyExchangeMode> clientSupportedKeyExchangeModes;
     private TlsSessionRegistry sessionRegistry;
     private byte currentTicketNumber = 0;
+    private String selectedApplicationLayerProtocol;
 
 
     public TlsServerEngine(List<X509Certificate> certificates, PrivateKey certificateKey, ServerMessageSender serverMessageSender, TlsStatusEventHandler tlsStatusHandler, TlsSessionRegistry tlsSessionRegistry) {
@@ -152,8 +153,19 @@ public class TlsServerEngine extends TlsEngine implements ServerMessageProcessor
                         }
                         // Now PSK is accepted, check for early-data-indication
                         if (clientHello.getExtensions().stream().filter(ext -> ext instanceof EarlyDataExtension).findAny().isPresent()) {
-                            // Client intends to send early data, use callback to determine if it will be accepted.
-                            earlyDataAccepted = statusHandler.isEarlyDataAccepted();
+                            // Client intends to send early data, first check whether application layer protocols match
+                            // https://datatracker.ietf.org/doc/html/rfc8446#section-4.2.11
+                            // "In order to accept early data, the server MUST have accepted a PSK cipher suite and selected
+                            //  the first key offered in the client's "pre_shared_key" extension. In addition, it MUST verify that the
+                            //   following values are the same as those associated with the selected PSK: (...)
+                            //   -  The selected cipher suite
+                            //   -  The selected ALPN [RFC7301] protocol, if any"
+                            // Check for non-null selectedApplicationLayerProtocol ensures it has been set (possibly to empty string, which is allowed)
+                            if (selectedIdentity == 0 && selectedApplicationLayerProtocol != null
+                                    && selectedApplicationLayerProtocol.equals(resumedSession.getApplicationLayerProtocol())) {
+                                // From TLS point of view, early data is acceptable, use callback to determine if it will be accepted.
+                                earlyDataAccepted = statusHandler.isEarlyDataAccepted();
+                            }
                         }
                     }
                 }
@@ -248,12 +260,13 @@ public class TlsServerEngine extends TlsEngine implements ServerMessageProcessor
         statusHandler.handshakeFinished();
 
         if (sessionRegistry != null && clientSupportedKeyExchangeModes.contains(psk_dhe_ke)) {  // Server only supports psk_dhe_ke
-            NewSessionTicketMessage newSessionTicketMessage = sessionRegistry.createNewSessionTicketMessage(currentTicketNumber++, selectedCipher, state);
+            NewSessionTicketMessage newSessionTicketMessage =
+                    sessionRegistry.createNewSessionTicketMessage(currentTicketNumber++, selectedCipher, state, selectedApplicationLayerProtocol);
             serverMessageSender.send(newSessionTicketMessage);
         }
     }
 
-    private boolean validateBinder(ClientHelloPreSharedKeyExtension.PskBinderEntry pskBinderEntry, int binderPosition, ClientHello clientHello) {
+    protected boolean validateBinder(ClientHelloPreSharedKeyExtension.PskBinderEntry pskBinderEntry, int binderPosition, ClientHello clientHello) {
         // https://datatracker.ietf.org/doc/html/rfc8446#section-4.2.11, section 4.2.11.2
         byte[] partialCH = Arrays.copyOfRange(clientHello.getBytes(), 0, clientHello.getPskExtensionStartPosition() + binderPosition);
         byte[] binder = state.computePskBinder(partialCH);
@@ -284,6 +297,13 @@ public class TlsServerEngine extends TlsEngine implements ServerMessageProcessor
 
     public void addServerExtensions(Extension extension) {
         serverExtensions.add(extension);
+    }
+
+    public void setSelectedApplicationLayerProtocol(String applicationProtocol) {
+        if (applicationProtocol == null) {
+            throw new IllegalArgumentException();
+        }
+        selectedApplicationLayerProtocol = applicationProtocol;
     }
 }
 
