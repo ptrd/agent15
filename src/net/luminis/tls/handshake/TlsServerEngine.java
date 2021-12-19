@@ -143,16 +143,18 @@ public class TlsServerEngine extends TlsEngine implements ServerMessageProcessor
                     //  If this value is not present or does not validate, the server MUST abort the handshake.
                     //  Servers SHOULD NOT attempt to validate multiple binders; rather, they SHOULD select a single PSK
                     //  and validate solely the binder that corresponds to that PSK."
-                    byte[] psk = sessionRegistry.getPsk(preSharedKeyExtension.getIdentities().get(selectedIdentity));
-                    state = new TlsState(transcriptHash, psk);
-                    if (!validateBinder(preSharedKeyExtension.getBinders().get(selectedIdentity), preSharedKeyExtension.getBinderPosition(), clientHello)) {
-                        state = null;
-                        throw new DecryptErrorAlert("Invalid PSK binder");
-                    }
-                    // Now PSK is accepted, check for early-data-indication
-                    if (clientHello.getExtensions().stream().filter(ext -> ext instanceof EarlyDataExtension).findAny().isPresent()) {
-                        // Client intends to send early data, use callback to determine if it will be accepted.
-                        earlyDataAccepted = statusHandler.isEarlyDataAccepted();
+                    TlsSession resumedSession = sessionRegistry.useSession(preSharedKeyExtension.getIdentities().get(selectedIdentity));
+                    if (resumedSession != null) {
+                        state = new TlsState(transcriptHash, resumedSession.getPsk());
+                        if (!validateBinder(preSharedKeyExtension.getBinders().get(selectedIdentity), preSharedKeyExtension.getBinderPosition(), clientHello)) {
+                            state = null;
+                            throw new DecryptErrorAlert("Invalid PSK binder");
+                        }
+                        // Now PSK is accepted, check for early-data-indication
+                        if (clientHello.getExtensions().stream().filter(ext -> ext instanceof EarlyDataExtension).findAny().isPresent()) {
+                            // Client intends to send early data, use callback to determine if it will be accepted.
+                            earlyDataAccepted = statusHandler.isEarlyDataAccepted();
+                        }
                     }
                 }
             }

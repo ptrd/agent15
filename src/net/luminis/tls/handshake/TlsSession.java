@@ -18,17 +18,9 @@
  */
 package net.luminis.tls.handshake;
 
-import net.luminis.tls.TlsConstants;
-import net.luminis.tls.TlsState;
-import net.luminis.tls.extension.ClientHelloPreSharedKeyExtension;
 
-import java.util.List;
+public interface TlsSession {
 
-public interface TlsSessionRegistry {
+    byte[] getPsk();
 
-    NewSessionTicketMessage createNewSessionTicketMessage(byte ticketNonce, TlsConstants.CipherSuite selectedCipher, TlsState tlsState);
-
-    Integer selectIdentity(List<ClientHelloPreSharedKeyExtension.PskIdentity> identities, TlsConstants.CipherSuite selectedCipher);
-
-    TlsSession useSession(ClientHelloPreSharedKeyExtension.PskIdentity pskIdentity);
 }

@@ -69,8 +69,8 @@ class TlsSessionRegistryImplTest {
         registry.cleanupExpiredPsks();
 
         // Then
-        assertThat(registry.getPsk(new ClientHelloPreSharedKeyExtension.PskIdentity(ticketMessage1.getTicket(), 0))).isNull();
-        assertThat(registry.getPsk(new ClientHelloPreSharedKeyExtension.PskIdentity(ticketMessage2.getTicket(), 0))).isNotNull();
+        assertThat(registry.useSession(new ClientHelloPreSharedKeyExtension.PskIdentity(ticketMessage1.getTicket(), 0))).isNull();
+        assertThat(registry.useSession(new ClientHelloPreSharedKeyExtension.PskIdentity(ticketMessage2.getTicket(), 0))).isNotNull();
     }
 
     @Test

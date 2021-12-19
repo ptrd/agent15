@@ -83,15 +83,9 @@ public class TlsSessionRegistryImpl implements TlsSessionRegistry {
     }
 
     @Override
-    public byte[] getPsk(ClientHelloPreSharedKeyExtension.PskIdentity pskIdentity) {
+    public TlsSession useSession(ClientHelloPreSharedKeyExtension.PskIdentity pskIdentity) {
         // Remove session immediately, to avoid psk being used more than once.
-        Session session = sessions.remove(new BytesKey(pskIdentity.getIdentity()));
-        if (session != null) {
-            return session.psk;
-        }
-        else {
-            return null;
-        }
+        return sessions.remove(new BytesKey(pskIdentity.getIdentity()));
     }
 
     void cleanupExpiredPsks() {
@@ -103,7 +97,7 @@ public class TlsSessionRegistryImpl implements TlsSessionRegistry {
         expired.forEach(key -> sessions.remove(key));
     }
 
-    private class Session {
+    private class Session implements TlsSession {
         final byte[] ticketId;
         final byte ticketNonce;
         final long addAdd;
@@ -120,6 +114,11 @@ public class TlsSessionRegistryImpl implements TlsSessionRegistry {
             this.cipher = cipher;
             this.created = created;
             this.expiry = expiry;
+        }
+
+        @Override
+        public byte[] getPsk() {
+            return psk;
         }
     }
 
