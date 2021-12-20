@@ -50,14 +50,25 @@ public class TlsSessionRegistryImpl implements TlsSessionRegistry {
         this.ticketLifeTimeInSeconds = ticketLifeTimeInSeconds;
     }
 
+    @Override
     public NewSessionTicketMessage createNewSessionTicketMessage(byte ticketNonce, TlsConstants.CipherSuite cipher, TlsState tlsState, String applicationProtocol) {
+        return createNewSessionTicketMessage(ticketNonce, cipher, tlsState, applicationProtocol, null);
+    }
+
+    @Override
+    public NewSessionTicketMessage createNewSessionTicketMessage(byte ticketNonce, TlsConstants.CipherSuite cipher, TlsState tlsState, String applicationProtocol, Long maxEarlyDataSize) {
         byte[] psk = tlsState.computePSK(new byte[] { ticketNonce });
         long ageAdd = randomGenerator.nextLong();
         byte[] ticketId = new byte[DEFAULT_TICKET_LENGTH];
         randomGenerator.nextBytes(ticketId);
         Instant expiry = Instant.now().plusMillis(TimeUnit.SECONDS.toMillis(ticketLifeTimeInSeconds));
         sessions.put(new BytesKey(ticketId), new Session(ticketId, ticketNonce, ageAdd, psk, cipher, Instant.now(), expiry, applicationProtocol));
-        return new NewSessionTicketMessage(ticketLifeTimeInSeconds, ageAdd, new byte[] { ticketNonce }, ticketId);
+        if (maxEarlyDataSize != null) {
+            return new NewSessionTicketMessage(ticketLifeTimeInSeconds, ageAdd, new byte[]{ ticketNonce }, ticketId, maxEarlyDataSize);
+        }
+        else {
+            return new NewSessionTicketMessage(ticketLifeTimeInSeconds, ageAdd, new byte[]{ ticketNonce }, ticketId);
+        }
     }
 
     @Override

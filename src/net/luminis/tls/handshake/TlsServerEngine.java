@@ -48,6 +48,7 @@ public class TlsServerEngine extends TlsEngine implements ServerMessageProcessor
     private TlsSessionRegistry sessionRegistry;
     private byte currentTicketNumber = 0;
     private String selectedApplicationLayerProtocol;
+    private Long maxEarlyDataSize = 0xffffffffL;  // Simply use max.
 
 
     public TlsServerEngine(List<X509Certificate> certificates, PrivateKey certificateKey, ServerMessageSender serverMessageSender, TlsStatusEventHandler tlsStatusHandler, TlsSessionRegistry tlsSessionRegistry) {
@@ -261,7 +262,7 @@ public class TlsServerEngine extends TlsEngine implements ServerMessageProcessor
 
         if (sessionRegistry != null && clientSupportedKeyExchangeModes.contains(psk_dhe_ke)) {  // Server only supports psk_dhe_ke
             NewSessionTicketMessage newSessionTicketMessage =
-                    sessionRegistry.createNewSessionTicketMessage(currentTicketNumber++, selectedCipher, state, selectedApplicationLayerProtocol);
+                    sessionRegistry.createNewSessionTicketMessage(currentTicketNumber++, selectedCipher, state, selectedApplicationLayerProtocol, maxEarlyDataSize);
             serverMessageSender.send(newSessionTicketMessage);
         }
     }

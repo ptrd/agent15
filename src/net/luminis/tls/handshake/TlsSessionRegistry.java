@@ -28,6 +28,8 @@ public interface TlsSessionRegistry {
 
     NewSessionTicketMessage createNewSessionTicketMessage(byte ticketNonce, TlsConstants.CipherSuite selectedCipher, TlsState tlsState, String selectedApplicationLayerProtocol);
 
+    NewSessionTicketMessage createNewSessionTicketMessage(byte ticketNonce, TlsConstants.CipherSuite selectedCipher, TlsState tlsState, String selectedApplicationLayerProtocol, Long maxEarlyDataSize);
+
     Integer selectIdentity(List<ClientHelloPreSharedKeyExtension.PskIdentity> identities, TlsConstants.CipherSuite selectedCipher);
 
     TlsSession useSession(ClientHelloPreSharedKeyExtension.PskIdentity pskIdentity);
