@@ -10,10 +10,10 @@ Agent15 is created and maintained by Peter Doornbosch. The latest greatest can a
 
 ## Status
 
-Agent15 implements all of the handshake protocol that is needed to setup and maintain a QUIC connection.
-[Session resumption](https://datatracker.ietf.org/doc/html/rfc8446#section-2.2) is supported for both roles (client and server),
-[0-RTT](https://datatracker.ietf.org/doc/html/rfc8446#section-2.3)
-is only supported for client connections.
+Agent15 implements all of the handshake protocol that is needed to setup and maintain a QUIC connection, including
+[session resumption](https://datatracker.ietf.org/doc/html/rfc8446#section-2.2) 
+and
+[0-RTT](https://datatracker.ietf.org/doc/html/rfc8446#section-2.3).
 
 Not all TLS 1.3 handshake messages are implemented (yet); some because they are not used at all in QUIC and others 
 because the Kwik project does not use them. The messages that are not implemented are:
@@ -93,7 +93,8 @@ If you have questions about this project, please mail the author (peter dot door
 
 ## Acknowledgements
 
-Many thanks to Michael Driscoll ([@xargsnotbombs](https://twitter.com/xargsnotbombs)) for writing the brilliant ["The New Illustrated TLS Connection, Every byte explained and reproduced"](https://tls13.ulfheim.net/);
+Many thanks to Michael Driscoll ([@xargsnotbombs](https://twitter.com/xargsnotbombs)) for writing 
+the brilliant ["The New Illustrated TLS Connection, Every byte explained and reproduced"](https://tls13.ulfheim.net/);
 I never would have succeeded in writing a functional TLS library without this help. 
 Thanks to Piet van Dongen for creating the marvellous logo!
 
