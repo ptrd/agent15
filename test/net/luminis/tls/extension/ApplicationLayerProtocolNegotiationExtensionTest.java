@@ -23,6 +23,7 @@ import net.luminis.tls.util.ByteUtils;
 import org.junit.jupiter.api.Test;
 
 import java.nio.ByteBuffer;
+import java.util.Collections;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -31,6 +32,26 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class ApplicationLayerProtocolNegotiationExtensionTest {
 
+    @Test
+    void whenConstructingExtensionProtocolCannotBeEmpty() {
+        assertThatThrownBy(() ->
+                new ApplicationLayerProtocolNegotiationExtension("")
+        ).isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void whenConstructingExtensionNoProtocolCanBeEmpty() {
+        assertThatThrownBy(() ->
+                new ApplicationLayerProtocolNegotiationExtension(List.of("h3", ""))
+        ).isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void whenConstructingExtensionProtocolListCannotBeEmpty() {
+        assertThatThrownBy(() ->
+                new ApplicationLayerProtocolNegotiationExtension(Collections.emptyList())
+        ).isInstanceOf(IllegalArgumentException.class);
+    }
     @Test
     void serializeALPNExtensionSingleProtocol() throws Exception {
         var extension = new ApplicationLayerProtocolNegotiationExtension("http/1.1");

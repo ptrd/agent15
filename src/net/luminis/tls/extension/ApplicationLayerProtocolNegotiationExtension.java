@@ -33,10 +33,19 @@ public class ApplicationLayerProtocolNegotiationExtension extends Extension {
 
 
     public ApplicationLayerProtocolNegotiationExtension(String protocol) {
+        if (protocol == null || protocol.trim().isEmpty()) {
+            throw new IllegalArgumentException("protocol cannot be empty");
+        }
         protocols = List.of(protocol);
     }
 
     public ApplicationLayerProtocolNegotiationExtension(List<String> protocols) {
+        if (protocols.isEmpty()) {
+            throw new IllegalArgumentException("list of protocols can't be empty");
+        }
+        if (protocols.stream().anyMatch(s -> s.trim().isEmpty())) {
+            throw new IllegalArgumentException("protocol cannot be empty");
+        }
         this.protocols = protocols;
     }
 
