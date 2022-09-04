@@ -23,14 +23,19 @@ import net.luminis.tls.TlsState;
 import net.luminis.tls.extension.ClientHelloPreSharedKeyExtension;
 
 import java.util.List;
+import java.util.NoSuchElementException;
 
 public interface TlsSessionRegistry {
 
-    NewSessionTicketMessage createNewSessionTicketMessage(byte ticketNonce, TlsConstants.CipherSuite selectedCipher, TlsState tlsState, String selectedApplicationLayerProtocol);
+    NewSessionTicketMessage createNewSessionTicketMessage(byte ticketNonce, TlsConstants.CipherSuite selectedCipher, TlsState tlsState,
+                                                          String selectedApplicationLayerProtocol);
 
-    NewSessionTicketMessage createNewSessionTicketMessage(byte ticketNonce, TlsConstants.CipherSuite selectedCipher, TlsState tlsState, String selectedApplicationLayerProtocol, Long maxEarlyDataSize);
+    NewSessionTicketMessage createNewSessionTicketMessage(byte ticketNonce, TlsConstants.CipherSuite selectedCipher, TlsState tlsState,
+                                                          String selectedApplicationLayerProtocol, Long maxEarlyDataSize, byte[] data);
 
     Integer selectIdentity(List<ClientHelloPreSharedKeyExtension.PskIdentity> identities, TlsConstants.CipherSuite selectedCipher);
 
     TlsSession useSession(ClientHelloPreSharedKeyExtension.PskIdentity pskIdentity);
+
+    byte[] peekSessionData(ClientHelloPreSharedKeyExtension.PskIdentity pskIdentity) throws NoSuchElementException;
 }

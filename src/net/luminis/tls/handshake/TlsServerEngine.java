@@ -23,9 +23,11 @@ import net.luminis.tls.alert.*;
 import net.luminis.tls.extension.*;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.security.*;
 import java.security.cert.X509Certificate;
 import java.util.*;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static net.luminis.tls.TlsConstants.CipherSuite.TLS_AES_128_GCM_SHA256;
@@ -49,6 +51,8 @@ public class TlsServerEngine extends TlsEngine implements ServerMessageProcessor
     private byte currentTicketNumber = 0;
     private String selectedApplicationLayerProtocol;
     private Long maxEarlyDataSize = 0xffffffffL;  // Simply use max.
+    private byte[] additionalSessionData;
+    private Function<ByteBuffer, Boolean> sessionDataVerificationCallback;
 
 
     public TlsServerEngine(List<X509Certificate> certificates, PrivateKey certificateKey, ServerMessageSender serverMessageSender, TlsStatusEventHandler tlsStatusHandler, TlsSessionRegistry tlsSessionRegistry) {
@@ -140,32 +144,34 @@ public class TlsServerEngine extends TlsEngine implements ServerMessageProcessor
                 ClientHelloPreSharedKeyExtension preSharedKeyExtension = (ClientHelloPreSharedKeyExtension) pskExtension.get();
                 selectedIdentity = sessionRegistry.selectIdentity(preSharedKeyExtension.getIdentities(), selectedCipher);
                 if (selectedIdentity != null) {
-                    // https://datatracker.ietf.org/doc/html/rfc8446#section-4.2.11
-                    // "Prior to accepting PSK key establishment, the server MUST validate the corresponding binder value.
-                    //  If this value is not present or does not validate, the server MUST abort the handshake.
-                    //  Servers SHOULD NOT attempt to validate multiple binders; rather, they SHOULD select a single PSK
-                    //  and validate solely the binder that corresponds to that PSK."
-                    TlsSession resumedSession = sessionRegistry.useSession(preSharedKeyExtension.getIdentities().get(selectedIdentity));
-                    if (resumedSession != null) {
-                        state = new TlsState(transcriptHash, resumedSession.getPsk());
-                        if (!validateBinder(preSharedKeyExtension.getBinders().get(selectedIdentity), preSharedKeyExtension.getBinderPosition(), clientHello)) {
-                            state = null;
-                            throw new DecryptErrorAlert("Invalid PSK binder");
-                        }
-                        // Now PSK is accepted, check for early-data-indication
-                        if (clientHello.getExtensions().stream().filter(ext -> ext instanceof EarlyDataExtension).findAny().isPresent()) {
-                            // Client intends to send early data, first check whether application layer protocols match
-                            // https://datatracker.ietf.org/doc/html/rfc8446#section-4.2.11
-                            // "In order to accept early data, the server MUST have accepted a PSK cipher suite and selected
-                            //  the first key offered in the client's "pre_shared_key" extension. In addition, it MUST verify that the
-                            //   following values are the same as those associated with the selected PSK: (...)
-                            //   -  The selected cipher suite
-                            //   -  The selected ALPN [RFC7301] protocol, if any"
-                            // Check for non-null selectedApplicationLayerProtocol ensures it has been set (possibly to empty string, which is allowed)
-                            if (selectedIdentity == 0 && selectedApplicationLayerProtocol != null
-                                    && selectedApplicationLayerProtocol.equals(resumedSession.getApplicationLayerProtocol())) {
-                                // From TLS point of view, early data is acceptable, use callback to determine if it will be accepted.
-                                earlyDataAccepted = statusHandler.isEarlyDataAccepted();
+                    if (isAcceptable(sessionRegistry.peekSessionData(preSharedKeyExtension.getIdentities().get(selectedIdentity)))) {
+                        // https://datatracker.ietf.org/doc/html/rfc8446#section-4.2.11
+                        // "Prior to accepting PSK key establishment, the server MUST validate the corresponding binder value.
+                        //  If this value is not present or does not validate, the server MUST abort the handshake.
+                        //  Servers SHOULD NOT attempt to validate multiple binders; rather, they SHOULD select a single PSK
+                        //  and validate solely the binder that corresponds to that PSK."
+                        TlsSession resumedSession = sessionRegistry.useSession(preSharedKeyExtension.getIdentities().get(selectedIdentity));
+                        if (resumedSession != null) {
+                            state = new TlsState(transcriptHash, resumedSession.getPsk());
+                            if (!validateBinder(preSharedKeyExtension.getBinders().get(selectedIdentity), preSharedKeyExtension.getBinderPosition(), clientHello)) {
+                                state = null;
+                                throw new DecryptErrorAlert("Invalid PSK binder");
+                            }
+                            // Now PSK is accepted, check for early-data-indication
+                            if (clientHello.getExtensions().stream().filter(ext -> ext instanceof EarlyDataExtension).findAny().isPresent()) {
+                                // Client intends to send early data, first check whether application layer protocols match
+                                // https://datatracker.ietf.org/doc/html/rfc8446#section-4.2.11
+                                // "In order to accept early data, the server MUST have accepted a PSK cipher suite and selected
+                                //  the first key offered in the client's "pre_shared_key" extension. In addition, it MUST verify that the
+                                //   following values are the same as those associated with the selected PSK: (...)
+                                //   -  The selected cipher suite
+                                //   -  The selected ALPN [RFC7301] protocol, if any"
+                                // Check for non-null selectedApplicationLayerProtocol ensures it has been set (possibly to empty string, which is allowed)
+                                if (selectedIdentity == 0 && selectedApplicationLayerProtocol != null
+                                        && selectedApplicationLayerProtocol.equals(resumedSession.getApplicationLayerProtocol())) {
+                                    // From TLS point of view, early data is acceptable, use callback to determine if it will be accepted.
+                                    earlyDataAccepted = statusHandler.isEarlyDataAccepted();
+                                }
                             }
                         }
                     }
@@ -173,7 +179,10 @@ public class TlsServerEngine extends TlsEngine implements ServerMessageProcessor
             }
         }
         if (state == null) {
+            // Resumption was not requested or not successful; init TLS state without PSK.
             state = new TlsState(transcriptHash);
+            // The selectedIdentity indicates which PSK was used to resume the session; it must be null when session is not resumed.
+            selectedIdentity = null;
         }
         transcriptHash.record(clientHello);
 
@@ -232,6 +241,15 @@ public class TlsServerEngine extends TlsEngine implements ServerMessageProcessor
         state.computeApplicationSecrets();
     }
 
+    private boolean isAcceptable(byte[] sessionData) {
+        if (sessionDataVerificationCallback == null || sessionData == null) {
+            return true;
+        }
+        else {
+            return sessionDataVerificationCallback.apply(ByteBuffer.wrap(sessionData));
+        }
+    }
+
     @Override
     public void received(FinishedMessage clientFinished, ProtectionKeysType protectedBy) throws TlsProtocolException, IOException {
         if (protectedBy != ProtectionKeysType.Handshake) {
@@ -262,7 +280,7 @@ public class TlsServerEngine extends TlsEngine implements ServerMessageProcessor
 
         if (sessionRegistry != null && clientSupportedKeyExchangeModes.contains(psk_dhe_ke)) {  // Server only supports psk_dhe_ke
             NewSessionTicketMessage newSessionTicketMessage =
-                    sessionRegistry.createNewSessionTicketMessage(currentTicketNumber++, selectedCipher, state, selectedApplicationLayerProtocol, maxEarlyDataSize);
+                    sessionRegistry.createNewSessionTicketMessage(currentTicketNumber++, selectedCipher, state, selectedApplicationLayerProtocol, maxEarlyDataSize, additionalSessionData);
             serverMessageSender.send(newSessionTicketMessage);
         }
     }
@@ -305,6 +323,29 @@ public class TlsServerEngine extends TlsEngine implements ServerMessageProcessor
             throw new IllegalArgumentException();
         }
         selectedApplicationLayerProtocol = applicationProtocol;
+    }
+
+    /**
+     * Set (other layer's) session data for this session. When this session is resumed (with a session ticket),
+     * this data will be provided to the session data verification callback, which enables the application layer to
+     * accept or deny the session resumption based on the data stored in the session.
+     * For example, with QUIC this is used to store the QUIC version in the session data, so when the session is
+     * resumed, the QUIC layer can verify the same QUIC version is used.
+     * @param additionalSessionData
+     */
+    public void setSessionData(byte[] additionalSessionData) {
+        this.additionalSessionData = additionalSessionData;
+    }
+
+    /**
+     * Set the callback that is called before a session is (successfully) resumed. If there is no data associated with
+     * the session, the callback is not called and verification is assumed to be successful, i.e. the session will be
+     * resumed.
+     * @param callback  the callback that is called with the stored session data; when the callback returns false
+     *                  the session will not be resumed.
+     */
+    public void setSessionDataVerificationCallback(Function<ByteBuffer, Boolean> callback) {
+        this.sessionDataVerificationCallback = callback;
     }
 }
 

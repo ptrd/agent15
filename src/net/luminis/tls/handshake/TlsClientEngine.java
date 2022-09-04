@@ -202,7 +202,6 @@ public class TlsClientEngine extends TlsEngine implements ClientMessageProcessor
             // https://tools.ietf.org/html/rfc8446#section-4.2.11
             // "In order to accept PSK key establishment, the server sends a "pre_shared_key" extension indicating the selected identity."
             pskAccepted = true;
-            System.out.println("JOH! PSK accepted!");
         }
 
         if (! supportedCiphers.contains(serverHello.getCipherSuite())) {
