@@ -26,17 +26,14 @@ import net.luminis.tls.extension.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
-import org.mockito.internal.util.reflection.FieldSetter;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
 
-import javax.crypto.Cipher;
 import java.security.KeyFactory;
 import java.security.PrivateKey;
 import java.security.cert.X509Certificate;
 import java.security.interfaces.ECPublicKey;
 import java.security.spec.PKCS8EncodedKeySpec;
-import java.util.Arrays;
 import java.util.Base64;
 import java.util.Collections;
 import java.util.List;
@@ -58,7 +55,7 @@ public class TlsServerEngineTest extends EngineTest {
     private TlsSessionRegistryImpl tlsSessionRegistry;
 
     @BeforeEach
-    private void initObjectUnderTest() throws Exception {
+    void initObjectUnderTest() throws Exception {
         messageSender = mock(ServerMessageSender.class);
 
         KeyFactory keyFactory = KeyFactory.getInstance("RSA");

@@ -22,6 +22,7 @@ import net.luminis.tls.*;
 import net.luminis.tls.alert.*;
 import net.luminis.tls.extension.*;
 import net.luminis.tls.util.ByteUtils;
+import net.luminis.tls.util.FieldSetter;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -29,12 +30,13 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.ArgumentMatchers;
 import org.mockito.Mockito;
 import org.mockito.internal.util.reflection.FieldReader;
-import org.mockito.internal.util.reflection.FieldSetter;
 
 import javax.net.ssl.X509TrustManager;
 import javax.security.auth.x500.X500Principal;
 import java.nio.ByteBuffer;
-import java.security.*;
+import java.security.KeyFactory;
+import java.security.PrivateKey;
+import java.security.Signature;
 import java.security.cert.Certificate;
 import java.security.cert.X509Certificate;
 import java.security.interfaces.ECPublicKey;
@@ -62,7 +64,7 @@ class TlsClientEngineTest extends EngineTest {
 
 
     @BeforeEach
-    private void initObjectUnderTest() {
+    void initObjectUnderTest() {
         messageSender = Mockito.mock(ClientMessageSender.class);
         engine = new TlsClientEngine(messageSender, Mockito.mock(TlsStatusEventHandler.class));
         engine.setServerName("server");
