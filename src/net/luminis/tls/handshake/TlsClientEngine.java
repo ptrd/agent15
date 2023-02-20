@@ -466,7 +466,7 @@ public class TlsClientEngine extends TlsEngine implements ClientMessageProcessor
     protected void checkCertificateValidity(List<X509Certificate> certificates) throws BadCertificateAlert {
         try {
             if (customTrustManager != null) {
-                customTrustManager.checkServerTrusted(certificates.toArray(X509Certificate[]::new), "RSA");
+                customTrustManager.checkServerTrusted(certificates.toArray(new X509Certificate[certificates.size()]), "RSA");
             }
             else {
                 // https://docs.oracle.com/en/java/javase/11/docs/specs/security/standard-names.html#trustmanagerfactory-algorithms
@@ -474,7 +474,7 @@ public class TlsClientEngine extends TlsEngine implements ClientMessageProcessor
                 TrustManagerFactory trustManagerFactory = TrustManagerFactory.getInstance("PKIX");
                 trustManagerFactory.init((KeyStore) null);
                 X509TrustManager trustMgr = (X509TrustManager) trustManagerFactory.getTrustManagers()[0];
-                trustMgr.checkServerTrusted(certificates.toArray(X509Certificate[]::new), "UNKNOWN");
+                trustMgr.checkServerTrusted(certificates.toArray(new X509Certificate[certificates.size()]), "UNKNOWN");
                 // If it gets here, the certificates are ok.
             }
         } catch (NoSuchAlgorithmException e) {
