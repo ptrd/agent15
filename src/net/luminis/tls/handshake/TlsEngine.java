@@ -24,6 +24,8 @@ import net.luminis.tls.TrafficSecrets;
 import net.luminis.tls.alert.ErrorAlert;
 import net.luminis.tls.alert.HandshakeFailureAlert;
 import net.luminis.tls.alert.InternalErrorAlert;
+import net.luminis.tls.env.AlgorithmMapping;
+import net.luminis.tls.env.PlatformMapping;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
@@ -44,9 +46,13 @@ public abstract class TlsEngine implements MessageProcessor, TrafficSecrets {
     protected PublicKey publicKey;
     protected PrivateKey privateKey;
     protected TlsState state;
+    protected AlgorithmMapping algorithmMapping;
+
+    public TlsEngine() {
+        algorithmMapping = PlatformMapping.algorithmMapping();
+    }
 
     public abstract TlsConstants.CipherSuite getSelectedCipher();
-
 
     protected void generateKeys(TlsConstants.NamedGroup namedGroup) {
         try {
@@ -147,7 +153,7 @@ public abstract class TlsEngine implements MessageProcessor, TrafficSecrets {
         // rsa_pss_rsae_sha256 (for CertificateVerify and certificates), and ecdsa_secp256r1_sha256."
         if (signatureScheme.equals(rsa_pss_rsae_sha256)) {
             try {
-                signatureAlgorithm = Signature.getInstance("RSASSA-PSS");
+                signatureAlgorithm = Signature.getInstance(algorithmMapping.get("RSASSA-PSS"));
                 signatureAlgorithm.setParameter(new PSSParameterSpec("SHA-256", "MGF1", new MGF1ParameterSpec("SHA-256"), 32, 1));
             } catch (NoSuchAlgorithmException e) {
                 throw new RuntimeException("Missing RSASSA-PSS support");
@@ -158,7 +164,7 @@ public abstract class TlsEngine implements MessageProcessor, TrafficSecrets {
         }
         else if (signatureScheme.equals(rsa_pss_rsae_sha384)) {
             try {
-                signatureAlgorithm = Signature.getInstance("RSASSA-PSS");
+                signatureAlgorithm = Signature.getInstance(algorithmMapping.get("RSASSA-PSS"));
                 signatureAlgorithm.setParameter(new PSSParameterSpec("SHA-384", "MGF1", new MGF1ParameterSpec("SHA-384"), 48, 1));
             } catch (NoSuchAlgorithmException e) {
                 throw new RuntimeException("Missing RSASSA-PSS support");
@@ -169,7 +175,7 @@ public abstract class TlsEngine implements MessageProcessor, TrafficSecrets {
         }
         else if (signatureScheme.equals(rsa_pss_rsae_sha512)) {
             try {
-                signatureAlgorithm = Signature.getInstance("RSASSA-PSS");
+                signatureAlgorithm = Signature.getInstance(algorithmMapping.get("RSASSA-PSS"));
                 signatureAlgorithm.setParameter(new PSSParameterSpec("SHA-512", "MGF1", new MGF1ParameterSpec("SHA-512"), 64, 1));
             } catch (NoSuchAlgorithmException e) {
                 throw new RuntimeException("Missing RSASSA-PSS support");
@@ -241,6 +247,4 @@ public abstract class TlsEngine implements MessageProcessor, TrafficSecrets {
             throw new IllegalStateException("Traffic secret not yet available");
         }
     }
-
 }
-
