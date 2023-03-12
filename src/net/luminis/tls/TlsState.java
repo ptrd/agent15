@@ -42,7 +42,6 @@ public class TlsState {
     private final MessageDigest hashFunction;
     private final HKDF hkdf;
     private final byte[] emptyHash;
-    private final short authenticationTagLength = 16;
     private final short keyLength = 16;   // Assuming AES-128, use 32 for AES-256
     private final short hashLength = 32;  // Assuming SHA-256, use 48 for SHA-384
     private final short iv_length = 12;
@@ -59,12 +58,6 @@ public class TlsState {
     private byte[] handshakeSecret;
     private byte[] clientApplicationTrafficSecret;
     private byte[] serverApplicationTrafficSecret;
-    private byte[] serverKey;
-    private byte[] serverIv;
-    private byte[] clientKey;
-    private byte[] clientIv;
-    private int serverRecordCount = 0;
-    private int clientRecordCount = 0;
     private final TranscriptHash transcriptHash;
     private byte[] sharedSecret;
     private byte[] masterSecret;
@@ -180,27 +173,19 @@ public class TlsState {
 
         byte[] clientHandshakeKey = hkdfExpandLabel(clientHandshakeTrafficSecret, "key", "", keyLength);
         Logger.debug("Client handshake key: " + bytesToHex(clientHandshakeKey));
-        clientKey = clientHandshakeKey;
 
         byte[] serverHandshakeKey = hkdfExpandLabel(serverHandshakeTrafficSecret, "key", "", keyLength);
         Logger.debug("Server handshake key: " + bytesToHex(serverHandshakeKey));
-        serverKey = serverHandshakeKey;
 
         byte[] clientHandshakeIV = hkdfExpandLabel(clientHandshakeTrafficSecret, "iv", "", iv_length);
         Logger.debug("Client handshake iv: " + bytesToHex(clientHandshakeIV));
-        clientIv = clientHandshakeIV;
 
         byte[] serverHandshakeIV = hkdfExpandLabel(serverHandshakeTrafficSecret, "iv", "", iv_length);
         Logger.debug("Server handshake iv: " + bytesToHex(serverHandshakeIV));
-        serverIv = serverHandshakeIV;
     }
 
     public void computeApplicationSecrets() {
         computeApplicationSecrets(handshakeSecret);
-
-        // Reset record counters
-        serverRecordCount = 0;
-        clientRecordCount = 0;
     }
 
     void computeApplicationSecrets(byte[] handshakeSecret) {
@@ -221,19 +206,15 @@ public class TlsState {
 
         byte[] clientApplicationKey = hkdfExpandLabel(clientApplicationTrafficSecret, "key", "", keyLength);
         Logger.debug("Client application key: " + bytesToHex(clientApplicationKey));
-        clientKey = clientApplicationKey;
 
         byte[] serverApplicationKey = hkdfExpandLabel(serverApplicationTrafficSecret, "key", "", keyLength);
         Logger.debug("Server application key: " + bytesToHex(serverApplicationKey));
-        serverKey = serverApplicationKey;
 
         byte[] clientApplicationIv = hkdfExpandLabel(clientApplicationTrafficSecret, "iv", "", iv_length);
         Logger.debug("Client application iv: " + bytesToHex(clientApplicationIv));
-        clientIv = clientApplicationIv;
 
         byte[] serverApplicationIv = hkdfExpandLabel(serverApplicationTrafficSecret, "iv", "", iv_length);
         Logger.debug("Server application iv: " + bytesToHex(serverApplicationIv));
-        serverIv = serverApplicationIv;
     }
 
     public void computeResumptionMasterSecret() {
@@ -265,78 +246,6 @@ public class TlsState {
         hkdfLabel.put((byte) (context.length));
         hkdfLabel.put(context);
         return hkdf.expand(secret, hkdfLabel.array(), length);
-    }
-
-
-    public byte[] decrypt(byte[] recordHeader, byte[] payload) {
-        int recordSize = (recordHeader[3] & 0xff) << 8 | (recordHeader[4] & 0xff);
-        Logger.debug("Payload length: " + payload.length + " bytes, size in record: " + recordSize);
-
-        byte[] encryptedData = new byte[recordSize - 16];
-        byte[] authTag = new byte[16];
-        System.arraycopy(payload, 0, encryptedData, 0, encryptedData.length);
-        System.arraycopy(payload, 0 + recordSize - 16, authTag, 0, authTag.length);
-
-        Logger.debug("Record data: " + bytesToHex(recordHeader));
-        Logger.debug("Encrypted data: " + bytesToHex(encryptedData, Math.min(8, encryptedData.length))
-                + "..." + bytesToHex(encryptedData, Math.max(encryptedData.length - 8, 0), Math.min(8, encryptedData.length)));
-        Logger.debug("Auth tag: " + bytesToHex(authTag));
-
-        byte[] wrapped = decryptPayload(payload, recordHeader, serverRecordCount);
-        serverRecordCount++;
-        Logger.debug("Decrypted data (" + wrapped.length + "): " + bytesToHex(wrapped, Math.min(8, wrapped.length))
-                + "..." + bytesToHex(wrapped, Math.max(wrapped.length - 8, 0), Math.min(8, wrapped.length)));
-        return wrapped;
-    }
-
-    byte[] decryptPayload(byte[] message, byte[] associatedData, int recordNumber) {
-        ByteBuffer nonceInput = ByteBuffer.allocate(iv_length);
-        nonceInput.putInt(0);
-        nonceInput.putLong((long) recordNumber);
-
-        byte[] nonce = new byte[iv_length];
-        int i = 0;
-        for (byte b : nonceInput.array())
-            nonce[i] = (byte) (b ^ serverIv[i++]);
-
-        try {
-            SecretKeySpec secretKey = new SecretKeySpec(serverKey, "AES");
-            String AES_GCM_NOPADDING = "AES/GCM/NoPadding";
-            Cipher aeadCipher = Cipher.getInstance(AES_GCM_NOPADDING);
-            GCMParameterSpec parameterSpec = new GCMParameterSpec(authenticationTagLength * 8, nonce);
-            aeadCipher.init(Cipher.DECRYPT_MODE, secretKey, parameterSpec);
-
-            aeadCipher.updateAAD(associatedData);
-            return aeadCipher.doFinal(message);
-        } catch (NoSuchAlgorithmException | NoSuchPaddingException | InvalidKeyException | InvalidAlgorithmParameterException
-                | IllegalBlockSizeException | BadPaddingException e) {
-            throw new RuntimeException("Crypto error: " + e);
-        }
-    }
-
-    public byte[] encryptPayload(byte[] message, byte[] associatedData) {
-        ByteBuffer nonceInput = ByteBuffer.allocate(iv_length);
-        nonceInput.putInt(0);
-        nonceInput.putLong((long) clientRecordCount);
-
-        byte[] nonce = new byte[iv_length];
-        int i = 0;
-        for (byte b : nonceInput.array())
-            nonce[i] = (byte) (b ^ clientIv[i++]);
-
-        try {
-            SecretKeySpec secretKey = new SecretKeySpec(clientKey, "AES");
-            String AES_GCM_NOPADDING = "AES/GCM/NoPadding";
-            Cipher aeadCipher = Cipher.getInstance(AES_GCM_NOPADDING);
-            GCMParameterSpec parameterSpec = new GCMParameterSpec(authenticationTagLength * 8, nonce);
-            aeadCipher.init(Cipher.ENCRYPT_MODE, secretKey, parameterSpec);
-
-            aeadCipher.updateAAD(associatedData);
-            return aeadCipher.doFinal(message);
-        } catch (NoSuchAlgorithmException | NoSuchPaddingException | InvalidKeyException | InvalidAlgorithmParameterException
-                | IllegalBlockSizeException | BadPaddingException e) {
-            throw new RuntimeException("Crypto error: " + e);
-        }
     }
 
     public short getHashLength() {
