@@ -1,6 +1,7 @@
 package net.luminis.tls.extension;
 
 import net.luminis.tls.NewSessionTicket;
+import net.luminis.tls.TlsConstants;
 import net.luminis.tls.TlsState;
 import net.luminis.tls.alert.DecodeErrorException;
 import net.luminis.tls.handshake.NewSessionTicketMessage;
@@ -19,7 +20,7 @@ class ClientHelloPreSharedKeyExtensionTest {
     @Test
     void testSerialize() throws Exception {
         var extension = new ClientHelloPreSharedKeyExtension(new NewSessionTicket(mock(TlsState.class),
-                new NewSessionTicketMessage(3600, 0xffffffff, new byte[]{ 0x00 }, new byte[]{ 0x00, 0x01, 0x02, 0x03 })));
+                new NewSessionTicketMessage(3600, 0xffffffff, new byte[]{ 0x00 }, new byte[]{ 0x00, 0x01, 0x02, 0x03 }), TlsConstants.CipherSuite.TLS_AES_128_GCM_SHA256));
         byte[] data = extension.getBytes();
 
         assertThat(data).isEqualTo(ByteUtils.hexToBytes("0029 002f 000a 0004 00010203 ffffffff 0021 20 0000000000000000000000000000000000000000000000000000000000000000"));
@@ -29,7 +30,7 @@ class ClientHelloPreSharedKeyExtensionTest {
     void parseSerializedExtension() throws Exception {
 
         var extension = new ClientHelloPreSharedKeyExtension(new NewSessionTicket(mock(TlsState.class),
-                new NewSessionTicketMessage(3600, 0xca, new byte[]{ 0x00 }, new byte[]{ 0x00, 0x01, 0x02, 0x03 })));
+                new NewSessionTicketMessage(3600, 0xca, new byte[]{ 0x00 }, new byte[]{ 0x00, 0x01, 0x02, 0x03 }), TlsConstants.CipherSuite.TLS_AES_128_GCM_SHA256));
         byte[] data = extension.getBytes();
         var parsedExtension = new ClientHelloPreSharedKeyExtension().parse(ByteBuffer.wrap(data));
         assertThat(parsedExtension.getIdentities()).hasSize(1);

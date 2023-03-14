@@ -110,6 +110,9 @@ public class TlsClientEngine extends TlsEngine implements ClientMessageProcessor
             unsupportedSignatures.removeAll(AVAILABLE_SIGNATURES);
             throw new IllegalArgumentException("Unsupported signature scheme(s): " + unsupportedSignatures);
         }
+        if (newSessionTicket != null && !supportedCiphers.contains(newSessionTicket.getCipher())) {
+            throw new IllegalStateException("For session resumption, support ciphers should contain the cipher used with the session-to-resume (" + newSessionTicket.getCipher().toString() + ")");
+        }
 
         supportedSignatures = signatureSchemes;
         generateKeys(ecCurve);
@@ -394,7 +397,7 @@ public class TlsClientEngine extends TlsEngine implements ClientMessageProcessor
         if (protectedBy != ProtectionKeysType.Application) {
             throw new UnexpectedMessageAlert("incorrect protection level");
         }
-        NewSessionTicket ticket = new NewSessionTicket(state, nst);
+        NewSessionTicket ticket = new NewSessionTicket(state, nst, selectedCipher);
         obtainedNewSessionTickets.add(ticket);
         statusHandler.newSessionTicketReceived(ticket);
     }
