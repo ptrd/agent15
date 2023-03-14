@@ -37,7 +37,7 @@ import static net.luminis.tls.TlsConstants.SignatureScheme.rsa_pss_rsae_sha256;
 
 public class TlsServerEngine extends TlsEngine implements ServerMessageProcessor {
 
-    private final ArrayList<TlsConstants.CipherSuite> supportedCiphers;
+    private final Set<TlsConstants.CipherSuite> supportedCiphers;
     private final ArrayList<Extension> extensions;
     private ServerMessageSender serverMessageSender;
     protected TlsStatusEventHandler statusHandler;
@@ -60,7 +60,7 @@ public class TlsServerEngine extends TlsEngine implements ServerMessageProcessor
         this.certificatePrivateKey = certificateKey;
         this.serverMessageSender = serverMessageSender;
         this.statusHandler = tlsStatusHandler;
-        supportedCiphers = new ArrayList<>();
+        supportedCiphers = new HashSet<>();
         supportedCiphers.add(TLS_AES_128_GCM_SHA256);
         extensions = new ArrayList<>();
         serverExtensions = new ArrayList<>();
