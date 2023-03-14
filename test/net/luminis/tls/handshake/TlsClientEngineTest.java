@@ -177,7 +177,6 @@ class TlsClientEngineTest extends EngineTest {
     void afterProperServerHelloTrafficSecretsAreAvailable() throws Exception {
         // Given
         engine.startHandshake();
-        Assertions.assertThat(engine.getClientHandshakeTrafficSecret()).isNull();
 
         // When
         ServerHello serverHello = new ServerHello(TLS_AES_128_GCM_SHA256, List.of(

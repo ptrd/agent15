@@ -22,7 +22,6 @@ import at.favre.lib.crypto.HKDF;
 import at.favre.lib.crypto.HkdfMacFactory;
 
 import javax.crypto.*;
-import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
@@ -42,8 +41,8 @@ public class TlsState {
     private final MessageDigest hashFunction;
     private final HKDF hkdf;
     private final byte[] emptyHash;
-    private final short keyLength = 16;   // Assuming AES-128, use 32 for AES-256
-    private final short hashLength = 32;  // Assuming SHA-256, use 48 for SHA-384
+    private final short keyLength;
+    private final short hashLength;
     private final short iv_length = 12;
     private boolean pskSelected;
     private PublicKey serverSharedKey;
@@ -62,19 +61,21 @@ public class TlsState {
     private byte[] sharedSecret;
     private byte[] masterSecret;
 
-    public TlsState(TranscriptHash transcriptHash, byte[] psk) {
+    public TlsState(TranscriptHash transcriptHash, byte[] psk, int keyLength, int hashLength) {
         this.psk = psk;
         this.transcriptHash = transcriptHash;
+        this.keyLength = (short) keyLength;
+        this.hashLength = (short) hashLength;
 
         // https://tools.ietf.org/html/rfc8446#section-7.1
         // "The Hash function used by Transcript-Hash and HKDF is the cipher suite hash algorithm."
-        String hashAlgorithm = "SHA-" + (hashLength * 8);
+        String hashAlgorithm = "SHA-" + (this.hashLength * 8);
         try {
             hashFunction = MessageDigest.getInstance(hashAlgorithm);
         } catch (NoSuchAlgorithmException e) {
             throw new RuntimeException("Missing " + hashAlgorithm + " support");
         }
-        String macAlgorithm = "HmacSHA" + (hashLength * 8);
+        String macAlgorithm = "HmacSHA" + (this.hashLength * 8);
         hkdf = HKDF.from(new HkdfMacFactory.Default(macAlgorithm, null));
 
         emptyHash = hashFunction.digest(new byte[0]);
@@ -84,13 +85,13 @@ public class TlsState {
             // https://tools.ietf.org/html/rfc8446#section-7.1
             // "If a given secret is not available, then the 0-value consisting of a
             //   string of Hash.length bytes set to zeros is used."
-            psk = new byte[hashLength];
+            psk = new byte[this.hashLength];
         }
         computeEarlySecret(psk);
     }
 
-    public TlsState(TranscriptHash transcriptHash) {
-        this(transcriptHash, null);
+    public TlsState(TranscriptHash transcriptHash, int keyLength, int hashLength) {
+        this(transcriptHash, null, keyLength, hashLength);
     }
 
     private byte[] computeEarlySecret(byte[] ikm) {

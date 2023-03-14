@@ -64,7 +64,6 @@ public class TlsServerEngine extends TlsEngine implements ServerMessageProcessor
         supportedCiphers.add(TLS_AES_128_GCM_SHA256);
         extensions = new ArrayList<>();
         serverExtensions = new ArrayList<>();
-        transcriptHash = new TranscriptHash(32);
         clientSupportedKeyExchangeModes = new ArrayList<>();
         sessionRegistry = tlsSessionRegistry;
     }
@@ -152,7 +151,8 @@ public class TlsServerEngine extends TlsEngine implements ServerMessageProcessor
                         //  and validate solely the binder that corresponds to that PSK."
                         TlsSession resumedSession = sessionRegistry.useSession(preSharedKeyExtension.getIdentities().get(selectedIdentity));
                         if (resumedSession != null) {
-                            state = new TlsState(transcriptHash, resumedSession.getPsk());
+                            transcriptHash = new TranscriptHash(hashLength(selectedCipher));
+                            state = new TlsState(transcriptHash, resumedSession.getPsk(), keyLength(selectedCipher), hashLength(selectedCipher));
                             if (!validateBinder(preSharedKeyExtension.getBinders().get(selectedIdentity), preSharedKeyExtension.getBinderPosition(), clientHello)) {
                                 state = null;
                                 throw new DecryptErrorAlert("Invalid PSK binder");
@@ -180,7 +180,8 @@ public class TlsServerEngine extends TlsEngine implements ServerMessageProcessor
         }
         if (state == null) {
             // Resumption was not requested or not successful; init TLS state without PSK.
-            state = new TlsState(transcriptHash);
+            transcriptHash = new TranscriptHash(hashLength(selectedCipher));
+            state = new TlsState(transcriptHash, keyLength(selectedCipher), hashLength(selectedCipher));
             // The selectedIdentity indicates which PSK was used to resume the session; it must be null when session is not resumed.
             selectedIdentity = null;
         }
