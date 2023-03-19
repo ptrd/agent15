@@ -38,9 +38,9 @@ this is supported by Agent15 by means of a custom extension parser function that
 Agent15 supports the following cipher suites:
 
 - TLS_AES_128_GCM_SHA256 (mandated by TLS 1.3 specification)
+- TLS_AES_256_GCM_SHA384
 - TLS_CHACHA20_POLY1305_SHA256
 
-So, TLS_AES_256_GCM_SHA384 is not (yet) supported, even though it SHOULD according to the TLS 1.3. specification.
 
 The following digital signatures are supported:
 
