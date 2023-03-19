@@ -236,7 +236,7 @@ public class TlsServerEngineTest extends EngineTest {
         TlsState tlsState = mock(TlsState.class);
         when(tlsState.computePskBinder(any())).thenReturn(new byte[32]);
         NewSessionTicket ticket = new NewSessionTicket(tlsState,
-                new NewSessionTicketMessage(3600, 0xffffffff, new byte[]{ 0x00 }, new byte[]{ 0x00, 0x01, 0x02, 0x03 }));
+                new NewSessionTicketMessage(3600, 0xffffffff, new byte[]{ 0x00 }, new byte[]{ 0x00, 0x01, 0x02, 0x03 }), TlsConstants.CipherSuite.TLS_AES_128_GCM_SHA256);
         ClientHello clientHello = createDefaultClientHello(List.of(new ClientHelloPreSharedKeyExtension(ticket)), tlsState);
 
         assertThatThrownBy(() ->
@@ -258,7 +258,7 @@ public class TlsServerEngineTest extends EngineTest {
         // When
         ClientHello clientHello = createDefaultClientHello(List.of(
                 new PskKeyExchangeModesExtension(TlsConstants.PskKeyExchangeMode.psk_dhe_ke),
-                new ClientHelloPreSharedKeyExtension(new NewSessionTicket(tlsState, ticketMessage)),
+                new ClientHelloPreSharedKeyExtension(new NewSessionTicket(tlsState, ticketMessage, TlsConstants.CipherSuite.TLS_AES_128_GCM_SHA256)),
                 new EarlyDataExtension(),
                 new ApplicationLayerProtocolNegotiationExtension("h3")
         ), tlsState);
@@ -280,7 +280,7 @@ public class TlsServerEngineTest extends EngineTest {
         // When
         ClientHello clientHello = createDefaultClientHello(List.of(
                 new PskKeyExchangeModesExtension(TlsConstants.PskKeyExchangeMode.psk_dhe_ke),
-                new ClientHelloPreSharedKeyExtension(new NewSessionTicket(tlsState, ticketMessage)),
+                new ClientHelloPreSharedKeyExtension(new NewSessionTicket(tlsState, ticketMessage, TlsConstants.CipherSuite.TLS_AES_128_GCM_SHA256)),
                 new EarlyDataExtension()
         ), tlsState);
         engine.received(clientHello, ProtectionKeysType.None);
@@ -301,7 +301,7 @@ public class TlsServerEngineTest extends EngineTest {
         // When
         ClientHello clientHello = createDefaultClientHello(List.of(
                 new PskKeyExchangeModesExtension(TlsConstants.PskKeyExchangeMode.psk_dhe_ke),
-                new ClientHelloPreSharedKeyExtension(new NewSessionTicket(tlsState, ticketMessage)),
+                new ClientHelloPreSharedKeyExtension(new NewSessionTicket(tlsState, ticketMessage, TlsConstants.CipherSuite.TLS_AES_128_GCM_SHA256)),
                 new EarlyDataExtension(),
                 new ApplicationLayerProtocolNegotiationExtension("http/1.1")
         ), tlsState);

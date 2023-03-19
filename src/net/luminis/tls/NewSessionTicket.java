@@ -22,6 +22,7 @@ import net.luminis.tls.handshake.NewSessionTicketMessage;
 
 import java.nio.ByteBuffer;
 import java.util.Date;
+import java.util.stream.Stream;
 
 
 public class NewSessionTicket {
@@ -33,16 +34,18 @@ public class NewSessionTicket {
     protected int ticketLifeTime;
     protected boolean hasEarlyDataExtension;
     protected long earlyDataMaxSize;
+    private TlsConstants.CipherSuite cipher;
 
     protected NewSessionTicket() {
     }
 
-    public NewSessionTicket(TlsState state, NewSessionTicketMessage newSessionTicketMessage) {
+    public NewSessionTicket(TlsState state, NewSessionTicketMessage newSessionTicketMessage, TlsConstants.CipherSuite currentCipher) {
         psk = state.computePSK(newSessionTicketMessage.getTicketNonce());
         ticketCreationDate = new Date();
         ticketAgeAdd = newSessionTicketMessage.getTicketAgeAdd();
         ticket = newSessionTicketMessage.getTicket();
         ticketLifeTime = newSessionTicketMessage.getTicketLifetime();
+        cipher = currentCipher;
         hasEarlyDataExtension = newSessionTicketMessage.getEarlyDataExtension() != null;
         if (hasEarlyDataExtension) {
             earlyDataMaxSize = newSessionTicketMessage.getEarlyDataExtension().getMaxEarlyDataSize();
@@ -63,6 +66,13 @@ public class NewSessionTicket {
             ticketLifeTime = buffer.getInt();
         }
         if (buffer.remaining() > 0) {
+            short cipherEncoding = buffer.getShort();
+            cipher = Stream.of(TlsConstants.CipherSuite.values()).filter(c -> c.value == cipherEncoding).findAny().orElseThrow();
+        }
+        else {
+            cipher = TlsConstants.CipherSuite.TLS_AES_128_GCM_SHA256;
+        }
+        if (buffer.remaining() > 0) {
             earlyDataMaxSize = buffer.getLong();
         }
     }
@@ -80,6 +90,7 @@ public class NewSessionTicket {
         buffer.putInt(psk.length);
         buffer.put(psk);
         buffer.putInt(ticketLifeTime);
+        buffer.putShort(cipher.value);
         if (hasEarlyDataExtension) {
             buffer.putLong(earlyDataMaxSize);
         }
@@ -112,6 +123,10 @@ public class NewSessionTicket {
 
     public byte[] getSessionTicketIdentity() {
         return ticket;
+    }
+
+    public TlsConstants.CipherSuite getCipher() {
+        return cipher;
     }
 
     public boolean hasEarlyDataExtension() {

@@ -38,6 +38,7 @@ import java.security.spec.MGF1ParameterSpec;
 import java.security.spec.NamedParameterSpec;
 import java.security.spec.PSSParameterSpec;
 
+import static net.luminis.tls.TlsConstants.CipherSuite.TLS_AES_256_GCM_SHA384;
 import static net.luminis.tls.TlsConstants.NamedGroup.*;
 import static net.luminis.tls.TlsConstants.SignatureScheme.*;
 
@@ -53,6 +54,42 @@ public abstract class TlsEngine implements MessageProcessor, TrafficSecrets {
     }
 
     public abstract TlsConstants.CipherSuite getSelectedCipher();
+
+    public static int hashLength(TlsConstants.CipherSuite cipher) {
+        switch (cipher) {
+            case TLS_AES_128_GCM_SHA256:
+                return 256 / 8;
+            case TLS_AES_256_GCM_SHA384:
+                return 384 / 8;
+            case TLS_CHACHA20_POLY1305_SHA256:
+                return 256 / 8;
+            case TLS_AES_128_CCM_SHA256:
+                return 256 / 8;
+            case TLS_AES_128_CCM_8_SHA256:
+                return 256 / 8;
+            default:
+                // Impossible, as all enum values are covered
+                throw new RuntimeException();
+        }
+    }
+
+    public static int keyLength(TlsConstants.CipherSuite cipher) {
+        switch (cipher) {
+            case TLS_AES_128_GCM_SHA256:
+                return 128 / 8;
+            case TLS_AES_256_GCM_SHA384:
+                return 256 / 8;
+            case TLS_CHACHA20_POLY1305_SHA256:
+                return 256 / 8;
+            case TLS_AES_128_CCM_SHA256:
+                return 128 / 8;
+            case TLS_AES_128_CCM_8_SHA256:
+                return 128 / 8;
+            default:
+                // Impossible, as all enum values are covered
+                throw new RuntimeException();
+        }
+    }
 
     protected void generateKeys(TlsConstants.NamedGroup namedGroup) {
         try {
