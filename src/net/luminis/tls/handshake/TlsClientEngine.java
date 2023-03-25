@@ -138,6 +138,12 @@ public class TlsClientEngine extends TlsEngine implements ClientMessageProcessor
         clientHello = new ClientHello(serverName, publicKey, compatibilityMode, supportedCiphers, supportedSignatures,
                 ecCurve, extensions, state, ClientHello.PskKeyEstablishmentMode.PSKwithDHE);
         sentExtensions = clientHello.getExtensions();
+
+        if (state != null) {
+            transcriptHash.record(clientHello);
+            state.computeEarlyTrafficSecret();
+            statusHandler.earlySecretsKnown();
+        }
         sender.send(clientHello);
         status = Status.ClientHelloSent;
     }
@@ -214,10 +220,10 @@ public class TlsClientEngine extends TlsEngine implements ClientMessageProcessor
         if (state == null) {
             transcriptHash = new TranscriptHash(hashLength(selectedCipher));
             state = new TlsState(transcriptHash, keyLength(selectedCipher), hashLength(selectedCipher));
+            transcriptHash.record(clientHello);
+            state.computeEarlyTrafficSecret();
+            statusHandler.earlySecretsKnown();
         }
-        transcriptHash.record(clientHello);
-        state.computeEarlyTrafficSecret();
-        statusHandler.earlySecretsKnown();
 
         if (preSharedKey.isPresent()) {
             state.setPskSelected(((ServerPreSharedKeyExtension) preSharedKey.get()).getSelectedIdentity());
