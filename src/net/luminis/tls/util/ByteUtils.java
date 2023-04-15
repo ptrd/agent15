@@ -19,8 +19,11 @@
 package net.luminis.tls.util;
 
 import java.nio.ByteBuffer;
+import java.util.regex.Pattern;
 
 public class ByteUtils {
+
+    public static final Pattern HEXADECIMAL_PATTERN = Pattern.compile("\\p{XDigit}+");
 
     public static String bytesToHex(byte[] data, int length) {
         String digits = "0123456789abcdef";
@@ -83,6 +86,9 @@ public class ByteUtils {
 
     public static byte[] hexToBytes(String hex) {
         hex = hex.replace(" ", "");
+        if (! HEXADECIMAL_PATTERN.matcher(hex).matches()) {
+            throw new IllegalArgumentException("Input should be hexadecimal string");
+        }
         int length = hex.length();
         byte[] data = new byte[length / 2];
         for (int i = 0; i < length; i += 2) {
