@@ -27,11 +27,6 @@ sourceSets {
             srcDir "${buildDir}/generated"
         }
     }
-    test {
-        java {
-            srcDirs = ['test']
-        }
-    }
 }
 
 test {
