@@ -76,6 +76,28 @@ public class TlsServerEngineTest extends EngineTest {
     }
 
     @Test
+    void secondClientHelloMessageShouldBeIgnored() throws Exception {
+        // Given
+        engine.addSupportedCiphers(List.of(TLS_CHACHA20_POLY1305_SHA256));
+
+        ClientHello clientHello1 =  new ClientHello("localhost", publicKey, false,
+                List.of(TLS_AES_128_GCM_SHA256),
+                List.of(TlsConstants.SignatureScheme.rsa_pss_rsae_sha256),
+                TlsConstants.NamedGroup.secp256r1, Collections.emptyList(), null, ClientHello.PskKeyEstablishmentMode.none);
+        engine.received(clientHello1, ProtectionKeysType.None);
+
+        // When
+        ClientHello clientHello2 =  new ClientHello("localhost", publicKey, false,
+                List.of(TLS_CHACHA20_POLY1305_SHA256),   // Intentionally different cipher, this is the crux of the test!
+                List.of(TlsConstants.SignatureScheme.rsa_pss_rsae_sha256),
+                TlsConstants.NamedGroup.secp256r1, Collections.emptyList(), null, ClientHello.PskKeyEstablishmentMode.none);
+        engine.received(clientHello2, ProtectionKeysType.None);
+
+        // Then
+        assertThat(engine.getSelectedCipher()).isEqualTo(TLS_AES_128_GCM_SHA256);
+    }
+
+    @Test
     void failingCipherNegotiationLeadsToHandshakeException() throws Exception {
         // Given
         ClientHello clientHello = new ClientHello("localhost", publicKey, false,
