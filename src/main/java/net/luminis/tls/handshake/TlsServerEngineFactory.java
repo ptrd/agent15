@@ -19,6 +19,7 @@
 package net.luminis.tls.handshake;
 
 import net.luminis.tls.TlsConstants;
+import net.luminis.tls.compat.InputStreamCompat;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -57,7 +58,7 @@ public class TlsServerEngineFactory {
     }
 
     private static List<X509Certificate> readCertificates(InputStream file) throws IOException, CertificateException {
-        String fileContent = new String(file.readAllBytes(), Charset.defaultCharset());
+        String fileContent = new String(InputStreamCompat.readAllBytes(file), Charset.defaultCharset());
         String[] chunks = fileContent.split("-----END CERTIFICATE-----\n");
 
         List<X509Certificate> certs = new ArrayList<>();
@@ -78,7 +79,7 @@ public class TlsServerEngineFactory {
     }
 
     private RSAPrivateKey readPrivateKey(InputStream file) throws IOException, InvalidKeySpecException {
-        String key = new String(file.readAllBytes(), Charset.defaultCharset());
+        String key = new String(InputStreamCompat.readAllBytes(file), Charset.defaultCharset());
 
         String privateKeyPEM = key
                 .replace("-----BEGIN PRIVATE KEY-----", "")
