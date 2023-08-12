@@ -104,6 +104,9 @@ public class TlsClientEngine extends TlsEngine implements ClientMessageProcessor
     }
 
     public void startHandshake(TlsConstants.NamedGroup ecCurve, List<TlsConstants.SignatureScheme> signatureSchemes) throws IOException {
+        if (status != Status.Initial) {
+            throw new IllegalStateException("Handshake already started");
+        }
         if (signatureSchemes.stream().anyMatch(scheme -> !AVAILABLE_SIGNATURES.contains(scheme))) {
             // Remove available leaves the ones that are not available (cannot be supported)
             var unsupportedSignatures = new ArrayList<>(signatureSchemes);
@@ -156,6 +159,9 @@ public class TlsClientEngine extends TlsEngine implements ClientMessageProcessor
      */
     @Override
     public void received(ServerHello serverHello, ProtectionKeysType protectedBy) throws MissingExtensionAlert, IllegalParameterAlert {
+        if (status != Status.ClientHelloSent) {
+            return;
+        }
         boolean containsSupportedVersionExt = serverHello.getExtensions().stream().anyMatch(ext -> ext instanceof SupportedVersionsExtension);
         boolean containsKeyExt = serverHello.getExtensions().stream().anyMatch(ext -> ext instanceof PreSharedKeyExtension || ext instanceof KeyShareExtension);
         // https://tools.ietf.org/html/rfc8446#section-4.1.3

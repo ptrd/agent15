@@ -74,18 +74,28 @@ class TlsClientEngineTest extends EngineTest {
     }
 
     @Test
-    void serverHelloShouldContainMandatoryExtensions() {
+    void serverHelloShouldContainMandatoryExtensions() throws Exception {
+        // Given
+        engine.startHandshake();
+
+        // When
         ServerHello serverHello = new ServerHello(TLS_AES_128_CCM_8_SHA256);
 
+        // Then
         Assertions.assertThatThrownBy(() ->
                 engine.received(serverHello, ProtectionKeysType.None)
         ).isInstanceOf(MissingExtensionAlert.class);
     }
 
     @Test
-    void serverHelloShouldContainSupportedVersionExtension() {
+    void serverHelloShouldContainSupportedVersionExtension() throws Exception {
+        // Given
+        engine.startHandshake();
+
+        // When
         ServerHello serverHello = new ServerHello(TLS_AES_128_CCM_8_SHA256, List.of(new ServerPreSharedKeyExtension()));
 
+        // Then
         Assertions.assertThatThrownBy(() ->
                 engine.received(serverHello, ProtectionKeysType.None)
         ).isInstanceOf(MissingExtensionAlert.class);
@@ -93,10 +103,15 @@ class TlsClientEngineTest extends EngineTest {
 
     @Test
     void serverHelloSupportedVersionExtensionShouldContainRightVersion() throws Exception {
+        // Given
+        engine.startHandshake();
+
+        // When
         SupportedVersionsExtension supportedVersionsExtension = new SupportedVersionsExtension(TlsConstants.HandshakeType.server_hello);
         FieldSetter.setField(supportedVersionsExtension, supportedVersionsExtension.getClass().getDeclaredField("tlsVersion"), (short) 0x0303);
         ServerHello serverHello = new ServerHello(TLS_AES_128_CCM_8_SHA256, List.of(new ServerPreSharedKeyExtension(), supportedVersionsExtension));
 
+        // Then
         Assertions.assertThatThrownBy(() ->
                 engine.received(serverHello, ProtectionKeysType.None)
         ).isInstanceOf(IllegalParameterAlert.class);
