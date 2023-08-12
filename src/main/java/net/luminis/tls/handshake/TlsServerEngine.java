@@ -37,10 +37,20 @@ import static net.luminis.tls.TlsConstants.SignatureScheme.rsa_pss_rsae_sha256;
 
 public class TlsServerEngine extends TlsEngine implements ServerMessageProcessor {
 
+    // https://www.rfc-editor.org/rfc/rfc8446.html#appendix-A.2
+    enum Status {
+        Start,
+        ClientHelloReceived,
+        Negotiated,
+        WaitFinished,
+        Connected
+    }
+
     private final Set<TlsConstants.CipherSuite> supportedCiphers;
     private final ArrayList<Extension> extensions;
     private ServerMessageSender serverMessageSender;
     protected TlsStatusEventHandler statusHandler;
+    private Status status = Status.Start;
     private List<X509Certificate> serverCertificateChain;
     private PrivateKey certificatePrivateKey;
     private TranscriptHash transcriptHash;
@@ -74,6 +84,11 @@ public class TlsServerEngine extends TlsEngine implements ServerMessageProcessor
 
     @Override
     public void received(ClientHello clientHello, ProtectionKeysType protectedBy) throws TlsProtocolException, IOException {
+        if (status != Status.Start) {
+            return;
+        }
+        status = Status.ClientHelloReceived;
+
         // Find first cipher that server supports
         selectedCipher = clientHello.getCipherSuites().stream()
                 .filter(it -> supportedCiphers.contains(it))
@@ -129,6 +144,8 @@ public class TlsServerEngine extends TlsEngine implements ServerMessageProcessor
         // So: ClientHello is valid and negotiation was successful, as far as this engine is concerned.
         // Use callback to let context check other prerequisites, for example appropriate ALPN extension
         statusHandler.extensionsReceived(clientHello.getExtensions());
+
+        status = Status.Negotiated;
 
         // Start building TLS state and prepare response. First check whether client wants to use PSK (resumption)
         boolean earlyDataAccepted = false;
@@ -240,6 +257,8 @@ public class TlsServerEngine extends TlsEngine implements ServerMessageProcessor
         serverMessageSender.send(finished);
         transcriptHash.recordServer(finished);
         state.computeApplicationSecrets();
+
+        status = Status.WaitFinished;
     }
 
     private boolean isAcceptable(byte[] sessionData) {
@@ -253,6 +272,9 @@ public class TlsServerEngine extends TlsEngine implements ServerMessageProcessor
 
     @Override
     public void received(FinishedMessage clientFinished, ProtectionKeysType protectedBy) throws TlsProtocolException, IOException {
+        if (status != Status.WaitFinished) {
+            return;
+        }
         if (protectedBy != ProtectionKeysType.Handshake) {
             throw new UnexpectedMessageAlert("incorrect protection level");
         }
@@ -278,6 +300,8 @@ public class TlsServerEngine extends TlsEngine implements ServerMessageProcessor
 
         state.computeResumptionMasterSecret();
         statusHandler.handshakeFinished();
+
+        status = Status.Connected;
 
         if (sessionRegistry != null && clientSupportedKeyExchangeModes.contains(psk_dhe_ke)) {  // Server only supports psk_dhe_ke
             NewSessionTicketMessage newSessionTicketMessage =
