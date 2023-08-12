@@ -134,9 +134,7 @@ class TlsClientEngineTest extends EngineTest {
         // Given
         engine.startHandshake();
 
-        ServerHello serverHello = new ServerHello(TLS_AES_128_GCM_SHA256, List.of(
-                new SupportedVersionsExtension(TlsConstants.HandshakeType.server_hello),
-                new KeyShareExtension(publicKey, TlsConstants.NamedGroup.secp256r1, TlsConstants.HandshakeType.server_hello)));
+        ServerHello serverHello = createDefaultServerHello();
 
         engine.received(serverHello, ProtectionKeysType.None);
     }
@@ -164,9 +162,7 @@ class TlsClientEngineTest extends EngineTest {
         ).isInstanceOf(IllegalStateException.class);
 
         // When
-        ServerHello serverHello = new ServerHello(TLS_AES_128_GCM_SHA256, List.of(
-                new SupportedVersionsExtension(TlsConstants.HandshakeType.server_hello),
-                new KeyShareExtension(publicKey, TlsConstants.NamedGroup.secp256r1, TlsConstants.HandshakeType.server_hello)));
+        ServerHello serverHello = createDefaultServerHello();
         engine.received(serverHello, ProtectionKeysType.None);
 
         // Then
@@ -179,9 +175,7 @@ class TlsClientEngineTest extends EngineTest {
         engine.startHandshake();
 
         // When
-        ServerHello serverHello = new ServerHello(TLS_AES_128_GCM_SHA256, List.of(
-                new SupportedVersionsExtension(TlsConstants.HandshakeType.server_hello),
-                new KeyShareExtension(publicKey, TlsConstants.NamedGroup.secp256r1, TlsConstants.HandshakeType.server_hello)));
+        ServerHello serverHello = createDefaultServerHello();
         engine.received(serverHello, ProtectionKeysType.None);
 
         // Then
@@ -205,9 +199,7 @@ class TlsClientEngineTest extends EngineTest {
         // Given
         engine.startHandshake();
 
-        ServerHello serverHello = new ServerHello(TLS_AES_128_GCM_SHA256, List.of(
-                new SupportedVersionsExtension(TlsConstants.HandshakeType.server_hello),
-                new KeyShareExtension(publicKey, TlsConstants.NamedGroup.secp256r1, TlsConstants.HandshakeType.server_hello)));
+        ServerHello serverHello = createDefaultServerHello();
 
         engine.received(serverHello, ProtectionKeysType.None);
 
@@ -221,9 +213,7 @@ class TlsClientEngineTest extends EngineTest {
         // Given
         engine.startHandshake();
 
-        ServerHello serverHello = new ServerHello(TLS_AES_128_GCM_SHA256, List.of(
-                new SupportedVersionsExtension(TlsConstants.HandshakeType.server_hello),
-                new KeyShareExtension(publicKey, TlsConstants.NamedGroup.secp256r1, TlsConstants.HandshakeType.server_hello)));
+        ServerHello serverHello = createDefaultServerHello();
 
         engine.received(serverHello, ProtectionKeysType.None);
 
@@ -240,9 +230,7 @@ class TlsClientEngineTest extends EngineTest {
         // Given
         engine.startHandshake();
 
-        ServerHello serverHello = new ServerHello(TLS_AES_128_GCM_SHA256, List.of(
-                new SupportedVersionsExtension(TlsConstants.HandshakeType.server_hello),
-                new KeyShareExtension(publicKey, TlsConstants.NamedGroup.secp256r1, TlsConstants.HandshakeType.server_hello)));
+        ServerHello serverHello = createDefaultServerHello();
         engine.received(serverHello, ProtectionKeysType.None);
 
         // When, no Encrypted Extensions Message received
@@ -465,9 +453,7 @@ class TlsClientEngineTest extends EngineTest {
         // Given
         engine.startHandshake();
 
-        ServerHello serverHello = new ServerHello(TLS_AES_128_GCM_SHA256, List.of(
-                new SupportedVersionsExtension(TlsConstants.HandshakeType.server_hello),
-                new KeyShareExtension(publicKey, TlsConstants.NamedGroup.secp256r1, TlsConstants.HandshakeType.server_hello)));
+        ServerHello serverHello = createDefaultServerHello();
         engine.received(serverHello, ProtectionKeysType.None);
 
         // Then
@@ -571,6 +557,12 @@ class TlsClientEngineTest extends EngineTest {
         assertThat(messageCaptor.getValue().getSignatureScheme()).isEqualTo(rsa_pss_rsae_sha384);
     }
 
+    private ServerHello createDefaultServerHello() {
+        return new ServerHello(TLS_AES_128_GCM_SHA256, List.of(
+                new SupportedVersionsExtension(TlsConstants.HandshakeType.server_hello),
+                new KeyShareExtension(publicKey, TlsConstants.NamedGroup.secp256r1, TlsConstants.HandshakeType.server_hello)));
+    }
+
     private void handshakeUpToEncryptedExtensions() throws Exception {
         handshakeUpToEncryptedExtensions(List.of(rsa_pss_rsae_sha256));
     }
@@ -578,9 +570,7 @@ class TlsClientEngineTest extends EngineTest {
     private void handshakeUpToEncryptedExtensions(List<TlsConstants.SignatureScheme> signatureSchemes) throws Exception {
         engine.startHandshake(TlsConstants.NamedGroup.secp256r1, signatureSchemes);
 
-        ServerHello serverHello = new ServerHello(TLS_AES_128_GCM_SHA256, List.of(
-                new SupportedVersionsExtension(TlsConstants.HandshakeType.server_hello),
-                new KeyShareExtension(publicKey, TlsConstants.NamedGroup.secp256r1, TlsConstants.HandshakeType.server_hello)));
+        ServerHello serverHello = createDefaultServerHello();
         engine.received(serverHello, ProtectionKeysType.None);
         Mockito.clearInvocations(messageSender);
     }
