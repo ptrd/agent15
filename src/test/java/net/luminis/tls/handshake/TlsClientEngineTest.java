@@ -185,6 +185,22 @@ class TlsClientEngineTest extends EngineTest {
     }
 
     @Test
+    void secondServerHelloShouldBeIgnored() throws Exception {
+        // Given
+        engine.startHandshake();
+
+        ServerHello serverHello1 = createDefaultServerHello();
+        engine.received(serverHello1, ProtectionKeysType.None);
+
+        // When
+        ServerHello serverHello2 = createDefaultServerHello(TLS_CHACHA20_POLY1305_SHA256);
+        engine.received(serverHello2, ProtectionKeysType.None);
+
+        // Then
+        assertThat(engine.getSelectedCipher()).isEqualTo(TLS_AES_128_GCM_SHA256);
+    }
+
+    @Test
     void encryptedExtensionsShouldNotBeReceivedBeforeServerHello() throws Exception {
         // Given
         engine.startHandshake();
@@ -558,7 +574,11 @@ class TlsClientEngineTest extends EngineTest {
     }
 
     private ServerHello createDefaultServerHello() {
-        return new ServerHello(TLS_AES_128_GCM_SHA256, List.of(
+        return createDefaultServerHello(TLS_AES_128_GCM_SHA256);
+    }
+
+    private ServerHello createDefaultServerHello(TlsConstants.CipherSuite cipherSuite) {
+        return new ServerHello(cipherSuite, List.of(
                 new SupportedVersionsExtension(TlsConstants.HandshakeType.server_hello),
                 new KeyShareExtension(publicKey, TlsConstants.NamedGroup.secp256r1, TlsConstants.HandshakeType.server_hello)));
     }
