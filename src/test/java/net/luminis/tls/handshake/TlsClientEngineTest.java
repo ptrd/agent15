@@ -43,13 +43,9 @@ import java.security.interfaces.ECPublicKey;
 import java.security.spec.MGF1ParameterSpec;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.security.spec.PSSParameterSpec;
-import java.util.Arrays;
-import java.util.Base64;
-import java.util.Collections;
-import java.util.List;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
+import java.util.*;
 
+import static java.util.Collections.emptyList;
 import static net.luminis.tls.TlsConstants.CipherSuite.*;
 import static net.luminis.tls.TlsConstants.SignatureScheme.*;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -221,7 +217,7 @@ class TlsClientEngineTest extends EngineTest {
         engine.startHandshake();
 
         Assertions.assertThatThrownBy(() ->
-                engine.received(new EncryptedExtensions(Collections.emptyList()), ProtectionKeysType.Handshake)
+                engine.received(new EncryptedExtensions(emptyList()), ProtectionKeysType.Handshake)
         ).isInstanceOf(UnexpectedMessageAlert.class);
     }
 
@@ -312,7 +308,7 @@ class TlsClientEngineTest extends EngineTest {
     @Test
     void certificateVerifySignatureSchemeShouldMatch() throws Exception {
         // Given
-        handshakeUpToCertificate(List.of(TlsConstants.SignatureScheme.ecdsa_secp256r1_sha256));
+        handshakeUpToCertificate(List.of(TlsConstants.SignatureScheme.ecdsa_secp256r1_sha256), false);
         Certificate certificate = CertificateUtils.inflateCertificate(encodedCertificate);
         engine.received(new CertificateMessage((X509Certificate) certificate), ProtectionKeysType.Handshake);
 
@@ -431,8 +427,7 @@ class TlsClientEngineTest extends EngineTest {
     @Test
     void withPskAcceptedFinisedMessageShouldFollowEncryptedExentions() throws Exception {
         // Given
-        handshakeUpToCertificate();
-        FieldSetter.setField(engine, engine.getClass().getDeclaredField("pskAccepted"), true);
+        handshakeUpToCertificate(true);
 
         Assertions.assertThatThrownBy(() ->
                 // When
@@ -444,8 +439,7 @@ class TlsClientEngineTest extends EngineTest {
     @Test
     void withPskAcceptedFinisedMessageShouldNotBeReceivedBeforeEncryptedExentions() throws Exception {
         // Given
-        handshakeUpToEncryptedExtensions();
-        FieldSetter.setField(engine, engine.getClass().getDeclaredField("pskAccepted"), true);
+        handshakeUpToEncryptedExtensions(true);
 
         Assertions.assertThatThrownBy(() ->
                 // When
@@ -589,33 +583,52 @@ class TlsClientEngineTest extends EngineTest {
     }
 
     private ServerHello createDefaultServerHello() {
-        return createDefaultServerHello(TLS_AES_128_GCM_SHA256);
+        return createDefaultServerHello(TLS_AES_128_GCM_SHA256, emptyList());
     }
 
-    private ServerHello createDefaultServerHello(TlsConstants.CipherSuite cipherSuite) {
-        return new ServerHello(cipherSuite, List.of(
+    private ServerHello createDefaultServerHello(TlsConstants.CipherSuite cipherSuit) {
+        return createDefaultServerHello(cipherSuit, emptyList());
+    }
+
+    private ServerHello createDefaultServerHello(List<Extension> additionalExtensions) {
+        return createDefaultServerHello(TLS_AES_128_GCM_SHA256, additionalExtensions);
+    }
+
+    private ServerHello createDefaultServerHello(TlsConstants.CipherSuite cipherSuite, List<Extension> additionalExtensions) {
+        List<Extension> extensions = new ArrayList<>();
+        extensions.addAll(List.of(
                 new SupportedVersionsExtension(TlsConstants.HandshakeType.server_hello),
                 new KeyShareExtension(publicKey, TlsConstants.NamedGroup.secp256r1, TlsConstants.HandshakeType.server_hello)));
+        extensions.addAll(additionalExtensions);
+        return new ServerHello(cipherSuite, extensions);
     }
 
     private void handshakeUpToEncryptedExtensions() throws Exception {
-        handshakeUpToEncryptedExtensions(List.of(rsa_pss_rsae_sha256));
+        handshakeUpToEncryptedExtensions(List.of(rsa_pss_rsae_sha256), false);
     }
 
-    private void handshakeUpToEncryptedExtensions(List<TlsConstants.SignatureScheme> signatureSchemes) throws Exception {
+    private void handshakeUpToEncryptedExtensions(boolean withPsk) throws Exception {
+        handshakeUpToEncryptedExtensions(List.of(rsa_pss_rsae_sha256), withPsk);
+    }
+
+    private void handshakeUpToEncryptedExtensions(List<TlsConstants.SignatureScheme> signatureSchemes, boolean withPsk) throws Exception {
         engine.startHandshake(TlsConstants.NamedGroup.secp256r1, signatureSchemes);
 
-        ServerHello serverHello = createDefaultServerHello();
+        ServerHello serverHello = createDefaultServerHello(withPsk? List.of(new ServerPreSharedKeyExtension(0)): emptyList());
         engine.received(serverHello, ProtectionKeysType.None);
         Mockito.clearInvocations(messageSender);
     }
 
     private void handshakeUpToCertificate() throws Exception {
-        handshakeUpToCertificate(List.of(rsa_pss_rsae_sha256));
+        handshakeUpToCertificate(List.of(rsa_pss_rsae_sha256), false);
     }
 
-    private void handshakeUpToCertificate(List<TlsConstants.SignatureScheme> signatureSchemes) throws Exception {
-        handshakeUpToEncryptedExtensions(signatureSchemes);
+    private void handshakeUpToCertificate(boolean withPsk) throws Exception {
+        handshakeUpToCertificate(List.of(rsa_pss_rsae_sha256), withPsk);
+    }
+
+    private void handshakeUpToCertificate(List<TlsConstants.SignatureScheme> signatureSchemes, boolean withPsk) throws Exception {
+        handshakeUpToEncryptedExtensions(signatureSchemes, withPsk);
 
         TranscriptHash transcriptHash = (TranscriptHash) Mockito.spy(new FieldReader(engine, engine.getClass().getDeclaredField("transcriptHash")).read());
         Mockito.doReturn(ByteUtils.hexToBytes("0101010101010101010101010101010101010101010101010101010101010101")).when(transcriptHash).getServerHash(ArgumentMatchers.argThat(t -> t == TlsConstants.HandshakeType.certificate));
@@ -630,7 +643,7 @@ class TlsClientEngineTest extends EngineTest {
 
     private void handshakeUpToFinished(List<TlsConstants.SignatureScheme> signatureSchemes, boolean requestClientCert,
                                        TlsConstants.SignatureScheme clientAuthRequiredSignatureScheme) throws Exception {
-        handshakeUpToCertificate(signatureSchemes);
+        handshakeUpToCertificate(signatureSchemes, false);
         if (requestClientCert) {
             if (clientAuthRequiredSignatureScheme == null) {
                 clientAuthRequiredSignatureScheme = rsa_pss_rsae_sha256;

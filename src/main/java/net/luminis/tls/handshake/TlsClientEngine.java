@@ -49,15 +49,16 @@ public class TlsClientEngine extends TlsEngine implements ClientMessageProcessor
 
     private static final Charset ISO_8859_1 = Charset.forName("ISO-8859-1");
 
+    // https://www.rfc-editor.org/rfc/rfc8446.html#appendix-A.1
     enum Status {
-        Initial,
-        ClientHelloSent,
-        ServerHelloReceived,
-        EncryptedExtensionsReceived,
-        CertificateRequestReceived,
-        CertificateReceived,
-        CertificateVerifyReceived,
-        Finished
+        Start,
+        WaitServerHello,
+        WaitEncryptedExtensions,
+        WaitCertificateRequest,
+        WaitCertificate,
+        WaitCertificateVerify,
+        WaitFinished,
+        Connected
     }
 
     private final ClientMessageSender sender;
@@ -68,7 +69,7 @@ public class TlsClientEngine extends TlsEngine implements ClientMessageProcessor
     private TlsConstants.CipherSuite selectedCipher;
     private List<Extension> requestedExtensions;
     private List<Extension> sentExtensions;
-    private Status status = Status.Initial;
+    private Status status = Status.Start;
     private ClientHello clientHello;
     private TranscriptHash transcriptHash;
     private List<TlsConstants.SignatureScheme> supportedSignatures;
@@ -104,7 +105,7 @@ public class TlsClientEngine extends TlsEngine implements ClientMessageProcessor
     }
 
     public void startHandshake(TlsConstants.NamedGroup ecCurve, List<TlsConstants.SignatureScheme> signatureSchemes) throws IOException {
-        if (status != Status.Initial) {
+        if (status != Status.Start) {
             throw new IllegalStateException("Handshake already started");
         }
         if (signatureSchemes.stream().anyMatch(scheme -> !AVAILABLE_SIGNATURES.contains(scheme))) {
@@ -148,7 +149,7 @@ public class TlsClientEngine extends TlsEngine implements ClientMessageProcessor
             statusHandler.earlySecretsKnown();
         }
         sender.send(clientHello);
-        status = Status.ClientHelloSent;
+        status = Status.WaitServerHello;
     }
 
     /**
@@ -159,7 +160,7 @@ public class TlsClientEngine extends TlsEngine implements ClientMessageProcessor
      */
     @Override
     public void received(ServerHello serverHello, ProtectionKeysType protectedBy) throws MissingExtensionAlert, IllegalParameterAlert {
-        if (status != Status.ClientHelloSent) {
+        if (status != Status.WaitServerHello) {
             return;
         }
         boolean containsSupportedVersionExt = serverHello.getExtensions().stream().anyMatch(ext -> ext instanceof SupportedVersionsExtension);
@@ -245,7 +246,7 @@ public class TlsClientEngine extends TlsEngine implements ClientMessageProcessor
         }
         transcriptHash.record(serverHello);
         state.computeHandshakeSecrets();
-        status = Status.ServerHelloReceived;
+        status = Status.WaitEncryptedExtensions;
         statusHandler.handshakeSecretsKnown();
     }
 
@@ -254,7 +255,7 @@ public class TlsClientEngine extends TlsEngine implements ClientMessageProcessor
         if (protectedBy != ProtectionKeysType.Handshake) {
             throw new UnexpectedMessageAlert("incorrect protection level");
         }
-        if (status != Status.ServerHelloReceived) {
+        if (status != Status.WaitEncryptedExtensions) {
             // https://tools.ietf.org/html/rfc8446#section-4.3.1
             // "the server MUST send the EncryptedExtensions message immediately after the ServerHello message"
             throw new UnexpectedMessageAlert("unexpected encrypted extensions message");
@@ -283,7 +284,7 @@ public class TlsClientEngine extends TlsEngine implements ClientMessageProcessor
         }
 
         transcriptHash.record(encryptedExtensions);
-        status = Status.EncryptedExtensionsReceived;
+        status = pskAccepted? Status.WaitFinished: Status.WaitCertificateRequest;
         statusHandler.extensionsReceived(encryptedExtensions.getExtensions());
     }
 
@@ -292,7 +293,7 @@ public class TlsClientEngine extends TlsEngine implements ClientMessageProcessor
         if (protectedBy != ProtectionKeysType.Handshake) {
             throw new UnexpectedMessageAlert("incorrect protection level");
         }
-        if (status != Status.EncryptedExtensionsReceived && status != Status.CertificateRequestReceived) {
+        if (status != Status.WaitCertificate && status != Status.WaitCertificateRequest) {
             // https://tools.ietf.org/html/rfc8446#section-4.4
             // "TLS generally uses a common set of messages for authentication, key confirmation, and handshake
             //   integrity: Certificate, CertificateVerify, and Finished.  (...)  These three messages are always
@@ -313,7 +314,7 @@ public class TlsClientEngine extends TlsEngine implements ClientMessageProcessor
         serverCertificate = certificateMessage.getEndEntityCertificate();
         serverCertificateChain = certificateMessage.getCertificateChain();
         transcriptHash.recordServer(certificateMessage);
-        status = Status.CertificateReceived;
+        status = Status.WaitCertificateVerify;
     }
 
     @Override
@@ -321,7 +322,7 @@ public class TlsClientEngine extends TlsEngine implements ClientMessageProcessor
         if (protectedBy != ProtectionKeysType.Handshake) {
             throw new UnexpectedMessageAlert("incorrect protection level");
         }
-        if (status != Status.CertificateReceived) {
+        if (status != Status.WaitCertificateVerify) {
             // https://tools.ietf.org/html/rfc8446#section-4.4.3
             // "When sent, this message MUST appear immediately after the Certificate message and immediately prior to
             // the Finished message."
@@ -348,7 +349,7 @@ public class TlsClientEngine extends TlsEngine implements ClientMessageProcessor
         }
 
         transcriptHash.recordServer(certificateVerifyMessage);
-        status = Status.CertificateVerifyReceived;
+        status = Status.WaitFinished;
     }
 
     @Override
@@ -356,14 +357,7 @@ public class TlsClientEngine extends TlsEngine implements ClientMessageProcessor
         if (protectedBy != ProtectionKeysType.Handshake) {
             throw new UnexpectedMessageAlert("incorrect protection level");
         }
-        Status expectedStatus;
-        if (pskAccepted) {
-            expectedStatus = Status.EncryptedExtensionsReceived;
-        }
-        else {
-            expectedStatus = Status.CertificateVerifyReceived;
-        }
-        if (status != expectedStatus) {
+        if (status != Status.WaitFinished) {
             throw new UnexpectedMessageAlert("unexpected finished message");
         }
 
@@ -406,7 +400,7 @@ public class TlsClientEngine extends TlsEngine implements ClientMessageProcessor
         transcriptHash.recordClient(clientFinished);
         state.computeApplicationSecrets();
         state.computeResumptionMasterSecret();
-        status = Status.Finished;
+        status = Status.Connected;
         statusHandler.handshakeFinished();
     }
 
@@ -425,7 +419,7 @@ public class TlsClientEngine extends TlsEngine implements ClientMessageProcessor
         if (protectedBy != ProtectionKeysType.Handshake) {
             throw new UnexpectedMessageAlert("incorrect protection level");
         }
-        if (status != Status.EncryptedExtensionsReceived) {
+        if (status != Status.WaitCertificateRequest) {
             throw new UnexpectedMessageAlert("unexpected certificate request message");
         }
 
@@ -446,7 +440,7 @@ public class TlsClientEngine extends TlsEngine implements ClientMessageProcessor
                 .orElse(Collections.emptyList());
         clientAuthRequested = true;
 
-        status = Status.CertificateRequestReceived;
+        status = Status.WaitCertificate;
     }
 
     protected boolean verifySignature(byte[] signatureToVerify, TlsConstants.SignatureScheme signatureScheme, Certificate certificate, byte[] transcriptHash) throws HandshakeFailureAlert {
@@ -622,7 +616,7 @@ public class TlsClientEngine extends TlsEngine implements ClientMessageProcessor
     }
 
     public boolean handshakeFinished() {
-        return status == Status.Finished;
+        return status == Status.Connected;
     }
 
     public void setClientCertificateCallback(Function<List<X500Principal>, CertificateWithPrivateKey> callback) {

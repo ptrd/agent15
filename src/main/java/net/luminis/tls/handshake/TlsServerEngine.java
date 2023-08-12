@@ -40,7 +40,7 @@ public class TlsServerEngine extends TlsEngine implements ServerMessageProcessor
     // https://www.rfc-editor.org/rfc/rfc8446.html#appendix-A.2
     enum Status {
         Start,
-        ClientHelloReceived,
+        ReceivedClientHello,
         Negotiated,
         WaitFinished,
         Connected
@@ -87,7 +87,7 @@ public class TlsServerEngine extends TlsEngine implements ServerMessageProcessor
         if (status != Status.Start) {
             return;
         }
-        status = Status.ClientHelloReceived;
+        status = Status.ReceivedClientHello;
 
         // Find first cipher that server supports
         selectedCipher = clientHello.getCipherSuites().stream()
