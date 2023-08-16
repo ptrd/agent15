@@ -34,7 +34,7 @@ public class NewSessionTicket {
     protected int ticketLifeTime;
     protected boolean hasEarlyDataExtension;
     protected long earlyDataMaxSize;
-    private TlsConstants.CipherSuite cipher;
+    protected TlsConstants.CipherSuite cipher;
 
     protected NewSessionTicket() {
     }
@@ -123,6 +123,14 @@ public class NewSessionTicket {
 
     public byte[] getSessionTicketIdentity() {
         return ticket;
+    }
+    
+    public byte[] getTicket() {
+        return ticket;
+    }
+
+    public int getTicketLifeTime() {
+        return ticketLifeTime;
     }
 
     public TlsConstants.CipherSuite getCipher() {
