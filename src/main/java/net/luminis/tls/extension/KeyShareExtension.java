@@ -86,7 +86,6 @@ public class KeyShareExtension extends Extension {
      * Assuming KeyShareServerHello:
      * "In a ServerHello message, the "extension_data" field of this extension contains a KeyShareServerHello value..."
      * @param buffer
-     * @return
      * @throws TlsProtocolException
      */
     public KeyShareExtension(ByteBuffer buffer, TlsConstants.HandshakeType handshakeType) throws TlsProtocolException {
