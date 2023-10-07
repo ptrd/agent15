@@ -3,5 +3,6 @@ keys
 .idea
 *.iml
 .gradle
+gradle.properties
 build
 /target/
