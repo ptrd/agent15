@@ -18,7 +18,7 @@
  */
 package net.luminis.tls;
 
-import at.favre.lib.crypto.HKDF;
+import at.favre.lib.hkdf.HKDF;
 import net.luminis.tls.util.ByteUtils;
 import net.luminis.tls.util.FieldGetter;
 import org.junit.jupiter.api.Test;

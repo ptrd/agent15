@@ -18,10 +18,11 @@
  */
 package net.luminis.tls;
 
-import at.favre.lib.crypto.HKDF;
-import at.favre.lib.crypto.HkdfMacFactory;
+import at.favre.lib.hkdf.HKDF;
+import at.favre.lib.hkdf.HkdfMacFactory;
 
-import javax.crypto.*;
+import javax.crypto.KeyAgreement;
+import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
