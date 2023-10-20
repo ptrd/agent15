@@ -63,6 +63,15 @@ Client authentication (by means of a client certificate) is supported in the cli
 
 ### Usage
 
+Maven coordinates:
+
+    <dependency>
+        <groupId>net.luminis.networking</groupId>
+        <artifactId>agent15</artifactId>
+        <version>1.0</version>
+    </dependency>
+
+
 Client: instantiate a `TlsClientEngine` with a `ClientMessageSender` and a `TlsStatusEventHandler` and call `startHandshake()` on it.
 The `ClientMessageSender` is the callback to let the client actually send the handshake messages. 
 The `TlsStatusEventHandler` enables to client to react TLS events that are needed for the QUIC handshake,
