@@ -1,5 +1,9 @@
 # Releases
 
+## 1.0.2 (2023-11-04)
+
+No changes, corrected pom.
+
 ## 1.0.1 (2023-10-20)
 
 Updated test dependencies and HKDF library.
