@@ -1,5 +1,9 @@
 # Releases
 
+## 1.0.5 (2023-12-22)
+
+Ignore unknown algorithms when parsing signature algorithms extension.
+
 ## 1.0.4 (2023-11-05)
 
 Relocated maven artifact to `tech.kwik` group id.
