@@ -18,14 +18,15 @@
  */
 package net.luminis.tls.extension;
 
-import net.luminis.tls.alert.DecodeErrorException;
 import net.luminis.tls.TlsConstants;
+import net.luminis.tls.alert.DecodeErrorException;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * The TLS supported groups extension.
@@ -60,13 +61,15 @@ public class SignatureAlgorithmsExtension extends Extension {
         }
 
         for (int i = 0; i < supportedAlgorithmsLength; i += 2) {
-            int supportedAlgorithmsBytes = buffer.getShort() % 0xffff;
-            TlsConstants.SignatureScheme algorithm = Arrays.stream(TlsConstants.SignatureScheme.values())
-                    .filter(item -> item.value == supportedAlgorithmsBytes)
-                    .findFirst()
-                    .orElseThrow(() -> new DecodeErrorException("invalid signature scheme value"));
-            algorithms.add(algorithm);
+            int supportedAlgorithmBytes = buffer.getShort() % 0xffff;
+            decode(supportedAlgorithmBytes).ifPresent(algorithm -> algorithms.add(algorithm));
         }
+    }
+
+    static Optional<TlsConstants.SignatureScheme> decode(int encodedAlgorithm) {
+        return Arrays.stream(TlsConstants.SignatureScheme.values())
+                .filter(item -> item.value == encodedAlgorithm)
+                .findFirst();
     }
 
     @Override

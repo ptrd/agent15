@@ -18,14 +18,15 @@
  */
 package net.luminis.tls.extension;
 
-import net.luminis.tls.util.ByteUtils;
-import net.luminis.tls.alert.DecodeErrorException;
 import net.luminis.tls.TlsConstants;
+import net.luminis.tls.alert.DecodeErrorException;
+import net.luminis.tls.util.ByteUtils;
 import org.junit.jupiter.api.Test;
 
 import java.nio.ByteBuffer;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 
@@ -108,12 +109,16 @@ class SignatureAlgorithmsExtensionTest {
     }
 
     @Test
-    void parsingDataWithInvalidAlgorithmThrows() {
-        ByteBuffer buffer = ByteBuffer.wrap(ByteUtils.hexToBytes("000d00080006040308040909"));
+    void parsingDataWithUnknownAlgorithmShouldNotFail()  {
+        // Wolfssl sends 0x0301 as signature algorithm, which is not defined as a valid signature value in the TLS 1.3 specification.
+        // On the contrary: "Some legacy pairs are left unallocated. These algorithms are deprecated as of TLS 1.3.
+        //                   They MUST NOT be offered or negotiated by any implementation.  In particular, MD5 [SLOTH],
+        //                   SHA-224, and DSA MUST NOT be used."
+        // (0x0301 is SHA-224-RSA)
+        ByteBuffer buffer = ByteBuffer.wrap(ByteUtils.hexToBytes("000d 0016 0014 040308040401050308050501080606010201 0301".replace(" ", "")));
 
-        assertThatThrownBy(
+        assertThatCode(
                 () -> new SignatureAlgorithmsExtension(buffer)
-        ).isInstanceOf(DecodeErrorException.class);
+        ).doesNotThrowAnyException();
     }
-
 }
