@@ -18,12 +18,14 @@
  */
 package net.luminis.tls.extension;
 
-import net.luminis.tls.alert.DecodeErrorException;
 import net.luminis.tls.TlsConstants;
+import net.luminis.tls.alert.DecodeErrorException;
+
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * The TLS supported groups extension.
@@ -49,12 +51,14 @@ public class SupportedGroupsExtension extends Extension {
 
         for (int i = 0; i < namedGroupsLength; i += 2) {
             int namedGroupBytes = buffer.getShort() % 0xffff;
-            TlsConstants.NamedGroup namedGroup = Arrays.stream(TlsConstants.NamedGroup.values())
-                    .filter(item -> item.value == namedGroupBytes)
-                    .findFirst()
-                    .orElseThrow(() -> new DecodeErrorException("invalid group value"));
-            namedGroups.add(namedGroup);
+            decode(namedGroupBytes).ifPresent(algorithm -> namedGroups.add(algorithm));
         }
+    }
+
+    static Optional<TlsConstants.NamedGroup> decode(int namedGroup) {
+        return Arrays.stream(TlsConstants.NamedGroup.values())
+                .filter(item -> item.value == namedGroup)
+                .findFirst();
     }
 
     @Override
