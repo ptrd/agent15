@@ -26,12 +26,15 @@ import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
 import java.util.stream.Stream;
 
-// https://tools.ietf.org/html/rfc8446#section-4.4.3
-// "Certificate Verify
-//   This message is used to provide explicit proof that an endpoint possesses the private key corresponding to its certificate.  The
-//   CertificateVerify message also provides integrity for the handshake up to this point.  Servers MUST send this message when authenticating
-//   via a certificate.  Clients MUST send this message whenever authenticating via a certificate (i.e., when the Certificate message
-//   is non-empty). "
+
+/**
+ * https://tools.ietf.org/html/rfc8446#section-4.4.3
+ * "Certificate Verify
+ *   This message is used to provide explicit proof that an endpoint possesses the private key corresponding to its certificate.  The
+ *   CertificateVerify message also provides integrity for the handshake up to this point.  Servers MUST send this message when authenticating
+ *   via a certificate.  Clients MUST send this message whenever authenticating via a certificate (i.e., when the Certificate message
+ *   is non-empty)."
+ */
 public class CertificateVerifyMessage extends HandshakeMessage {
 
     private static final int MINIMUM_MESSAGE_SIZE = 1 + 3 + 2 + 2 + 1;

@@ -20,6 +20,15 @@ package net.luminis.tls.alert;
 
 import net.luminis.tls.TlsConstants;
 
+/**
+ * https://tools.ietf.org/html/rfc8446#section-6.2
+ * "decode_error:  A message could not be decoded because some field was
+ *       out of the specified range or the length of the message was
+ *       incorrect.  This alert is used for errors where the message does
+ *       not conform to the formal protocol syntax.  This alert should
+ *       never be observed in communication between proper implementations,
+ *       except when messages were corrupted in the network."
+ */
 public class DecodeErrorException extends ErrorAlert {
 
     /**

@@ -36,6 +36,9 @@ import java.util.stream.Collectors;
 import static net.luminis.tls.TlsConstants.NamedGroup.secp256r1;
 
 
+/**
+ * https://datatracker.ietf.org/doc/html/rfc8446#section-4.1.2
+ */
 public class ClientHello extends HandshakeMessage {
 
     public enum PskKeyEstablishmentMode {
@@ -109,6 +112,10 @@ public class ClientHello extends HandshakeMessage {
                     .ifPresent(item -> cipherSuites.add(item));
         }
 
+        // https://datatracker.ietf.org/doc/html/rfc8446#section-4.1.2
+        // "For every TLS 1.3 ClientHello, this vector MUST contain exactly one byte, set to zero, which corresponds to
+        //  the "null" compression method in prior versions of TLS.  If a TLS 1.3 ClientHello is received with any other
+        //  value in this field, the server MUST abort the handshake with an "illegal_parameter" alert."
         int legacyCompressionMethodsLength = buffer.get();
         int legacyCompressionMethod = buffer.get();
         if (legacyCompressionMethodsLength != 1 || legacyCompressionMethod != 0) {

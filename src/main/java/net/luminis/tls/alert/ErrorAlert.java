@@ -21,6 +21,9 @@ package net.luminis.tls.alert;
 import net.luminis.tls.TlsConstants;
 import net.luminis.tls.TlsProtocolException;
 
+/**
+ * https://tools.ietf.org/html/rfc8446#section-6.2
+ */
 public abstract class ErrorAlert extends TlsProtocolException {
 
     private final TlsConstants.AlertDescription alert;

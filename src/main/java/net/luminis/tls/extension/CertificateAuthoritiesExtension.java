@@ -26,7 +26,9 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 
-// https://tools.ietf.org/html/rfc8446#section-4.2.4
+/**
+ * https://tools.ietf.org/html/rfc8446#section-4.2.4
+ */
 public class CertificateAuthoritiesExtension extends Extension {
 
     private final List<X500Principal> authorities = new ArrayList<>();
@@ -57,6 +59,9 @@ public class CertificateAuthoritiesExtension extends Extension {
                 byte[] dn = new byte[dnLength];
                 buffer.get(dn);
                 remaining -= dnLength;
+                // https://datatracker.ietf.org/doc/html/rfc8446#section-4.2.4
+                // "authorities:  A list of the distinguished names [X501] of acceptable certificate authorities,
+                //  represented in DER-encoded [X690] format."
                 try {
                     authorities.add(new X500Principal(dn));
                 }

@@ -20,6 +20,14 @@ package net.luminis.tls.alert;
 
 import net.luminis.tls.TlsConstants;
 
+/**
+ * https://tools.ietf.org/html/rfc8446#section-6.2
+ * "unsupported_extension:  Sent by endpoints receiving any handshake
+ *       message containing an extension known to be prohibited for
+ *       inclusion in the given handshake message, or including any
+ *       extensions in a ServerHello or Certificate not first offered in
+ *       the corresponding ClientHello or CertificateRequest."
+ */
 public class UnsupportedExtensionAlert extends ErrorAlert {
 
     public UnsupportedExtensionAlert(String message) {

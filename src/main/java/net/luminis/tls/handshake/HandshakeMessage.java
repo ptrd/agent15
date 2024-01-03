@@ -28,6 +28,9 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+/**
+ * https://datatracker.ietf.org/doc/html/rfc8446#section-4
+ */
 public abstract class HandshakeMessage extends Message {
 
     public abstract TlsConstants.HandshakeType getType();

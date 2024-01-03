@@ -20,6 +20,12 @@ package net.luminis.tls.alert;
 
 import net.luminis.tls.TlsConstants;
 
+/**
+ * https://tools.ietf.org/html/rfc8446#section-6.2
+ * "internal_error:  An internal error unrelated to the peer or the
+ *       correctness of the protocol (such as a memory allocation failure)
+ *       makes it impossible to continue."
+ */
 public class InternalErrorAlert extends ErrorAlert {
 
     public InternalErrorAlert(String message) {

@@ -29,7 +29,9 @@ import net.luminis.tls.extension.UnknownExtension;
 import java.nio.ByteBuffer;
 import java.util.List;
 
-// https://tools.ietf.org/html/rfc8446#section-4.6.1
+/**
+ * https://tools.ietf.org/html/rfc8446#section-4.6.1
+ */
 public class NewSessionTicketMessage extends HandshakeMessage {
 
     private static final int MINIMUM_MESSAGE_SIZE = 1 + 3 + 4 + 4 + 1 + 2 + 2;

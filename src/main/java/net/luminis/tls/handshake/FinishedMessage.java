@@ -24,6 +24,9 @@ import net.luminis.tls.TlsConstants;
 
 import java.nio.ByteBuffer;
 
+/**
+ * https://datatracker.ietf.org/doc/html/rfc8446#section-4.4.4
+ */
 public class FinishedMessage extends HandshakeMessage {
 
     private byte[] verifyData;

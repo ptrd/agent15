@@ -20,6 +20,13 @@ package net.luminis.tls.alert;
 
 import net.luminis.tls.TlsConstants;
 
+/**
+ * https://tools.ietf.org/html/rfc8446#section-6.2
+ * "unexpected_message:  An inappropriate message (e.g., the wrong
+ *       handshake message, premature Application Data, etc.) was received.
+ *       This alert should never be observed in communication between
+ *       proper implementations."
+ */
 public class UnexpectedMessageAlert extends ErrorAlert {
 
     public UnexpectedMessageAlert(String message) {

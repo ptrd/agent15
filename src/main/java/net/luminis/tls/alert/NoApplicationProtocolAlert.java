@@ -23,6 +23,12 @@ import net.luminis.tls.TlsConstants;
 import java.util.List;
 import java.util.stream.Collectors;
 
+/**
+ * https://tools.ietf.org/html/rfc8446#section-6.2
+ * "no_application_protocol:  Sent by servers when a client
+ *       "application_layer_protocol_negotiation" extension advertises only
+ *       protocols that the server does not support (see [RFC7301])."
+ */
 public class NoApplicationProtocolAlert extends ErrorAlert
 {
     public NoApplicationProtocolAlert() {

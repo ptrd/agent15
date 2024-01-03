@@ -20,6 +20,12 @@ package net.luminis.tls.alert;
 
 import net.luminis.tls.TlsConstants;
 
+/**
+ * https://tools.ietf.org/html/rfc8446#section-6.2
+ * "decrypt_error:  A handshake (not record layer) cryptographic
+ *       operation failed, including being unable to correctly verify a
+ *       signature or validate a Finished message or a PSK binder."
+ */
 public class DecryptErrorAlert extends ErrorAlert {
 
     public DecryptErrorAlert(String message) {

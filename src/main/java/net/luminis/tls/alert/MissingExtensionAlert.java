@@ -20,6 +20,12 @@ package net.luminis.tls.alert;
 
 import net.luminis.tls.TlsConstants;
 
+/**
+ * https://tools.ietf.org/html/rfc8446#section-6.2
+ * "missing_extension:  Sent by endpoints that receive a handshake
+ *       message not containing an extension that is mandatory to send for
+ *       the offered TLS version or other negotiated parameters."
+ */
 public class MissingExtensionAlert extends ErrorAlert {
 
     public MissingExtensionAlert() {
