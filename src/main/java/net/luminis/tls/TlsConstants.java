@@ -18,6 +18,9 @@
  */
 package net.luminis.tls;
 
+import java.util.Arrays;
+import java.util.Optional;
+
 public class TlsConstants {
 
 
@@ -228,4 +231,23 @@ public class TlsConstants {
     public static byte[] TLS_CHACHA20_POLY1305_SHA256  = new byte[] { 0x13, 0x03};
     public static byte[] TLS_AES_128_CCM_SHA256 = new byte[]        { 0x13, 0x04};
     public static byte[] TLS_AES_128_CCM_8_SHA256 = new byte[]      { 0x13, 0x05};
+
+
+    public static Optional<NamedGroup> decodeNamedGroup(int namedGroup) {
+        return Arrays.stream(TlsConstants.NamedGroup.values())
+                .filter(item -> item.value == namedGroup)
+                .findFirst();
+    }
+
+    public static Optional<TlsConstants.SignatureScheme> decodeSignatureScheme(int encodedAlgorithm) {
+        return Arrays.stream(TlsConstants.SignatureScheme.values())
+                .filter(item -> item.value == encodedAlgorithm)
+                .findFirst();
+    }
+
+    public static Optional<TlsConstants.PskKeyExchangeMode> decodePskKeyExchangeMode(int mode) {
+        return Arrays.stream(TlsConstants.PskKeyExchangeMode.values())
+                .filter(item -> item.value == mode)
+                .findFirst();
+    }
 }

@@ -23,9 +23,9 @@ import net.luminis.tls.alert.DecodeErrorException;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
-import java.util.Optional;
+
+import static net.luminis.tls.TlsConstants.decodePskKeyExchangeMode;
 
 /**
  * TLS Pre-Shared Key Exchange Modes extension.
@@ -53,15 +53,10 @@ public class PskKeyExchangeModesExtension extends Extension {
         }
         for (int i = 0; i < pskKeyExchangeModesLength; i++) {
             int modeByte = buffer.get();
-            decode(modeByte).ifPresent(m -> keyExchangeModes.add(m));
+            decodePskKeyExchangeMode(modeByte).ifPresent(m -> keyExchangeModes.add(m));
         }
     }
 
-    static Optional<TlsConstants.PskKeyExchangeMode> decode(int mode) {
-        return Arrays.stream(TlsConstants.PskKeyExchangeMode.values())
-                .filter(item -> item.value == mode)
-                .findFirst();
-    }
 
     @Override
     public byte[] getBytes() {
