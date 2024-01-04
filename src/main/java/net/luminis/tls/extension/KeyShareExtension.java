@@ -50,7 +50,7 @@ public class KeyShareExtension extends Extension {
             x25519, 32,
             x448, 56
     );
-    public static final List<TlsConstants.NamedGroup> supportedCurves = List.of(secp256r1, x25519, x448);
+    public static final List<TlsConstants.NamedGroup> supportedCurves = List.of(secp256r1, x25519);
 
     private TlsConstants.HandshakeType handshakeType;
     private List<KeyShareEntry> keyShareEntries = new ArrayList<>();
