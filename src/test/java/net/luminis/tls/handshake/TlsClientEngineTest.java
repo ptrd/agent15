@@ -43,14 +43,20 @@ import java.security.interfaces.ECPublicKey;
 import java.security.spec.MGF1ParameterSpec;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.security.spec.PSSParameterSpec;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Base64;
+import java.util.List;
 
 import static java.util.Collections.emptyList;
 import static net.luminis.tls.TlsConstants.CipherSuite.*;
-import static net.luminis.tls.TlsConstants.SignatureScheme.*;
+import static net.luminis.tls.TlsConstants.SignatureScheme.rsa_pkcs1_sha1;
+import static net.luminis.tls.TlsConstants.SignatureScheme.rsa_pss_rsae_sha256;
+import static net.luminis.tls.TlsConstants.SignatureScheme.rsa_pss_rsae_sha384;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 
 class TlsClientEngineTest extends EngineTest {
 
@@ -536,6 +542,16 @@ class TlsClientEngineTest extends EngineTest {
         Mockito.verify(messageSender).send(ArgumentMatchers.any(CertificateMessage.class));
         Mockito.verify(messageSender).send(ArgumentMatchers.any(CertificateVerifyMessage.class));
         Mockito.verify(messageSender).send(ArgumentMatchers.any(FinishedMessage.class));
+    }
+
+    @Test
+    void unsupportedNamedGroupLeadsToException() throws Exception {
+        assertThatThrownBy(() ->
+                // When
+                engine.startHandshake(TlsConstants.NamedGroup.x448))
+                // Then
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("x448");
     }
 
     @Test

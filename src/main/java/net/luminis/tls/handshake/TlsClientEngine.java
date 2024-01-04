@@ -20,7 +20,6 @@ package net.luminis.tls.handshake;
 
 import net.luminis.tls.*;
 import net.luminis.tls.alert.*;
-import net.luminis.tls.extension.Extension;
 import net.luminis.tls.extension.*;
 
 import javax.net.ssl.TrustManagerFactory;
@@ -30,9 +29,16 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.security.*;
+import java.security.cert.CertPathBuilderException;
+import java.security.cert.CertPathValidatorException;
 import java.security.cert.Certificate;
-import java.security.cert.*;
-import java.util.*;
+import java.security.cert.CertificateException;
+import java.security.cert.X509Certificate;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -107,6 +113,9 @@ public class TlsClientEngine extends TlsEngine implements ClientMessageProcessor
     public void startHandshake(TlsConstants.NamedGroup ecCurve, List<TlsConstants.SignatureScheme> signatureSchemes) throws IOException {
         if (status != Status.Start) {
             throw new IllegalStateException("Handshake already started");
+        }
+        if (! KeyShareExtension.supportedCurves.contains(ecCurve)) {
+            throw new IllegalArgumentException("Named group " + ecCurve + " not supported");
         }
         if (signatureSchemes.stream().anyMatch(scheme -> !AVAILABLE_SIGNATURES.contains(scheme))) {
             // Remove available leaves the ones that are not available (cannot be supported)
