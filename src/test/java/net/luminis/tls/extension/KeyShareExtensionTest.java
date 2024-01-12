@@ -18,15 +18,18 @@
  */
 package net.luminis.tls.extension;
 
-import net.luminis.tls.util.ByteUtils;
-import net.luminis.tls.alert.DecodeErrorException;
 import net.luminis.tls.TlsConstants;
+import net.luminis.tls.TlsProtocolException;
+import net.luminis.tls.alert.DecodeErrorException;
+import net.luminis.tls.util.ByteUtils;
 import org.junit.jupiter.api.Test;
 
 import java.nio.ByteBuffer;
 import java.security.interfaces.ECPublicKey;
+import java.util.List;
 
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class KeyShareExtensionTest {
 
@@ -170,14 +173,35 @@ class KeyShareExtensionTest {
     }
 
     @Test
-    void parsingInvalidNamedGroupThrows() {
-        String rawData = "0033" + "0047" + "0045"
-                + "00130041045d58e52e3deee2e8b78ec51e2d0cedb5080c8244bd3f651219cc48f3d3d404399d6748ab3eaaca0e32b927fc5e8107628e636b614cab332d8637c1d61caccdda";
+    void parsingInvalidNamedGroupShouldBeIgnored() throws TlsProtocolException {
+        String rawData = "0033" + "008c" + "008a"
+                + "00130041045d58e52e3deee2e8b78ec51e2d0cedb5080c8244bd3f651219cc48f3d3d404399d6748ab3eaaca0e32b927fc5e8107628e636b614cab332d8637c1d61caccdda"
+                + "00170041045d58e52e3deee2e8b78ec51e2d0cedb5080c8244bd3f651219cc48f3d3d404399d6748ab3eaaca0e32b927fc5e8107628e636b614cab332d8637c1d61caccdda";
         ByteBuffer buffer = ByteBuffer.wrap(ByteUtils.hexToBytes(rawData));
 
-        assertThatThrownBy(
-                () -> new KeyShareExtension(buffer, TlsConstants.HandshakeType.client_hello)
-        ).isInstanceOf(DecodeErrorException.class);
+        // When
+        List<KeyShareExtension.KeyShareEntry> keyShareEntries = new KeyShareExtension(buffer, TlsConstants.HandshakeType.client_hello).getKeyShareEntries();
+
+        // Then
+        assertThat(keyShareEntries)
+                .hasSize(1)
+                .anyMatch(entry -> entry.getNamedGroup() == TlsConstants.NamedGroup.secp256r1);
+    }
+
+    @Test
+    void parsingUnsupportedNamedGroupShouldBeIgnored() throws TlsProtocolException {
+        String rawData = "0033" + "008c" + "008a"
+                + "01000041045d58e52e3deee2e8b78ec51e2d0cedb5080c8244bd3f651219cc48f3d3d404399d6748ab3eaaca0e32b927fc5e8107628e636b614cab332d8637c1d61caccdda"
+                + "00170041045d58e52e3deee2e8b78ec51e2d0cedb5080c8244bd3f651219cc48f3d3d404399d6748ab3eaaca0e32b927fc5e8107628e636b614cab332d8637c1d61caccdda";
+        ByteBuffer buffer = ByteBuffer.wrap(ByteUtils.hexToBytes(rawData));
+
+        // When
+        List<KeyShareExtension.KeyShareEntry> keyShareEntries = new KeyShareExtension(buffer, TlsConstants.HandshakeType.client_hello).getKeyShareEntries();
+
+        // Then
+        assertThat(keyShareEntries)
+                .hasSize(1)
+                .anyMatch(entry -> entry.getNamedGroup() == TlsConstants.NamedGroup.secp256r1);
     }
 
     @Test

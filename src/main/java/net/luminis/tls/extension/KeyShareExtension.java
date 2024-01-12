@@ -18,7 +18,8 @@
  */
 package net.luminis.tls.extension;
 
-import net.luminis.tls.*;
+import net.luminis.tls.TlsConstants;
+import net.luminis.tls.TlsProtocolException;
 import net.luminis.tls.alert.DecodeErrorException;
 import net.luminis.tls.util.ByteUtils;
 
@@ -35,9 +36,11 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Stream;
+import java.util.Optional;
 
-import static net.luminis.tls.TlsConstants.NamedGroup.*;
+import static net.luminis.tls.TlsConstants.NamedGroup.secp256r1;
+import static net.luminis.tls.TlsConstants.NamedGroup.x25519;
+import static net.luminis.tls.TlsConstants.NamedGroup.x448;
 
 /**
  * The TLS "key_share" extension contains the endpoint's cryptographic parameters.
@@ -129,37 +132,42 @@ public class KeyShareExtension extends Extension {
             throw new DecodeErrorException("extension underflow");
         }
 
-        int namedGroupValue = buffer.getShort();
-        TlsConstants.NamedGroup namedGroup = Stream.of(TlsConstants.NamedGroup.values()).filter(it -> it.value == namedGroupValue).findAny()
-                .orElseThrow(() -> new DecodeErrorException("Invalid named group"));
+        Optional<TlsConstants.NamedGroup> recognizedNamedGroup = TlsConstants.decodeNamedGroup(buffer.getShort());
 
         if (namedGroupOnly) {
-            keyShareEntries.add(new ECKeyShareEntry(namedGroup, null));
+            recognizedNamedGroup.ifPresent(namedGroup -> keyShareEntries.add(new ECKeyShareEntry(namedGroup, null)));
         }
         else {
             int keyLength = buffer.getShort();
             if (buffer.remaining() < keyLength) {
                 throw new DecodeErrorException("extension underflow");
             }
-            if (keyLength != CURVE_KEY_LENGTHS.get(namedGroup)) {
-                throw new DecodeErrorException("Invalid " + namedGroup.name() + " key length: " + keyLength);
-            }
-            if (namedGroup == secp256r1) {
-                int headerByte = buffer.get();
-                if (headerByte == 4) {
-                    byte[] keyData = new byte[keyLength - 1];
+            if (recognizedNamedGroup.isPresent() && supportedCurves.contains(recognizedNamedGroup.get())) {
+                TlsConstants.NamedGroup namedGroup = recognizedNamedGroup.get();
+                if (keyLength != CURVE_KEY_LENGTHS.get(namedGroup)) {
+                    throw new DecodeErrorException("Invalid " + namedGroup.name() + " key length: " + keyLength);
+                }
+                if (namedGroup == secp256r1) {
+                    int headerByte = buffer.get();
+                    if (headerByte == 4) {
+                        byte[] keyData = new byte[keyLength - 1];
+                        buffer.get(keyData);
+                        ECPublicKey ecPublicKey = rawToEncodedECPublicKey(namedGroup, keyData);
+                        keyShareEntries.add(new ECKeyShareEntry(namedGroup, ecPublicKey));
+                    }
+                    else {
+                        throw new DecodeErrorException("EC keys must be in legacy form");
+                    }
+                }
+                else if (namedGroup == x25519 || namedGroup == x448) {
+                    byte[] keyData = new byte[keyLength];
                     buffer.get(keyData);
-                    ECPublicKey ecPublicKey = rawToEncodedECPublicKey(namedGroup, keyData);
-                    keyShareEntries.add(new ECKeyShareEntry(namedGroup, ecPublicKey));
-                } else {
-                    throw new DecodeErrorException("EC keys must be in legacy form");
+                    PublicKey publicKey = rawToEncodedXDHPublicKey(namedGroup, keyData);
+                    keyShareEntries.add(new KeyShareEntry(namedGroup, publicKey));
                 }
             }
-            else if (namedGroup == x25519 || namedGroup == x448) {
-                byte[] keyData = new byte[keyLength];
-                buffer.get(keyData);
-                PublicKey publicKey = rawToEncodedXDHPublicKey(namedGroup, keyData);
-                keyShareEntries.add(new KeyShareEntry(namedGroup, publicKey));
+            else {
+                buffer.get(new byte[keyLength]);
             }
         }
         return buffer.position() - startPosition;
