@@ -149,6 +149,13 @@ public class KeyShareExtension extends Extension {
                 }
                 if (namedGroup == secp256r1) {
                     int headerByte = buffer.get();
+                    // https://datatracker.ietf.org/doc/html/rfc8446#section-4.2.8.2
+                    // "For secp256r1, secp384r1, and secp521r1, the contents are the serialized value of the following struct:
+                    //      struct {
+                    //          uint8 legacy_form = 4;
+                    //          opaque X[coordinate_length];
+                    //          opaque Y[coordinate_length];
+                    //      } UncompressedPointRepresentation;"
                     if (headerByte == 4) {
                         byte[] keyData = new byte[keyLength - 1];
                         buffer.get(keyData);

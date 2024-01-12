@@ -29,7 +29,7 @@ import java.util.List;
 import static net.luminis.tls.TlsConstants.decodeSignatureScheme;
 
 /**
- * The TLS supported groups extension.
+ * The TLS signature algorithms extension.
  * See https://tools.ietf.org/html/rfc8446#section-4.2.3
  * "Note: This enum is named "SignatureScheme" because there is already a "SignatureAlgorithm" type in TLS 1.2,
  * which this replaces.  We use the term "signature algorithm" throughout the text."
