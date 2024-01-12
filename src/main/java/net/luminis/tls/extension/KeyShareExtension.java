@@ -66,7 +66,7 @@ public class KeyShareExtension extends Extension {
         this.handshakeType = handshakeType;
 
         if (! supportedCurves.contains(ecCurve)) {
-            throw new RuntimeException("Only curves supported: " + supportedCurves);
+            throw new IllegalArgumentException("Named group " + ecCurve + "not supported");
         }
 
         keyShareEntries.add(new ECKeyShareEntry(ecCurve, publicKey));
@@ -76,7 +76,7 @@ public class KeyShareExtension extends Extension {
         this.handshakeType = handshakeType;
 
         if (! supportedCurves.contains(ecCurve)) {
-            throw new RuntimeException("Only curves supported: " + supportedCurves);
+            throw new IllegalArgumentException("Named group " + ecCurve + "not supported");
         }
 
         keyShareEntries.add(new KeyShareEntry(ecCurve, publicKey));
@@ -132,10 +132,6 @@ public class KeyShareExtension extends Extension {
         int namedGroupValue = buffer.getShort();
         TlsConstants.NamedGroup namedGroup = Stream.of(TlsConstants.NamedGroup.values()).filter(it -> it.value == namedGroupValue).findAny()
                 .orElseThrow(() -> new DecodeErrorException("Invalid named group"));
-
-        if (! supportedCurves.contains(namedGroup)) {
-            throw new RuntimeException("Curve '" + namedGroup + "' not supported");
-        }
 
         if (namedGroupOnly) {
             keyShareEntries.add(new ECKeyShareEntry(namedGroup, null));

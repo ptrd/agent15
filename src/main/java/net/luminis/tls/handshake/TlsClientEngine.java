@@ -72,6 +72,7 @@ public class TlsClientEngine extends TlsEngine implements ClientMessageProcessor
     private String serverName;
     private boolean compatibilityMode;
     private List<TlsConstants.CipherSuite> supportedCiphers;
+    private TlsConstants.NamedGroup ecCurve;
     private TlsConstants.CipherSuite selectedCipher;
     private List<Extension> requestedExtensions;
     private List<Extension> sentExtensions;
@@ -110,6 +111,13 @@ public class TlsClientEngine extends TlsEngine implements ClientMessageProcessor
         startHandshake(ecCurve, List.of(rsa_pss_rsae_sha256));
     }
 
+    /**
+     * Start TLS handshake with given parameters
+     * @param ecCurve            the EC named group to use both for the DHE key generation (and thus for the key share
+     *                           extension) and (as the only supported group) in the supported group extension.
+     * @param signatureSchemes   the signature algorithms this peer is willing to accept
+     * @throws IOException
+     */
     public void startHandshake(TlsConstants.NamedGroup ecCurve, List<TlsConstants.SignatureScheme> signatureSchemes) throws IOException {
         if (status != Status.Start) {
             throw new IllegalStateException("Handshake already started");
@@ -128,6 +136,7 @@ public class TlsClientEngine extends TlsEngine implements ClientMessageProcessor
         }
 
         supportedSignatures = signatureSchemes;
+        this.ecCurve = ecCurve;
         generateKeys(ecCurve);
         if (serverName == null || supportedCiphers.isEmpty()) {
             throw new IllegalStateException("not all mandatory properties are set");
@@ -203,11 +212,22 @@ public class TlsClientEngine extends TlsEngine implements ClientMessageProcessor
             throw new IllegalParameterAlert("illegal extension in server hello");
         }
 
-        Optional<KeyShareExtension.KeyShareEntry> keyShare = serverHello.getExtensions().stream()
+        // The key share extension can be absent (when pre-shared key is used, see below)
+        Optional<Extension> keyShareExtension = serverHello.getExtensions().stream()
                 .filter(extension -> extension instanceof KeyShareExtension)
-                // In the context of a server hello, the key share extension contains exactly one key share entry
-                .map(extension -> ((KeyShareExtension) extension).getKeyShareEntries().get(0))
                 .findFirst();
+        // But when the key share extension is present, it must contain a (one) named group that equals the clients proposed curve
+        Optional<KeyShareExtension.KeyShareEntry> keyShare = Optional.empty();
+        if (keyShareExtension.isPresent()) {
+            keyShare = Optional.of(keyShareExtension
+                    .filter(extension -> !((KeyShareExtension) extension).getKeyShareEntries().isEmpty())
+                    .map(extension -> ((KeyShareExtension) extension).getKeyShareEntries().get(0))
+                    .orElseThrow(() -> new IllegalParameterAlert("")));
+            // In the context of a server hello, the key share extension contains exactly one key share entry
+            if (keyShare.get().getNamedGroup() != ecCurve) {
+                throw new IllegalParameterAlert("server supplied key share does not match client supported named group");
+            }
+        }
 
         Optional<Extension> preSharedKey = serverHello.getExtensions().stream()
                 .filter(extension -> extension instanceof ServerPreSharedKeyExtension)

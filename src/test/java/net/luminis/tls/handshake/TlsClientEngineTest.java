@@ -40,6 +40,7 @@ import java.security.Signature;
 import java.security.cert.Certificate;
 import java.security.cert.X509Certificate;
 import java.security.interfaces.ECPublicKey;
+import java.security.interfaces.XECPublicKey;
 import java.security.spec.MGF1ParameterSpec;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.security.spec.PSSParameterSpec;
@@ -52,14 +53,15 @@ import static java.util.Collections.emptyList;
 import static net.luminis.tls.TlsConstants.CipherSuite.TLS_AES_128_GCM_SHA256;
 import static net.luminis.tls.TlsConstants.CipherSuite.TLS_AES_256_GCM_SHA384;
 import static net.luminis.tls.TlsConstants.CipherSuite.TLS_CHACHA20_POLY1305_SHA256;
+import static net.luminis.tls.TlsConstants.NamedGroup.secp256r1;
+import static net.luminis.tls.TlsConstants.NamedGroup.x25519;
 import static net.luminis.tls.TlsConstants.SignatureScheme.rsa_pkcs1_sha1;
 import static net.luminis.tls.TlsConstants.SignatureScheme.rsa_pss_rsae_sha256;
 import static net.luminis.tls.TlsConstants.SignatureScheme.rsa_pss_rsae_sha384;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.*;
 
 class TlsClientEngineTest extends EngineTest {
 
@@ -135,6 +137,40 @@ class TlsClientEngineTest extends EngineTest {
                 engine.received(serverHello, ProtectionKeysType.None))
                 // Then
                 .isInstanceOf(MissingExtensionAlert.class);
+    }
+
+    @Test
+    void whenKeyShareExtensionDoesNotContainSupportedNamedGroup() throws Exception {
+        // Given
+        engine.startHandshake();
+
+        KeyShareExtension keyShareExtension = mock(KeyShareExtension.class);
+        when(keyShareExtension.getBytes()).thenReturn(new byte[83]);
+        when(keyShareExtension.getKeyShareEntries()).thenReturn(List.of(new KeyShareExtension.KeyShareEntry(TlsConstants.NamedGroup.ffdhe2048, mock(XECPublicKey.class))));
+        ServerHello serverHello = new ServerHello(TLS_AES_128_GCM_SHA256, List.of(keyShareExtension, new SupportedVersionsExtension(TlsConstants.HandshakeType.server_hello)));
+
+        assertThatThrownBy(() ->
+                // When
+                engine.received(serverHello, ProtectionKeysType.None))
+                // Then
+                .isInstanceOf(IllegalParameterAlert.class);
+    }
+
+    @Test
+    void whenKeyShareExtensionDoesNotNamedGroupThatClientOffered() throws Exception {
+        // Given
+        engine.startHandshake(x25519);
+
+        KeyShareExtension keyShareExtension = mock(KeyShareExtension.class);
+        when(keyShareExtension.getBytes()).thenReturn(new byte[83]);
+        when(keyShareExtension.getKeyShareEntries()).thenReturn(List.of(new KeyShareExtension.KeyShareEntry(secp256r1, mock(ECPublicKey.class))));
+        ServerHello serverHello = new ServerHello(TLS_AES_128_GCM_SHA256, List.of(keyShareExtension, new SupportedVersionsExtension(TlsConstants.HandshakeType.server_hello)));
+
+        assertThatThrownBy(() ->
+                // When
+                engine.received(serverHello, ProtectionKeysType.None))
+                // Then
+                .isInstanceOf(IllegalParameterAlert.class);
     }
 
     @Test
