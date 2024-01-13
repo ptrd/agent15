@@ -18,13 +18,14 @@
  */
 package net.luminis.tls.handshake;
 
-import net.luminis.tls.alert.DecodeErrorException;
 import net.luminis.tls.TlsConstants;
 import net.luminis.tls.TlsProtocolException;
+import net.luminis.tls.alert.DecodeErrorException;
 
 import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
-import java.util.stream.Stream;
+
+import static net.luminis.tls.TlsConstants.decodeSignatureScheme;
 
 
 /**
@@ -62,10 +63,7 @@ public class CertificateVerifyMessage extends HandshakeMessage {
 
         try {
             short signatureSchemeValue = buffer.getShort();
-            signatureScheme = Stream.of(TlsConstants.SignatureScheme.values())
-                    .filter(it -> it.value == signatureSchemeValue)
-                    .findAny()
-                    .orElseThrow(() -> new DecodeErrorException("Unknown signature schema"));
+            signatureScheme = decodeSignatureScheme(signatureSchemeValue).orElse(null);
 
             int signatureLength = buffer.getShort() & 0xffff;
             signature = new byte[signatureLength];
@@ -100,6 +98,9 @@ public class CertificateVerifyMessage extends HandshakeMessage {
         raw = buffer.array();
     }
 
+    /**
+     * @return  the signature scheme or null if the message contained an unknown signature scheme value
+     */
     public TlsConstants.SignatureScheme getSignatureScheme() {
         return signatureScheme;
     }

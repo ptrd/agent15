@@ -359,7 +359,7 @@ public class TlsClientEngine extends TlsEngine implements ClientMessageProcessor
         }
 
         TlsConstants.SignatureScheme signatureScheme = certificateVerifyMessage.getSignatureScheme();
-        if (!supportedSignatures.contains(signatureScheme)) {
+        if (signatureScheme == null || !supportedSignatures.contains(signatureScheme)) {
             // https://tools.ietf.org/html/rfc8446#section-4.4.3
             // "If the CertificateVerify message is sent by a server, the signature algorithm MUST be one offered in
             // the client's "signature_algorithms" extension"
