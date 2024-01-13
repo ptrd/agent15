@@ -1,5 +1,9 @@
 # Releases
 
+## 1.0.6 (2024-01-13)
+
+Ignore unknown code points while parsing messages and extensions.
+
 ## 1.0.5 (2023-12-22)
 
 Ignore unknown algorithms when parsing signature algorithms extension.
@@ -19,7 +23,6 @@ No changes, corrected pom.
 ## 1.0.1 (2023-10-20)
 
 Updated test dependencies and HKDF library.
-
 
 ## 1.0.0 (2023-10-08)
 
