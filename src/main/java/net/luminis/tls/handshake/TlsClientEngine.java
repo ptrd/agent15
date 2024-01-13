@@ -334,6 +334,10 @@ public class TlsClientEngine extends TlsEngine implements ClientMessageProcessor
             // https://tools.ietf.org/html/rfc8446#section-4.4.2
             // "If this message is in response to a CertificateRequest, the value of certificate_request_context in that
             // message. Otherwise (in the case of server authentication), this field SHALL be zero length."
+            // https://datatracker.ietf.org/doc/html/rfc2119
+            // "MUST   This word, or the terms "REQUIRED" or "SHALL", mean that the definition is an absolute requirement
+            //         of the specification."
+            // so SHALL is the same as MUST
             throw new IllegalParameterAlert("certificate request context should be zero length");
         }
         if (certificateMessage.getEndEntityCertificate() == null) {
