@@ -18,8 +18,8 @@
  */
 package net.luminis.tls.extension;
 
-import net.luminis.tls.util.ByteUtils;
 import net.luminis.tls.alert.DecodeErrorException;
+import net.luminis.tls.util.ByteUtils;
 import org.junit.jupiter.api.Test;
 
 import java.nio.ByteBuffer;
@@ -31,6 +31,7 @@ class ServerNameExtensionTest {
 
     @Test
     void parseServerNameExtension() throws Exception {
+        //                                                        type    ext sz    list sz enum   length   hostname
         ByteBuffer buffer = ByteBuffer.wrap(ByteUtils.hexToBytes("0000" + "000e" + "000c" + "00" + "0009" + "6c6f63616c686f7374"));
 
         ServerNameExtension serverNameExtension = new ServerNameExtension(buffer);
@@ -67,6 +68,24 @@ class ServerNameExtensionTest {
     }
 
     @Test
+    void parseUnderflow3() throws Exception {
+        ByteBuffer buffer = ByteBuffer.wrap(ByteUtils.hexToBytes("0000" + "0003" + "0001" + "00"));
+
+        assertThatThrownBy(() ->
+                new ServerNameExtension(buffer)
+        ).isInstanceOf(DecodeErrorException.class);
+    }
+
+    @Test
+    void parseOverflow() throws Exception {
+        ByteBuffer buffer = ByteBuffer.wrap(ByteUtils.hexToBytes("0000" + "000e" + "000c" + "00" + "000a" + "6c6f63616c686f737475"));
+
+        assertThatThrownBy(() ->
+                new ServerNameExtension(buffer)
+        ).isInstanceOf(DecodeErrorException.class);
+    }
+
+    @Test
     void parseInconsistentLength1() throws Exception {
         ByteBuffer buffer = ByteBuffer.wrap(ByteUtils.hexToBytes("0000" + "000e" + "000b" + "00" + "0009" + "6c6f63616c686f7374"));
 
@@ -91,6 +110,30 @@ class ServerNameExtensionTest {
         ServerNameExtension serverNameExtension = new ServerNameExtension(buffer);
 
         assertThat(serverNameExtension.getHostName()).isNull();
+    }
+
+    @Test
+    void parseBufferLargerThenExtension() throws Exception {
+        //                                                        type    ext sz    list sz enum   length   hostname
+        ByteBuffer buffer = ByteBuffer.wrap(ByteUtils.hexToBytes("0000" + "000e" + "000c" + "00" + "0009" + "6c6f63616c686f7374"
+                + "cafebabe"));
+
+        ServerNameExtension serverNameExtension = new ServerNameExtension(buffer);
+
+        assertThat(serverNameExtension.getHostName()).isEqualToIgnoringCase("localhost");
+    }
+
+    @Test
+    void whenDuringParsingUnknownNameTypeIsEncounteredIsShouldBeIgnored() throws Exception {
+        ByteBuffer buffer = ByteBuffer.wrap(ByteUtils.hexToBytes(
+                // type  ext sz   list sz   enum  length  name
+                "0000" + "0014" + "0012" + "ff" + "0003" + "abcdef"
+                        // enum name sz  name
+                        + "00" + "0009" + "6c6f63616c686f7374"));
+
+        ServerNameExtension serverNameExtension = new ServerNameExtension(buffer);
+
+        assertThat(serverNameExtension.getHostName()).isNotNull();
     }
 
     @Test

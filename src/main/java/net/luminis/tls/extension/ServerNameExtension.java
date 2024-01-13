@@ -18,9 +18,10 @@
  */
 package net.luminis.tls.extension;
 
-import net.luminis.tls.alert.DecodeErrorException;
 import net.luminis.tls.TlsConstants;
+import net.luminis.tls.alert.DecodeErrorException;
 
+import java.nio.Buffer;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 
@@ -30,7 +31,7 @@ import java.nio.charset.Charset;
  */
 public class ServerNameExtension extends Extension {
 
-    private final String serverName;
+    private String serverName;
 
     public ServerNameExtension(String serverName) {
         this.serverName = serverName;
@@ -47,9 +48,12 @@ public class ServerNameExtension extends Extension {
                 throw new DecodeErrorException("inconsistent length");
             }
 
-            int startPosition = buffer.position();
-            serverName = parseServerName(buffer);
-            if (buffer.position() - startPosition != serverNameListLength) {
+            int remainingListLength = serverNameListLength;
+            while (remainingListLength > 0) {
+                int read = parseServerName(buffer);
+                remainingListLength -= read;
+            }
+            if (remainingListLength < 0) {
                 throw new DecodeErrorException("inconsistent length");
             }
         }
@@ -62,22 +66,34 @@ public class ServerNameExtension extends Extension {
         }
     }
 
-    private String parseServerName(ByteBuffer buffer) throws DecodeErrorException {
+    private int parseServerName(ByteBuffer buffer) throws DecodeErrorException {
+        checkMinRemaining(buffer,1);
         int nameType = buffer.get();
         switch (nameType) {
             case 0:
                 // host_name
+                checkMinRemaining(buffer,2);
                 int hostNameLength = buffer.getShort() & 0xffff;
-                if (hostNameLength > buffer.remaining()) {
-                    throw new DecodeErrorException("extension underflow");
-                }
+                checkMinRemaining(buffer, hostNameLength);
                 byte[] hostNameBytes = new byte[hostNameLength];
                 buffer.get(hostNameBytes);
                 // "The hostname is represented as a byte string using ASCII encoding without a trailing dot. "
-                return new String(hostNameBytes, Charset.forName("ASCII"));
+                serverName = new String(hostNameBytes, Charset.forName("ASCII"));
+                return 1 + 2 + hostNameLength;
+            default:
+                // Unsupported type, RFC 6066 only defines hostname
+                // https://datatracker.ietf.org/doc/html/rfc6066#section-3
+                // "For backward compatibility, all future data structures associated with new NameTypes MUST begin with
+                //  a 16-bit length field. "
+                checkMinRemaining(buffer,2);
+                int dataLength = buffer.getShort() & 0xffff;
+                checkMinRemaining(buffer,dataLength);
+                if (dataLength > buffer.remaining()) {
+                    throw new DecodeErrorException("extension underflow");
+                }
+                buffer.get(new byte[dataLength]);
+                return 1 + 2 + dataLength;
         }
-        // unsupported type, RFC 6066 only defines hostname
-        throw new DecodeErrorException("invalid NameType");
     }
 
     @Override
@@ -100,5 +116,12 @@ public class ServerNameExtension extends Extension {
 
     public String getHostName() {
         return serverName;
+    }
+
+    private void checkMinRemaining(Buffer buffer, int min) throws DecodeErrorException {
+        if (buffer.remaining() < min) {
+            throw new DecodeErrorException("extension underflow");
+        }
+
     }
 }
