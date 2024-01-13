@@ -26,6 +26,8 @@ import net.luminis.tls.alert.HandshakeFailureAlert;
 import net.luminis.tls.alert.InternalErrorAlert;
 import net.luminis.tls.env.AlgorithmMapping;
 import net.luminis.tls.env.PlatformMapping;
+import net.luminis.tls.extension.Extension;
+import net.luminis.tls.extension.UnknownExtension;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
@@ -38,7 +40,6 @@ import java.security.spec.MGF1ParameterSpec;
 import java.security.spec.NamedParameterSpec;
 import java.security.spec.PSSParameterSpec;
 
-import static net.luminis.tls.TlsConstants.CipherSuite.TLS_AES_256_GCM_SHA384;
 import static net.luminis.tls.TlsConstants.NamedGroup.*;
 import static net.luminis.tls.TlsConstants.SignatureScheme.*;
 
@@ -283,5 +284,9 @@ public abstract class TlsEngine implements MessageProcessor, TrafficSecrets {
         else {
             throw new IllegalStateException("Traffic secret not yet available");
         }
+    }
+
+    protected boolean recognizedExtension(Extension extension) {
+        return ! (extension instanceof UnknownExtension);
     }
 }

@@ -20,6 +20,12 @@ package net.luminis.tls.alert;
 
 import net.luminis.tls.TlsConstants;
 
+/**
+ * https://tools.ietf.org/html/rfc8446#section-6.2
+ * "handshake_failure:  Receipt of a "handshake_failure" alert message
+ *       indicates that the sender was unable to negotiate an acceptable
+ *       set of security parameters given the options available."
+ */
 public class HandshakeFailureAlert extends ErrorAlert {
 
     public HandshakeFailureAlert(String message) {

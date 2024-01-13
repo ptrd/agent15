@@ -20,6 +20,13 @@ package net.luminis.tls.alert;
 
 import net.luminis.tls.TlsConstants;
 
+/**
+ * https://tools.ietf.org/html/rfc8446#section-6.2
+ * "illegal_parameter:  A field in the handshake was incorrect or
+ *       inconsistent with other fields.  This alert is used for errors
+ *       which conform to the formal protocol syntax but are otherwise
+ *       incorrect."
+ */
 public class IllegalParameterAlert extends ErrorAlert {
 
     public IllegalParameterAlert(String message) {

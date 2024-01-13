@@ -29,7 +29,9 @@ import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
-// https://tools.ietf.org/html/rfc8446#section-4.3.1
+/**
+ * https://tools.ietf.org/html/rfc8446#section-4.3.1
+ */
 public class EncryptedExtensions extends HandshakeMessage {
 
     private static final int MINIMAL_MESSAGE_LENGTH = 1 + 3 + 2;

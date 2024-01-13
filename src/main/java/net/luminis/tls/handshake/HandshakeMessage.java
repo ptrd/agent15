@@ -28,6 +28,9 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+/**
+ * https://datatracker.ietf.org/doc/html/rfc8446#section-4
+ */
 public abstract class HandshakeMessage extends Message {
 
     public abstract TlsConstants.HandshakeType getType();
@@ -98,6 +101,9 @@ public abstract class HandshakeMessage extends Message {
                     extensions.add(new ClientHelloPreSharedKeyExtension().parse(buffer));
                 }
                 else {
+                    // https://datatracker.ietf.org/doc/html/rfc8446#section-4.2
+                    // "If an implementation receives an extension which it recognizes and which is not specified for
+                    //  the message in which it appears, it MUST abort the handshake with an "illegal_parameter" alert."
                     throw new IllegalParameterAlert("Extension not allowed in " + Arrays.stream(TlsConstants.HandshakeType.values()).filter(it -> it.value == context.value).findFirst().get());
                 }
             }

@@ -23,7 +23,6 @@ import net.luminis.tls.alert.DecodeErrorException;
 import net.luminis.tls.alert.IllegalParameterAlert;
 import net.luminis.tls.extension.KeyShareExtension;
 import net.luminis.tls.extension.SupportedVersionsExtension;
-import net.luminis.tls.handshake.ServerHello;
 import net.luminis.tls.util.ByteUtils;
 import org.junit.jupiter.api.Test;
 
@@ -31,8 +30,8 @@ import java.nio.ByteBuffer;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.Mockito.mock;
 
 
 class ServerHelloTest {
@@ -107,14 +106,17 @@ class ServerHelloTest {
 
     @Test
     void parseWithInvalidCipherSuite() throws Exception {
-        String serverHello = addMandatoryExtensions("0200002c03031219785ef730198b9d915575532c20dea24fa42b20b26724f988d74257404185"
+        String serverHelloInHex = addMandatoryExtensions("0200002c03031219785ef730198b9d915575532c20dea24fa42b20b26724f988d74257404185"
                 + "00" + "1313" + "00");
 
-        byte[] data = ByteUtils.hexToBytes(serverHello);
+        byte[] data = ByteUtils.hexToBytes(serverHelloInHex);
 
-        assertThatThrownBy(() ->
-                new ServerHello().parse(ByteBuffer.wrap(data), data.length)
-        ).isInstanceOf(DecodeErrorException.class);
+        ServerHello serverHello = new ServerHello();
+        assertThatCode(() ->
+                serverHello.parse(ByteBuffer.wrap(data), data.length))
+                .doesNotThrowAnyException();
+
+        assertThat(serverHello.getCipherSuite()).isNull();
     }
 
     @Test

@@ -18,7 +18,9 @@
  */
 package net.luminis.tls.handshake;
 
-import net.luminis.tls.*;
+import net.luminis.tls.Logger;
+import net.luminis.tls.TlsConstants;
+import net.luminis.tls.TlsProtocolException;
 import net.luminis.tls.alert.DecodeErrorException;
 import net.luminis.tls.alert.IllegalParameterAlert;
 import net.luminis.tls.extension.Extension;
@@ -30,7 +32,9 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
-
+/**
+ * https://datatracker.ietf.org/doc/html/rfc8446#section-4.1.3
+ */
 public class ServerHello extends HandshakeMessage {
 
     static byte[] HelloRetryRequest_SHA256 = new byte[] {
@@ -91,6 +95,9 @@ public class ServerHello extends HandshakeMessage {
         }
         buffer.getInt();  // Skip message type and 3 bytes length
 
+        // https://datatracker.ietf.org/doc/html/rfc8446#section-4.1.3
+        // "In TLS 1.3, the TLS server indicates its version using the "supported_versions" extension (Section 4.2.1),
+        //  and the legacy_version field MUST be set to 0x0303, which is the version number for TLS 1.2."
         int versionHigh = buffer.get();
         int versionLow = buffer.get();
         if (versionHigh != 3 || versionLow != 3)
@@ -118,13 +125,9 @@ public class ServerHello extends HandshakeMessage {
                 // the server MUST ignore those cipher suites and process the remaining ones as usual."
                 .ifPresent(item -> cipherSuite = item);
 
-        if (cipherSuite == null) {
-            throw new DecodeErrorException("Unknown cipher suite (" + cipherSuiteCode + ")");
-        }
-
         int legacyCompressionMethod = buffer.get();
         if (legacyCompressionMethod != 0) {
-            // https://www.davidwong.fr/tls13/#section-4.1.3
+            // https://tools.ietf.org/html/rfc8446#section-4.1.2
             // "legacy_compression_method: A single byte which MUST have the value 0."
             throw new DecodeErrorException("Legacy compression method must have the value 0");
         }

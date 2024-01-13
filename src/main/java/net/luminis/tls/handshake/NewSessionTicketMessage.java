@@ -18,10 +18,10 @@
  */
 package net.luminis.tls.handshake;
 
-import net.luminis.tls.*;
+import net.luminis.tls.TlsConstants;
+import net.luminis.tls.TlsProtocolException;
 import net.luminis.tls.alert.DecodeErrorException;
 import net.luminis.tls.alert.IllegalParameterAlert;
-import net.luminis.tls.alert.UnsupportedExtensionAlert;
 import net.luminis.tls.extension.EarlyDataExtension;
 import net.luminis.tls.extension.Extension;
 import net.luminis.tls.extension.UnknownExtension;
@@ -29,7 +29,9 @@ import net.luminis.tls.extension.UnknownExtension;
 import java.nio.ByteBuffer;
 import java.util.List;
 
-// https://tools.ietf.org/html/rfc8446#section-4.6.1
+/**
+ * https://tools.ietf.org/html/rfc8446#section-4.6.1
+ */
 public class NewSessionTicketMessage extends HandshakeMessage {
 
     private static final int MINIMUM_MESSAGE_SIZE = 1 + 3 + 4 + 4 + 1 + 2 + 2;
@@ -87,17 +89,14 @@ public class NewSessionTicketMessage extends HandshakeMessage {
                     earlyDataExtension = (EarlyDataExtension) extension;
                 }
                 else {
-                    throw new UnsupportedExtensionAlert("Only one early data extension is allowed");
+                    // https://datatracker.ietf.org/doc/html/rfc8446#section-4.2
+                    // "There MUST NOT be more than one extension of the same type in a given extension block."
+                    throw new DecodeErrorException("repeated extension is not allowed");
                 }
             }
             else if (extension instanceof UnknownExtension) {
-                int type = ((UnknownExtension) extension).getType();
-                // https://tools.ietf.org/html/rfc8701
-                // The following values are reserved as GREASE values for extensions (...):
-                // 0x0A0A  0x1A1A  0x2A2A  0x3A3A  0x4A4A  0x5A5A  0x6A6A  0x7A7A  0x8A8A  0x9A9A  0xAAAA  0xBABA  0xCACA  0xDADA  0xEAEA  0xFAFA
-                if ((type & 0x0a0a) != 0x0a0a) {
-                    throw new UnsupportedExtensionAlert("Only early data extension is allowed");
-                }
+                // https://datatracker.ietf.org/doc/html/rfc8446#section-4.6.1
+                // "Clients MUST ignore unrecognized extensions."
             }
         }
 

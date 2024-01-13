@@ -18,9 +18,9 @@
  */
 package net.luminis.tls.extension;
 
-import net.luminis.tls.util.ByteUtils;
-import net.luminis.tls.alert.DecodeErrorException;
 import net.luminis.tls.TlsConstants;
+import net.luminis.tls.alert.DecodeErrorException;
+import net.luminis.tls.util.ByteUtils;
 import org.junit.jupiter.api.Test;
 
 import java.nio.ByteBuffer;
@@ -108,13 +108,15 @@ class SupportedGroupsExtensionTest {
     }
 
     @Test
-    void parsingDataWithInvalidGroupThrows() {
-        ByteBuffer buffer = ByteBuffer.wrap(ByteUtils.hexToBytes("000a000400020013"));
+    void unkownCodePointForGroupShouldBeIgnored() throws Exception {
+        // Given     (0x17 == secp256r1, 0x100 == ffdhe2048, 1a -> unknown      17  1a 100
+        ByteBuffer buffer = ByteBuffer.wrap(ByteUtils.hexToBytes("000a000800060017001a0100"));
 
-        assertThatThrownBy(
-                () -> new SupportedGroupsExtension(buffer)
-        ).isInstanceOf(DecodeErrorException.class);
+        // When
+        SupportedGroupsExtension supportedGroupsExtension = new SupportedGroupsExtension(buffer);
 
+        // Then
+        assertThat(supportedGroupsExtension.getNamedGroups())
+                .containsExactlyInAnyOrder(TlsConstants.NamedGroup.secp256r1, TlsConstants.NamedGroup.ffdhe2048);
     }
-
 }

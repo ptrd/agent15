@@ -19,7 +19,6 @@
 package net.luminis.tls.handshake;
 
 import net.luminis.tls.alert.DecodeErrorException;
-import net.luminis.tls.handshake.CertificateVerifyMessage;
 import net.luminis.tls.util.ByteUtils;
 import org.junit.jupiter.api.Test;
 
@@ -27,6 +26,7 @@ import java.nio.ByteBuffer;
 
 import static net.luminis.tls.TlsConstants.SignatureScheme.rsa_pss_rsae_sha256;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class CertificateVerifyMessageTest {
@@ -41,13 +41,15 @@ class CertificateVerifyMessageTest {
     }
 
     @Test
-    void parseCertificateVerifyWithInvalidSignatureSchema() throws Exception {
+    void whenParsingUnknownSignatureSchemaShouldBeIgnored() throws Exception {
         byte[] rawData = ByteUtils.hexToBytes("0f000014fafa0010000102030405060708090a0b0c0d0e0f");
         CertificateVerifyMessage msg = new CertificateVerifyMessage();
 
-        assertThatThrownBy(() ->
-                msg.parse(ByteBuffer.wrap(rawData), 0)
-        ).isInstanceOf(DecodeErrorException.class);
+        assertThatCode(() ->
+                msg.parse(ByteBuffer.wrap(rawData), 0))
+                .doesNotThrowAnyException();
+
+        assertThat(msg.getSignatureScheme() == null);
     }
 
     @Test

@@ -20,7 +20,6 @@ package net.luminis.tls.handshake;
 
 import net.luminis.tls.*;
 import net.luminis.tls.alert.*;
-import net.luminis.tls.extension.Extension;
 import net.luminis.tls.extension.*;
 
 import javax.net.ssl.TrustManagerFactory;
@@ -30,9 +29,16 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.security.*;
+import java.security.cert.CertPathBuilderException;
+import java.security.cert.CertPathValidatorException;
 import java.security.cert.Certificate;
-import java.security.cert.*;
-import java.util.*;
+import java.security.cert.CertificateException;
+import java.security.cert.X509Certificate;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -66,6 +72,7 @@ public class TlsClientEngine extends TlsEngine implements ClientMessageProcessor
     private String serverName;
     private boolean compatibilityMode;
     private List<TlsConstants.CipherSuite> supportedCiphers;
+    private TlsConstants.NamedGroup ecCurve;
     private TlsConstants.CipherSuite selectedCipher;
     private List<Extension> requestedExtensions;
     private List<Extension> sentExtensions;
@@ -104,9 +111,19 @@ public class TlsClientEngine extends TlsEngine implements ClientMessageProcessor
         startHandshake(ecCurve, List.of(rsa_pss_rsae_sha256));
     }
 
+    /**
+     * Start TLS handshake with given parameters
+     * @param ecCurve            the EC named group to use both for the DHE key generation (and thus for the key share
+     *                           extension) and (as the only supported group) in the supported group extension.
+     * @param signatureSchemes   the signature algorithms this peer is willing to accept
+     * @throws IOException
+     */
     public void startHandshake(TlsConstants.NamedGroup ecCurve, List<TlsConstants.SignatureScheme> signatureSchemes) throws IOException {
         if (status != Status.Start) {
             throw new IllegalStateException("Handshake already started");
+        }
+        if (! KeyShareExtension.supportedCurves.contains(ecCurve)) {
+            throw new IllegalArgumentException("Named group " + ecCurve + " not supported");
         }
         if (signatureSchemes.stream().anyMatch(scheme -> !AVAILABLE_SIGNATURES.contains(scheme))) {
             // Remove available leaves the ones that are not available (cannot be supported)
@@ -119,6 +136,7 @@ public class TlsClientEngine extends TlsEngine implements ClientMessageProcessor
         }
 
         supportedSignatures = signatureSchemes;
+        this.ecCurve = ecCurve;
         generateKeys(ecCurve);
         if (serverName == null || supportedCiphers.isEmpty()) {
             throw new IllegalStateException("not all mandatory properties are set");
@@ -187,18 +205,39 @@ public class TlsClientEngine extends TlsEngine implements ClientMessageProcessor
         // https://tools.ietf.org/html/rfc8446#section-4.2
         // "If an implementation receives an extension which it recognizes and which is not specified for the message in
         // which it appears, it MUST abort the handshake with an "illegal_parameter" alert."
+        // " +--------------------------------------------------+-------------+
+        //   | Extension                                        |     TLS 1.3 |
+        //   +--------------------------------------------------+-------------+
+        //   | key_share (RFC 8446)                             | CH, SH, HRR |
+        //   | pre_shared_key (RFC 8446)                        |      CH, SH |
+        //   | supported_versions (RFC 8446)                    | CH, SH, HRR |
+        //   +--------------------------------------------------+-------------+"
         if (serverHello.getExtensions().stream()
-            .anyMatch(ext -> ! (ext instanceof SupportedVersionsExtension) &&
-                    ! (ext instanceof PreSharedKeyExtension) &&
-                    ! (ext instanceof KeyShareExtension))) {
+                .filter(this::recognizedExtension)
+                .anyMatch(ext ->
+                        ! (ext instanceof SupportedVersionsExtension) &&
+                        ! (ext instanceof PreSharedKeyExtension) &&
+                        ! (ext instanceof KeyShareExtension)
+                )) {
             throw new IllegalParameterAlert("illegal extension in server hello");
         }
 
-        Optional<KeyShareExtension.KeyShareEntry> keyShare = serverHello.getExtensions().stream()
+        // The key share extension can be absent (when pre-shared key is used, see below)
+        Optional<Extension> keyShareExtension = serverHello.getExtensions().stream()
                 .filter(extension -> extension instanceof KeyShareExtension)
-                // In the context of a server hello, the key share extension contains exactly one key share entry
-                .map(extension -> ((KeyShareExtension) extension).getKeyShareEntries().get(0))
                 .findFirst();
+        // But when the key share extension is present, it must contain a (one) named group that equals the clients proposed curve
+        Optional<KeyShareExtension.KeyShareEntry> keyShare = Optional.empty();
+        if (keyShareExtension.isPresent()) {
+            keyShare = Optional.of(keyShareExtension
+                    .filter(extension -> !((KeyShareExtension) extension).getKeyShareEntries().isEmpty())
+                    .map(extension -> ((KeyShareExtension) extension).getKeyShareEntries().get(0))
+                    .orElseThrow(() -> new IllegalParameterAlert("")));
+            // In the context of a server hello, the key share extension contains exactly one key share entry
+            if (keyShare.get().getNamedGroup() != ecCurve) {
+                throw new IllegalParameterAlert("server supplied key share does not match client supported named group");
+            }
+        }
 
         Optional<Extension> preSharedKey = serverHello.getExtensions().stream()
                 .filter(extension -> extension instanceof ServerPreSharedKeyExtension)
@@ -305,6 +344,10 @@ public class TlsClientEngine extends TlsEngine implements ClientMessageProcessor
             // https://tools.ietf.org/html/rfc8446#section-4.4.2
             // "If this message is in response to a CertificateRequest, the value of certificate_request_context in that
             // message. Otherwise (in the case of server authentication), this field SHALL be zero length."
+            // https://datatracker.ietf.org/doc/html/rfc2119
+            // "MUST   This word, or the terms "REQUIRED" or "SHALL", mean that the definition is an absolute requirement
+            //         of the specification."
+            // so SHALL is the same as MUST
             throw new IllegalParameterAlert("certificate request context should be zero length");
         }
         if (certificateMessage.getEndEntityCertificate() == null) {
@@ -330,7 +373,7 @@ public class TlsClientEngine extends TlsEngine implements ClientMessageProcessor
         }
 
         TlsConstants.SignatureScheme signatureScheme = certificateVerifyMessage.getSignatureScheme();
-        if (!supportedSignatures.contains(signatureScheme)) {
+        if (signatureScheme == null || !supportedSignatures.contains(signatureScheme)) {
             // https://tools.ietf.org/html/rfc8446#section-4.4.3
             // "If the CertificateVerify message is sent by a server, the signature algorithm MUST be one offered in
             // the client's "signature_algorithms" extension"

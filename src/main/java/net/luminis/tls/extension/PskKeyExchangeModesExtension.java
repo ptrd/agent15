@@ -18,12 +18,14 @@
  */
 package net.luminis.tls.extension;
 
-import net.luminis.tls.alert.DecodeErrorException;
 import net.luminis.tls.TlsConstants;
+import net.luminis.tls.alert.DecodeErrorException;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
+
+import static net.luminis.tls.TlsConstants.decodePskKeyExchangeMode;
 
 /**
  * TLS Pre-Shared Key Exchange Modes extension.
@@ -51,17 +53,10 @@ public class PskKeyExchangeModesExtension extends Extension {
         }
         for (int i = 0; i < pskKeyExchangeModesLength; i++) {
             int modeByte = buffer.get();
-            if (modeByte == TlsConstants.PskKeyExchangeMode.psk_ke.value) {
-                keyExchangeModes.add(TlsConstants.PskKeyExchangeMode.psk_ke);
-            }
-            else if (modeByte == TlsConstants.PskKeyExchangeMode.psk_dhe_ke.value) {
-                keyExchangeModes.add(TlsConstants.PskKeyExchangeMode.psk_dhe_ke);
-            }
-            else {
-                throw new DecodeErrorException("invalid psk key exchange mocde");
-            }
+            decodePskKeyExchangeMode(modeByte).ifPresent(m -> keyExchangeModes.add(m));
         }
     }
+
 
     @Override
     public byte[] getBytes() {

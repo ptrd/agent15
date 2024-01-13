@@ -18,20 +18,24 @@
  */
 package net.luminis.tls.handshake;
 
-import net.luminis.tls.alert.DecodeErrorException;
 import net.luminis.tls.TlsConstants;
 import net.luminis.tls.TlsProtocolException;
+import net.luminis.tls.alert.DecodeErrorException;
 
 import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
-import java.util.stream.Stream;
 
-// https://tools.ietf.org/html/rfc8446#section-4.4.3
-// "Certificate Verify
-//   This message is used to provide explicit proof that an endpoint possesses the private key corresponding to its certificate.  The
-//   CertificateVerify message also provides integrity for the handshake up to this point.  Servers MUST send this message when authenticating
-//   via a certificate.  Clients MUST send this message whenever authenticating via a certificate (i.e., when the Certificate message
-//   is non-empty). "
+import static net.luminis.tls.TlsConstants.decodeSignatureScheme;
+
+
+/**
+ * https://tools.ietf.org/html/rfc8446#section-4.4.3
+ * "Certificate Verify
+ *   This message is used to provide explicit proof that an endpoint possesses the private key corresponding to its certificate.  The
+ *   CertificateVerify message also provides integrity for the handshake up to this point.  Servers MUST send this message when authenticating
+ *   via a certificate.  Clients MUST send this message whenever authenticating via a certificate (i.e., when the Certificate message
+ *   is non-empty)."
+ */
 public class CertificateVerifyMessage extends HandshakeMessage {
 
     private static final int MINIMUM_MESSAGE_SIZE = 1 + 3 + 2 + 2 + 1;
@@ -59,10 +63,7 @@ public class CertificateVerifyMessage extends HandshakeMessage {
 
         try {
             short signatureSchemeValue = buffer.getShort();
-            signatureScheme = Stream.of(TlsConstants.SignatureScheme.values())
-                    .filter(it -> it.value == signatureSchemeValue)
-                    .findAny()
-                    .orElseThrow(() -> new DecodeErrorException("Unknown signature schema"));
+            signatureScheme = decodeSignatureScheme(signatureSchemeValue).orElse(null);
 
             int signatureLength = buffer.getShort() & 0xffff;
             signature = new byte[signatureLength];
@@ -97,6 +98,9 @@ public class CertificateVerifyMessage extends HandshakeMessage {
         raw = buffer.array();
     }
 
+    /**
+     * @return  the signature scheme or null if the message contained an unknown signature scheme value
+     */
     public TlsConstants.SignatureScheme getSignatureScheme() {
         return signatureScheme;
     }

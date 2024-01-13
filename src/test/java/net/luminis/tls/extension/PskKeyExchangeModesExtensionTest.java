@@ -18,9 +18,9 @@
  */
 package net.luminis.tls.extension;
 
-import net.luminis.tls.util.ByteUtils;
-import net.luminis.tls.alert.DecodeErrorException;
 import net.luminis.tls.TlsConstants;
+import net.luminis.tls.alert.DecodeErrorException;
+import net.luminis.tls.util.ByteUtils;
 import org.junit.jupiter.api.Test;
 
 import java.nio.ByteBuffer;
@@ -96,4 +96,13 @@ class PskKeyExchangeModesExtensionTest {
         ).isInstanceOf(DecodeErrorException.class);
     }
 
+    @Test
+    void unknownCodePointForModeShouldBeIgnored() throws Exception {
+        ByteBuffer buffer = ByteBuffer.wrap(ByteUtils.hexToBytes("002d0003020201"));
+
+        PskKeyExchangeModesExtension pskKeyExchangeModesExtension = new PskKeyExchangeModesExtension(buffer);
+
+        assertThat(pskKeyExchangeModesExtension.getKeyExchangeModes())
+                .containsExactlyInAnyOrder(TlsConstants.PskKeyExchangeMode.psk_dhe_ke);
+    }
 }

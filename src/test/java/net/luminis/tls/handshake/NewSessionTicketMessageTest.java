@@ -20,7 +20,6 @@ package net.luminis.tls.handshake;
 
 import net.luminis.tls.alert.DecodeErrorException;
 import net.luminis.tls.alert.IllegalParameterAlert;
-import net.luminis.tls.alert.UnsupportedExtensionAlert;
 import net.luminis.tls.extension.EarlyDataExtension;
 import net.luminis.tls.util.ByteUtils;
 import org.junit.jupiter.api.Test;
@@ -28,6 +27,7 @@ import org.junit.jupiter.api.Test;
 import java.nio.ByteBuffer;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class NewSessionTicketMessageTest {
@@ -52,13 +52,29 @@ class NewSessionTicketMessageTest {
     }
 
     @Test
-    void parseMessageWithInappropriateExtension() throws Exception {
-        //                                              lifetime age_add  nonce       ticket        extensions
-        byte[] rawData = ByteUtils.hexToBytes("04000017 00093a80 fab00e11 04 01020304 0004 01020304 0004 fab0 0000");
+    void whenParsingMessageInappropriateExtensionShouldBeIgnored() throws Exception {
+        //                                              lifetime age_add  nonce       ticket        exts ext_1     ext_2
+        byte[] rawData = ByteUtils.hexToBytes("0400001d 00093a80 fab00e11 04 01020304 0004 01020304 000c fab0 0000 002a 0004 01020304");
+
+        NewSessionTicketMessage newSessionTicketMessage = new NewSessionTicketMessage();
+
+        assertThatCode(() ->
+                newSessionTicketMessage.parse(ByteBuffer.wrap(rawData)))
+                .doesNotThrowAnyException();
+
+        assertThat(newSessionTicketMessage.getEarlyDataExtension()).isNotNull();
+    }
+
+    @Test
+    void whenParsingMessageRepeatedExtensionShouldThrow() throws Exception {
+        //                                              lifetime age_add  nonce       ticket        exts ext 1              ext 2
+        byte[] rawData = ByteUtils.hexToBytes("04000022 00093a80 fab00e11 04 01020304 0004 01020304 0010 002a 0004 01020304 002a 0004 01020304");
+
+        NewSessionTicketMessage newSessionTicketMessage = new NewSessionTicketMessage();
 
         assertThatThrownBy(() ->
-                new NewSessionTicketMessage().parse(ByteBuffer.wrap(rawData))
-        ).isInstanceOf(UnsupportedExtensionAlert.class);
+                newSessionTicketMessage.parse(ByteBuffer.wrap(rawData)))
+                .isInstanceOf(DecodeErrorException.class);
     }
 
     @Test
