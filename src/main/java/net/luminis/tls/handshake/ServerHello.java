@@ -18,7 +18,9 @@
  */
 package net.luminis.tls.handshake;
 
-import net.luminis.tls.*;
+import net.luminis.tls.Logger;
+import net.luminis.tls.TlsConstants;
+import net.luminis.tls.TlsProtocolException;
 import net.luminis.tls.alert.DecodeErrorException;
 import net.luminis.tls.alert.IllegalParameterAlert;
 import net.luminis.tls.extension.Extension;
@@ -122,10 +124,6 @@ public class ServerHello extends HandshakeMessage {
                 // "If the list contains cipher suites that the server does not recognize, support, or wish to use,
                 // the server MUST ignore those cipher suites and process the remaining ones as usual."
                 .ifPresent(item -> cipherSuite = item);
-
-        if (cipherSuite == null) {
-            throw new DecodeErrorException("Unknown cipher suite (" + cipherSuiteCode + ")");
-        }
 
         int legacyCompressionMethod = buffer.get();
         if (legacyCompressionMethod != 0) {
