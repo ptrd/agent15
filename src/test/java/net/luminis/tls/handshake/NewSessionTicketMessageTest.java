@@ -66,6 +66,18 @@ class NewSessionTicketMessageTest {
     }
 
     @Test
+    void whenParsingMessageRepeatedExtensionShouldThrow() throws Exception {
+        //                                              lifetime age_add  nonce       ticket        exts ext 1              ext 2
+        byte[] rawData = ByteUtils.hexToBytes("04000022 00093a80 fab00e11 04 01020304 0004 01020304 0010 002a 0004 01020304 002a 0004 01020304");
+
+        NewSessionTicketMessage newSessionTicketMessage = new NewSessionTicketMessage();
+
+        assertThatThrownBy(() ->
+                newSessionTicketMessage.parse(ByteBuffer.wrap(rawData)))
+                .isInstanceOf(DecodeErrorException.class);
+    }
+
+    @Test
     void parseNoMessage() throws Exception {
         byte[] rawData = ByteUtils.hexToBytes("0400");
         assertThatThrownBy(() ->

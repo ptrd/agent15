@@ -18,10 +18,10 @@
  */
 package net.luminis.tls.handshake;
 
-import net.luminis.tls.*;
+import net.luminis.tls.TlsConstants;
+import net.luminis.tls.TlsProtocolException;
 import net.luminis.tls.alert.DecodeErrorException;
 import net.luminis.tls.alert.IllegalParameterAlert;
-import net.luminis.tls.alert.UnsupportedExtensionAlert;
 import net.luminis.tls.extension.EarlyDataExtension;
 import net.luminis.tls.extension.Extension;
 import net.luminis.tls.extension.UnknownExtension;
@@ -89,7 +89,9 @@ public class NewSessionTicketMessage extends HandshakeMessage {
                     earlyDataExtension = (EarlyDataExtension) extension;
                 }
                 else {
-                    throw new UnsupportedExtensionAlert("Only one early data extension is allowed");
+                    // https://datatracker.ietf.org/doc/html/rfc8446#section-4.2
+                    // "There MUST NOT be more than one extension of the same type in a given extension block."
+                    throw new DecodeErrorException("repeated extension is not allowed");
                 }
             }
             else if (extension instanceof UnknownExtension) {
