@@ -205,10 +205,20 @@ public class TlsClientEngine extends TlsEngine implements ClientMessageProcessor
         // https://tools.ietf.org/html/rfc8446#section-4.2
         // "If an implementation receives an extension which it recognizes and which is not specified for the message in
         // which it appears, it MUST abort the handshake with an "illegal_parameter" alert."
+        // " +--------------------------------------------------+-------------+
+        //   | Extension                                        |     TLS 1.3 |
+        //   +--------------------------------------------------+-------------+
+        //   | key_share (RFC 8446)                             | CH, SH, HRR |
+        //   | pre_shared_key (RFC 8446)                        |      CH, SH |
+        //   | supported_versions (RFC 8446)                    | CH, SH, HRR |
+        //   +--------------------------------------------------+-------------+"
         if (serverHello.getExtensions().stream()
-            .anyMatch(ext -> ! (ext instanceof SupportedVersionsExtension) &&
-                    ! (ext instanceof PreSharedKeyExtension) &&
-                    ! (ext instanceof KeyShareExtension))) {
+                .filter(this::recognizedExtension)
+                .anyMatch(ext ->
+                        ! (ext instanceof SupportedVersionsExtension) &&
+                        ! (ext instanceof PreSharedKeyExtension) &&
+                        ! (ext instanceof KeyShareExtension)
+                )) {
             throw new IllegalParameterAlert("illegal extension in server hello");
         }
 

@@ -192,6 +192,23 @@ class TlsClientEngineTest extends EngineTest {
     }
 
     @Test
+    void serverHelloShouldNotContainOtherExtensionsItRecognizes() throws Exception {
+        // Given
+        engine.startHandshake();
+
+        ServerHello serverHello = new ServerHello(engineCipher, List.of(
+                new SupportedVersionsExtension(TlsConstants.HandshakeType.server_hello),
+                new KeyShareExtension(publicKey, secp256r1, TlsConstants.HandshakeType.server_hello),
+                new UnknownExtension()));
+
+        assertThatCode(() ->
+                // When
+                engine.received(serverHello, ProtectionKeysType.None))
+                // Then
+                .doesNotThrowAnyException();
+    }
+
+    @Test
     void engineAcceptsCorrectServerHello() throws Exception {
         // Given
         engine.startHandshake();
