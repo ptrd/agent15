@@ -93,13 +93,8 @@ public class NewSessionTicketMessage extends HandshakeMessage {
                 }
             }
             else if (extension instanceof UnknownExtension) {
-                int type = ((UnknownExtension) extension).getType();
-                // https://tools.ietf.org/html/rfc8701
-                // The following values are reserved as GREASE values for extensions (...):
-                // 0x0A0A  0x1A1A  0x2A2A  0x3A3A  0x4A4A  0x5A5A  0x6A6A  0x7A7A  0x8A8A  0x9A9A  0xAAAA  0xBABA  0xCACA  0xDADA  0xEAEA  0xFAFA
-                if ((type & 0x0a0a) != 0x0a0a) {
-                    throw new UnsupportedExtensionAlert("Only early data extension is allowed");
-                }
+                // https://datatracker.ietf.org/doc/html/rfc8446#section-4.6.1
+                // "Clients MUST ignore unrecognized extensions."
             }
         }
 
