@@ -25,9 +25,7 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.Charset;
-import java.security.KeyFactory;
-import java.security.NoSuchAlgorithmException;
-import java.security.PrivateKey;
+import java.security.*;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
@@ -36,8 +34,10 @@ import java.security.interfaces.RSAPrivateKey;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Base64;
 import java.util.List;
+import java.util.stream.Collectors;
 
 public class TlsServerEngineFactory {
 
@@ -49,6 +49,34 @@ public class TlsServerEngineFactory {
     public TlsServerEngineFactory(InputStream certificateFile, InputStream certificateKeyFile) throws IOException, CertificateException, InvalidKeySpecException {
         this.serverCertificates = readCertificates(certificateFile);
         this.certificateKey = readPrivateKey(certificateKeyFile);
+    }
+
+    public TlsServerEngineFactory(KeyStore keyStore, String alias, char[] keyPassword) throws IOException, CertificateException, InvalidKeySpecException {
+        this.serverCertificates = getCertificates(keyStore, alias);
+        this.certificateKey = getPrivateKey(keyStore, alias, keyPassword);
+    }
+
+    private static List<X509Certificate> getCertificates(KeyStore keyStore, String alias) {
+        try {
+            return Arrays.stream(keyStore.getCertificateChain(alias))
+                    .map(c -> (X509Certificate) c)
+                    .collect(Collectors.toList());
+        }
+        catch (KeyStoreException e) {
+            throw new IllegalArgumentException(e);
+        }
+    }
+
+    private static PrivateKey getPrivateKey(KeyStore keyStore, String alias, char[] password) {
+        try {
+            return (PrivateKey) keyStore.getKey(alias, password);
+        }
+        catch (KeyStoreException | UnrecoverableKeyException e) {
+            throw new IllegalArgumentException(e);
+        }
+        catch (NoSuchAlgorithmException e) {
+            throw new RuntimeException("Algorithm not supported", e);
+        }
     }
 
     public TlsServerEngine createServerEngine(ServerMessageSender serverMessageSender, TlsStatusEventHandler tlsStatusHandler) {
