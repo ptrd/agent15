@@ -38,14 +38,15 @@ import java.util.Base64;
 import java.util.Collections;
 import java.util.List;
 
+import static net.luminis.tls.CertificateUtils.*;
 import static net.luminis.tls.TlsConstants.CipherSuite.TLS_AES_128_GCM_SHA256;
 import static net.luminis.tls.TlsConstants.CipherSuite.TLS_CHACHA20_POLY1305_SHA256;
+import static net.luminis.tls.TlsConstants.SignatureScheme.*;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.*;
-
-public class TlsServerEngineTest extends EngineTest {
+public class TlsServerEngineTest {
 
     private TlsServerEngine engine;
     private ECPublicKey publicKey;
@@ -59,10 +60,10 @@ public class TlsServerEngineTest extends EngineTest {
         messageSender = mock(ServerMessageSender.class);
 
         KeyFactory keyFactory = KeyFactory.getInstance("RSA");
-        PKCS8EncodedKeySpec keySpecPKCS8 = new PKCS8EncodedKeySpec(Base64.getDecoder().decode(encodedPrivateKey));
+        PKCS8EncodedKeySpec keySpecPKCS8 = new PKCS8EncodedKeySpec(Base64.getDecoder().decode(encodedKwikDotTechRsaCertificatePrivateKey));
         PrivateKey privateKey = keyFactory.generatePrivate(keySpecPKCS8);
 
-        serverCertificate = CertificateUtils.inflateCertificate(encodedCertificate);
+        serverCertificate = CertificateUtils.inflateCertificate(encodedKwikDotTechRsaCertificate);
         tlsStatusHandler = mock(TlsStatusEventHandler.class);
         tlsSessionRegistry = new TlsSessionRegistryImpl();
         engine = new TlsServerEngine(serverCertificate, privateKey, messageSender, tlsStatusHandler, tlsSessionRegistry) {
@@ -82,14 +83,14 @@ public class TlsServerEngineTest extends EngineTest {
 
         ClientHello clientHello1 =  new ClientHello("localhost", publicKey, false,
                 List.of(TLS_AES_128_GCM_SHA256),
-                List.of(TlsConstants.SignatureScheme.rsa_pss_rsae_sha256),
+                List.of(rsa_pss_rsae_sha256),
                 TlsConstants.NamedGroup.secp256r1, Collections.emptyList(), null, ClientHello.PskKeyEstablishmentMode.none);
         engine.received(clientHello1, ProtectionKeysType.None);
 
         // When
         ClientHello clientHello2 =  new ClientHello("localhost", publicKey, false,
                 List.of(TLS_CHACHA20_POLY1305_SHA256),   // Intentionally different cipher, this is the crux of the test!
-                List.of(TlsConstants.SignatureScheme.rsa_pss_rsae_sha256),
+                List.of(rsa_pss_rsae_sha256),
                 TlsConstants.NamedGroup.secp256r1, Collections.emptyList(), null, ClientHello.PskKeyEstablishmentMode.none);
         engine.received(clientHello2, ProtectionKeysType.None);
 
@@ -102,7 +103,7 @@ public class TlsServerEngineTest extends EngineTest {
         // Given
         ClientHello clientHello = new ClientHello("localhost", publicKey, false,
                 List.of(TLS_CHACHA20_POLY1305_SHA256),
-                List.of(TlsConstants.SignatureScheme.rsa_pss_rsae_sha256),
+                List.of(rsa_pss_rsae_sha256),
                 TlsConstants.NamedGroup.secp256r1, Collections.emptyList(), null, ClientHello.PskKeyEstablishmentMode.both);
 
         assertThatThrownBy(() ->
@@ -201,7 +202,7 @@ public class TlsServerEngineTest extends EngineTest {
         // Given
         ClientHello clientHello = new ClientHello("localhost", publicKey, false,
                 List.of(TLS_CHACHA20_POLY1305_SHA256, TLS_AES_128_GCM_SHA256),
-                List.of(TlsConstants.SignatureScheme.rsa_pss_rsae_sha256),
+                List.of(rsa_pss_rsae_sha256),
                 TlsConstants.NamedGroup.secp256r1, Collections.emptyList(), null, ClientHello.PskKeyEstablishmentMode.both);
 
         // When
@@ -333,6 +334,78 @@ public class TlsServerEngineTest extends EngineTest {
         verify(tlsStatusHandler, never()).isEarlyDataAccepted();
     }
 
+    @Test
+    void rsaSignatureCertificate() throws Exception {
+        // Given
+        X509Certificate certificate = CertificateUtils.inflateCertificate(encodedKwikDotTechRsaCertificate);
+
+        // When
+        TlsConstants.SignatureScheme signatureScheme = TlsServerEngine.determineSignatureScheme(certificate);
+
+        // Then
+        assertThat(signatureScheme).isEqualTo(rsa_pss_rsae_sha256);
+    }
+
+    @Test
+    void rsaWithSha384SignatureCertificate() throws Exception {
+        // Given
+        X509Certificate certificate = CertificateUtils.inflateCertificate(encodedSampleRsa384Certificate);
+
+        // When
+        TlsConstants.SignatureScheme signatureScheme = TlsServerEngine.determineSignatureScheme(certificate);
+
+        // Then
+        assertThat(signatureScheme).isEqualTo(rsa_pss_rsae_sha384);
+    }
+
+    @Test
+    void rsaWithSha512SignatureCertificate() throws Exception {
+        // Given
+        X509Certificate certificate = CertificateUtils.inflateCertificate(encodedSampleRsa512Certificate);
+
+        // When
+        TlsConstants.SignatureScheme signatureScheme = TlsServerEngine.determineSignatureScheme(certificate);
+
+        // Then
+        assertThat(signatureScheme).isEqualTo(rsa_pss_rsae_sha512);
+    }
+
+    @Test
+    void ecdsaSignatureCertificate() throws Exception {
+        // Given
+        X509Certificate certificate = CertificateUtils.inflateCertificate(encodedInteropLeafEcdsaCertificate);
+
+        // When
+        TlsConstants.SignatureScheme signatureScheme = TlsServerEngine.determineSignatureScheme(certificate);
+
+        // Then
+        assertThat(signatureScheme).isEqualTo(ecdsa_secp256r1_sha256);
+    }
+
+    @Test
+    void ecdsa384SignatureCertificate() throws Exception {
+        // Given
+        X509Certificate certificate = CertificateUtils.inflateCertificate(encodedSampleEcdsa384Certificate);
+
+        // When
+        TlsConstants.SignatureScheme signatureScheme = TlsServerEngine.determineSignatureScheme(certificate);
+
+        // Then
+        assertThat(signatureScheme).isEqualTo(ecdsa_secp384r1_sha384);
+    }
+
+    @Test
+    void ecdsa512SignatureCertificate() throws Exception {
+        // Given
+        X509Certificate certificate = CertificateUtils.inflateCertificate(encodedSampleEcdsa512Certificate);
+
+        // When
+        TlsConstants.SignatureScheme signatureScheme = TlsServerEngine.determineSignatureScheme(certificate);
+
+        // Then
+        assertThat(signatureScheme).isEqualTo(ecdsa_secp521r1_sha512);
+    }
+
     private ClientHello createDefaultClientHello() {
         return createDefaultClientHello(Collections.emptyList(), null);
     }
@@ -340,7 +413,7 @@ public class TlsServerEngineTest extends EngineTest {
     private ClientHello createDefaultClientHello(List<Extension> extensions, TlsState state) {
         return new ClientHello("localhost", publicKey, false,
                 List.of(TLS_AES_128_GCM_SHA256),
-                List.of(TlsConstants.SignatureScheme.rsa_pss_rsae_sha256),
+                List.of(rsa_pss_rsae_sha256),
                 TlsConstants.NamedGroup.secp256r1, extensions, state, ClientHello.PskKeyEstablishmentMode.none);
     }
 

@@ -18,22 +18,30 @@
  */
 package net.luminis.tls.handshake;
 
-import net.luminis.tls.*;
-import net.luminis.tls.alert.*;
+import net.luminis.tls.ProtectionKeysType;
+import net.luminis.tls.TlsConstants;
+import net.luminis.tls.TlsProtocolException;
+import net.luminis.tls.TlsState;
+import net.luminis.tls.TranscriptHash;
+import net.luminis.tls.alert.DecryptErrorAlert;
+import net.luminis.tls.alert.HandshakeFailureAlert;
+import net.luminis.tls.alert.IllegalParameterAlert;
+import net.luminis.tls.alert.MissingExtensionAlert;
+import net.luminis.tls.alert.UnexpectedMessageAlert;
 import net.luminis.tls.extension.*;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.security.*;
+import java.security.PrivateKey;
 import java.security.cert.X509Certificate;
 import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static net.luminis.tls.TlsConstants.CipherSuite.TLS_AES_128_GCM_SHA256;
-import static net.luminis.tls.TlsConstants.NamedGroup.*;
+import static net.luminis.tls.TlsConstants.NamedGroup.x25519;
 import static net.luminis.tls.TlsConstants.PskKeyExchangeMode.psk_dhe_ke;
-import static net.luminis.tls.TlsConstants.SignatureScheme.rsa_pss_rsae_sha256;
+import static net.luminis.tls.TlsConstants.SignatureScheme.*;
 
 public class TlsServerEngine extends TlsEngine implements ServerMessageProcessor {
 
@@ -246,8 +254,10 @@ public class TlsServerEngine extends TlsEngine implements ServerMessageProcessor
             // "The content that is covered under the signature is the hash output as described in Section 4.4.1, namely:
             //      Transcript-Hash(Handshake Context, Certificate)
             byte[] hash = transcriptHash.getServerHash(TlsConstants.HandshakeType.certificate);
-            byte[] signature = computeSignature(hash, certificatePrivateKey, rsa_pss_rsae_sha256, false);
-            CertificateVerifyMessage certificateVerify = new CertificateVerifyMessage(rsa_pss_rsae_sha256, signature);
+
+            TlsConstants.SignatureScheme signatureScheme = determineSignatureScheme(serverCertificateChain.get(0));
+            byte[] signature = computeSignature(hash, certificatePrivateKey, signatureScheme, false);
+            CertificateVerifyMessage certificateVerify = new CertificateVerifyMessage(signatureScheme, signature);
             serverMessageSender.send(certificateVerify);
             transcriptHash.recordServer(certificateVerify);
         }
@@ -259,6 +269,27 @@ public class TlsServerEngine extends TlsEngine implements ServerMessageProcessor
         state.computeApplicationSecrets();
 
         status = Status.WaitFinished;
+    }
+
+    static TlsConstants.SignatureScheme determineSignatureScheme(X509Certificate certificate) throws TlsProtocolException {
+        switch (certificate.getSigAlgName()) {
+            case "SHA256withRSA":
+                return rsa_pss_rsae_sha256;
+            case "SHA384withRSA":
+                return rsa_pss_rsae_sha384;
+            case "SHA512withRSA":
+                return rsa_pss_rsae_sha512;
+            case "SHA256withECDSA":
+                return ecdsa_secp256r1_sha256;
+            case "SHA384withECDSA":
+                // Checking curve is hardly possible with standard Java:
+                // boolean rightCurve = ((ECPublicKey) certificate.getPublicKey()).getParams().toString().startsWith("secp384r1");
+                return ecdsa_secp384r1_sha384;
+            case "SHA512withECDSA":
+                return ecdsa_secp521r1_sha512;
+            default:
+                throw new TlsProtocolException("Unknown or unsupported certificate type " + certificate.getSigAlgName());
+        }
     }
 
     private boolean isAcceptable(byte[] sessionData) {

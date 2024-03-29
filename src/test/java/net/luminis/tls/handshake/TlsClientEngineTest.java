@@ -50,6 +50,8 @@ import java.util.Base64;
 import java.util.List;
 
 import static java.util.Collections.emptyList;
+import static net.luminis.tls.CertificateUtils.encodedKwikDotTechRsaCertificate;
+import static net.luminis.tls.CertificateUtils.encodedKwikDotTechRsaCertificatePrivateKey;
 import static net.luminis.tls.TlsConstants.CipherSuite.TLS_AES_128_GCM_SHA256;
 import static net.luminis.tls.TlsConstants.CipherSuite.TLS_AES_256_GCM_SHA384;
 import static net.luminis.tls.TlsConstants.CipherSuite.TLS_CHACHA20_POLY1305_SHA256;
@@ -63,7 +65,7 @@ import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.*;
 
-class TlsClientEngineTest extends EngineTest {
+class TlsClientEngineTest {
 
     private TlsClientEngine engine;
     private ECPublicKey publicKey;
@@ -414,7 +416,7 @@ class TlsClientEngineTest extends EngineTest {
     void certificateVerifySignatureSchemeShouldMatch() throws Exception {
         // Given
         handshakeUpToCertificate(List.of(TlsConstants.SignatureScheme.ecdsa_secp256r1_sha256), false);
-        Certificate certificate = CertificateUtils.inflateCertificate(encodedCertificate);
+        Certificate certificate = CertificateUtils.inflateCertificate(encodedKwikDotTechRsaCertificate);
         engine.received(new CertificateMessage((X509Certificate) certificate), ProtectionKeysType.Handshake);
 
         assertThatThrownBy(() ->
@@ -433,7 +435,7 @@ class TlsClientEngineTest extends EngineTest {
 
         handshakeUpToCertificate();
 
-        engine.received(new CertificateMessage(CertificateUtils.inflateCertificate(encodedCertificate)), ProtectionKeysType.Handshake);
+        engine.received(new CertificateMessage(CertificateUtils.inflateCertificate(encodedKwikDotTechRsaCertificate)), ProtectionKeysType.Handshake);
 
         assertThatCode(() ->
                 // When
@@ -446,7 +448,7 @@ class TlsClientEngineTest extends EngineTest {
     void whenSignatureVerificationFailsHandshakeShouldBeTerminatedWithDecryptError() throws Exception {
         // Given
         handshakeUpToCertificate();
-        engine.received(new CertificateMessage(CertificateUtils.inflateCertificate(encodedCertificate)), ProtectionKeysType.Handshake);
+        engine.received(new CertificateMessage(CertificateUtils.inflateCertificate(encodedKwikDotTechRsaCertificate)), ProtectionKeysType.Handshake);
 
         Assertions.assertThatThrownBy(() ->
                 // When
@@ -459,7 +461,7 @@ class TlsClientEngineTest extends EngineTest {
     void testVerifySignature() throws Exception {
         byte[] signature = createServerSignature();
 
-        Certificate certificate = CertificateUtils.inflateCertificate(encodedCertificate);
+        Certificate certificate = CertificateUtils.inflateCertificate(encodedKwikDotTechRsaCertificate);
 
         byte[] hash = new byte[32];
         Arrays.fill(hash, (byte) 0x01);
@@ -474,7 +476,7 @@ class TlsClientEngineTest extends EngineTest {
         // Given
         byte[] validSignature = createServerSignature();
         handshakeUpToCertificate();
-        engine.received(new CertificateMessage(CertificateUtils.inflateCertificate(encodedCertificate)), ProtectionKeysType.Handshake);
+        engine.received(new CertificateMessage(CertificateUtils.inflateCertificate(encodedKwikDotTechRsaCertificate)), ProtectionKeysType.Handshake);
 
         assertThatThrownBy(() ->
                 // When
@@ -490,7 +492,7 @@ class TlsClientEngineTest extends EngineTest {
         engine.setTrustManager(createNoOpTrustManager());
 
         handshakeUpToCertificate();
-        engine.received(new CertificateMessage(CertificateUtils.inflateCertificate(encodedCertificate)), ProtectionKeysType.Handshake);
+        engine.received(new CertificateMessage(CertificateUtils.inflateCertificate(encodedKwikDotTechRsaCertificate)), ProtectionKeysType.Handshake);
 
         byte[] validSignature = createServerSignature();
         assertThatThrownBy(() ->
@@ -507,7 +509,7 @@ class TlsClientEngineTest extends EngineTest {
         byte[] validSignature = createServerSignature();
 
         handshakeUpToCertificate();
-        engine.received(new CertificateMessage(CertificateUtils.inflateCertificate(encodedCertificate)), ProtectionKeysType.Handshake);
+        engine.received(new CertificateMessage(CertificateUtils.inflateCertificate(encodedKwikDotTechRsaCertificate)), ProtectionKeysType.Handshake);
 
         // When
         engine.setHostnameVerifier(null);
@@ -521,7 +523,7 @@ class TlsClientEngineTest extends EngineTest {
     void finisedMessageShouldNotBeReceivedBeforeCertificateVerify() throws Exception {
         // Given
         handshakeUpToCertificate();
-        engine.received(new CertificateMessage(CertificateUtils.inflateCertificate(encodedCertificate)), ProtectionKeysType.Handshake);
+        engine.received(new CertificateMessage(CertificateUtils.inflateCertificate(encodedKwikDotTechRsaCertificate)), ProtectionKeysType.Handshake);
 
         assertThatThrownBy(() ->
                 // When, no Certificate Verify Message received
@@ -598,7 +600,7 @@ class TlsClientEngineTest extends EngineTest {
     void certificateRequestMessageShouldNotBeReceivedAfterCertificate() throws Exception {
         // Given
         handshakeUpToCertificate();
-        engine.received(new CertificateMessage(CertificateUtils.inflateCertificate(encodedCertificate)), ProtectionKeysType.Handshake);
+        engine.received(new CertificateMessage(CertificateUtils.inflateCertificate(encodedKwikDotTechRsaCertificate)), ProtectionKeysType.Handshake);
 
         assertThatThrownBy(() ->
                 // When
@@ -767,7 +769,7 @@ class TlsClientEngineTest extends EngineTest {
             }
             engine.received(new CertificateRequestMessage(new SignatureAlgorithmsExtension(clientAuthRequiredSignatureScheme)), ProtectionKeysType.Handshake);
         }
-        X509Certificate certificate = CertificateUtils.inflateCertificate(encodedCertificate);
+        X509Certificate certificate = CertificateUtils.inflateCertificate(encodedKwikDotTechRsaCertificate);
         byte[] validSignature = createServerSignature();
         engine.setTrustManager(createNoOpTrustManager());
         engine.setHostnameVerifier(createNoOpHostnameVerifier());
@@ -785,7 +787,7 @@ class TlsClientEngineTest extends EngineTest {
         byte[] messageBytes = ByteUtils.hexToBytes(content);
 
         KeyFactory keyFactory = KeyFactory.getInstance("RSA");
-        PKCS8EncodedKeySpec keySpecPKCS8 = new PKCS8EncodedKeySpec(Base64.getDecoder().decode(encodedPrivateKey));
+        PKCS8EncodedKeySpec keySpecPKCS8 = new PKCS8EncodedKeySpec(Base64.getDecoder().decode(encodedKwikDotTechRsaCertificatePrivateKey));
         PrivateKey privateKey = keyFactory.generatePrivate(keySpecPKCS8);
 
         Signature signatureAlgorithm = Signature.getInstance("RSASSA-PSS");
