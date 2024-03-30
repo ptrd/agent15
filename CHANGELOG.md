@@ -1,5 +1,10 @@
 # Releases
 
+## 1.1 (2024-03-30)
+
+- Use Java KeyStore object to pass certificate and private key to TlsServerEngine.
+- Accept ECDSA certificates as server certificate.
+
 ## 1.0.6 (2024-01-13)
 
 Ignore unknown code points while parsing messages and extensions.
@@ -24,6 +29,6 @@ No changes, corrected pom.
 
 Updated test dependencies and HKDF library.
 
-## 1.0.0 (2023-10-08)
+## 1.0 (2023-10-08)
 
 First official release published to maven.

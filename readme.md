@@ -68,7 +68,7 @@ Maven coordinates:
     <dependency>
         <groupId>tech.kwik</groupId>
         <artifactId>agent15</artifactId>
-        <version>1.0.6</version>
+        <version>1.1</version>
     </dependency>
 
 
