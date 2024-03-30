@@ -45,12 +45,30 @@ public class TlsServerEngineFactory {
     private PrivateKey certificateKey;
     private TlsSessionRegistry tlsSessionRegistry = new TlsSessionRegistryImpl();
 
-
+    /**
+     * Creates a tls server engine factory, given a RSA certificate and its private key.
+     * @param certificateFile
+     * @param certificateKeyFile
+     * @throws IOException
+     * @throws CertificateException
+     * @throws InvalidKeySpecException
+     * @deprecated
+     */
+    @Deprecated
     public TlsServerEngineFactory(InputStream certificateFile, InputStream certificateKeyFile) throws IOException, CertificateException, InvalidKeySpecException {
         this.serverCertificates = readCertificates(certificateFile);
         this.certificateKey = readPrivateKey(certificateKeyFile);
     }
 
+    /**
+     * Creates a tls server engine factory, extracting certificate and private key from the given keystore
+     * @param keyStore      keystore containing the server certificate and its private key
+     * @param alias         the alias of the certificate
+     * @param keyPassword   the password for the private key
+     * @throws IOException
+     * @throws CertificateException
+     * @throws InvalidKeySpecException
+     */
     public TlsServerEngineFactory(KeyStore keyStore, String alias, char[] keyPassword) throws IOException, CertificateException, InvalidKeySpecException {
         this.serverCertificates = getCertificates(keyStore, alias);
         this.certificateKey = getPrivateKey(keyStore, alias, keyPassword);
