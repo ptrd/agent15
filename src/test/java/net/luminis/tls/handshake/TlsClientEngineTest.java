@@ -31,10 +31,12 @@ import org.mockito.ArgumentMatchers;
 import org.mockito.Mockito;
 import org.mockito.internal.util.reflection.FieldReader;
 
+import javax.net.ssl.TrustManagerFactory;
 import javax.net.ssl.X509TrustManager;
 import javax.security.auth.x500.X500Principal;
 import java.nio.ByteBuffer;
 import java.security.KeyFactory;
+import java.security.KeyStore;
 import java.security.PrivateKey;
 import java.security.Signature;
 import java.security.cert.Certificate;
@@ -50,8 +52,7 @@ import java.util.Base64;
 import java.util.List;
 
 import static java.util.Collections.emptyList;
-import static net.luminis.tls.CertificateUtils.encodedKwikDotTechRsaCertificate;
-import static net.luminis.tls.CertificateUtils.encodedKwikDotTechRsaCertificatePrivateKey;
+import static net.luminis.tls.CertificateUtils.*;
 import static net.luminis.tls.TlsConstants.CipherSuite.TLS_AES_128_GCM_SHA256;
 import static net.luminis.tls.TlsConstants.CipherSuite.TLS_AES_256_GCM_SHA384;
 import static net.luminis.tls.TlsConstants.CipherSuite.TLS_CHACHA20_POLY1305_SHA256;
@@ -486,6 +487,51 @@ class TlsClientEngineTest {
     }
 
     @Test
+    void certificateSignedByTrustedCaShouldBeAccepted() throws Exception {
+        // Given
+        engine.setTrustManager(createTrustManagerFor(CertificateUtils.inflateCertificate(encodedSampleCA1)));
+        X509Certificate serverCertificate = inflateCertificate(encodedCA1SignedCert);
+        engine.setServerName("sample1.com");
+        byte[] validSignature = createServerSignatureFromPrivateKey(encodedCA1SignedCertPrivateKey);
+
+        handshakeUpToCertificate();
+        engine.received(new CertificateMessage(serverCertificate), ProtectionKeysType.Handshake);
+
+        assertThatCode(() ->
+                // When
+                engine.received(new CertificateVerifyMessage(rsa_pss_rsae_sha256, validSignature), ProtectionKeysType.Handshake))
+                // Then
+                .doesNotThrowAnyException();
+    }
+
+    @Test
+    void certificateNotSignedByTrustedCaShouldBeAccepted() throws Exception {
+        // Given
+        engine.setTrustManager(createTrustManagerFor(CertificateUtils.inflateCertificate(encodedSampleCA1)));  // CA_1
+        X509Certificate serverCertificate = inflateCertificate(encodedCA2SignedCert);    // Cert signed by CA_2, not CA_1!
+        engine.setServerName("sample2.com");
+        byte[] validSignature = createServerSignatureFromPrivateKey(encodedCA2SignedCertPrivateKey);
+
+        handshakeUpToCertificate();
+        engine.received(new CertificateMessage(serverCertificate), ProtectionKeysType.Handshake);
+
+        assertThatThrownBy(() ->
+                // When
+                engine.received(new CertificateVerifyMessage(rsa_pss_rsae_sha256, validSignature), ProtectionKeysType.Handshake))
+                // Then
+                .isInstanceOf(BadCertificateAlert.class);
+    }
+    
+    private X509TrustManager createTrustManagerFor(X509Certificate caCertificate) throws Exception {
+        KeyStore keyStore = KeyStore.getInstance(KeyStore.getDefaultType());
+        keyStore.load(null);
+        keyStore.setCertificateEntry("ca", caCertificate);
+        TrustManagerFactory tmf = TrustManagerFactory.getInstance("PKIX");
+        tmf.init(keyStore);
+        return (X509TrustManager) tmf.getTrustManagers()[0];
+    }
+
+    @Test
     void certificateWithoutMatchingServerNameShouldAbortTls() throws Exception {
         // Given
         engine.setHostnameVerifier(createAlwaysRefusingVerifier());
@@ -778,6 +824,10 @@ class TlsClientEngineTest {
     }
 
     private byte[] createServerSignature() throws Exception {
+        return createServerSignatureFromPrivateKey(encodedKwikDotTechRsaCertificatePrivateKey);
+    }
+
+    private byte[] createServerSignatureFromPrivateKey(String encodedPrivateKey) throws Exception {
         // https://tools.ietf.org/html/rfc8446#section-4.4.3
         // "For example, if the transcript hash was 32 bytes of 01 (this length would make sense for SHA-256),
         // the content covered by the digital signature for a server CertificateVerify would be:"
@@ -787,7 +837,7 @@ class TlsClientEngineTest {
         byte[] messageBytes = ByteUtils.hexToBytes(content);
 
         KeyFactory keyFactory = KeyFactory.getInstance("RSA");
-        PKCS8EncodedKeySpec keySpecPKCS8 = new PKCS8EncodedKeySpec(Base64.getDecoder().decode(encodedKwikDotTechRsaCertificatePrivateKey));
+        PKCS8EncodedKeySpec keySpecPKCS8 = new PKCS8EncodedKeySpec(Base64.getDecoder().decode(encodedPrivateKey));
         PrivateKey privateKey = keyFactory.generatePrivate(keySpecPKCS8);
 
         Signature signatureAlgorithm = Signature.getInstance("RSASSA-PSS");
