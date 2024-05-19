@@ -2,7 +2,13 @@ out
 keys
 .idea
 *.iml
+*.ipr
+*.iws
 .gradle
 gradle.properties
 build
 /target/
+.DS_Store
+.java-version
+todo/
+testcerts/

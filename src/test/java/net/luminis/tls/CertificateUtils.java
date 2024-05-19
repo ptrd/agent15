@@ -212,26 +212,34 @@ public class CertificateUtils {
 
     /**
      * A sample CA certificate.
-     *
      * Certificate:
      *     Data:
      *         Version: 3 (0x2)
      *         Serial Number:
-     *             0c:d8:d1:3a:e0:dc:f4:45:3f:8c:b5:91:cd:23:c9:16:4b:69:03:07
+     *             28:3b:e0:3d:cf:62:59:9a:e0:24:44:38:bc:f0:9e:82:4e:11:10:d8
      *         Signature Algorithm: sha256WithRSAEncryption
      *         Issuer: CN=SampleCA1
      *         Validity
-     *             Not Before: Apr  1 10:19:41 2024 GMT
-     *             Not After : May  1 10:19:41 2024 GMT
+     *             Not Before: May 19 16:02:37 2024 GMT
+     *             Not After : May 17 16:02:37 2034 GMT
      *         Subject: CN=SampleCA1
      *         Subject Public Key Info:
      *             Public Key Algorithm: rsaEncryption
      *                 Public-Key: (2048 bit)
+     *         X509v3 extensions:
+     *             X509v3 Subject Key Identifier:
+     *                 DC:58:35:36:68:E3:64:8B:33:78:C2:6C:52:B0:9E:64:CF:BA:E1:65
+     *             X509v3 Authority Key Identifier:
+     *                 DC:58:35:36:68:E3:64:8B:33:78:C2:6C:52:B0:9E:64:CF:BA:E1:65
+     *             X509v3 Basic Constraints: critical
+     *                 CA:TRUE
+     *
+     * generated with: openssl req -x509 -new -nodes -key ca1.key -out ca1-cert.pem -subj='/CN=SampleCA1' -days 3650
      */
     public static String encodedSampleCA1 =
-            "MIIDCTCCAfGgAwIBAgIUDNjROuDc9EU/jLWRzSPJFktpAwcwDQYJKoZIhvcNAQEL" +
-            "BQAwFDESMBAGA1UEAwwJU2FtcGxlQ0ExMB4XDTI0MDQwMTEwMTk0MVoXDTI0MDUw" +
-            "MTEwMTk0MVowFDESMBAGA1UEAwwJU2FtcGxlQ0ExMIIBIjANBgkqhkiG9w0BAQEF" +
+            "MIIDCTCCAfGgAwIBAgIUKDvgPc9iWZrgJEQ4vPCegk4RENgwDQYJKoZIhvcNAQEL" +
+            "BQAwFDESMBAGA1UEAwwJU2FtcGxlQ0ExMB4XDTI0MDUxOTE2MDIzN1oXDTM0MDUx" +
+            "NzE2MDIzN1owFDESMBAGA1UEAwwJU2FtcGxlQ0ExMIIBIjANBgkqhkiG9w0BAQEF" +
             "AAOCAQ8AMIIBCgKCAQEA2Bv1R0ft2tCB+4gkRg/yfZ43bHC0P8TwyBNakmFVc3Hb" +
             "AyHRWWuLtERXnVI4tZsay61VGjk9pFa+R5wpHb0ZtRgYV/1N7YFdIZzyQN0v3X8O" +
             "y2UTqYfYCAlHTZ8+UEN7MqS0mVwan/GfhKj5m1yx+zxQCLrCvahHoytY9jR3C6gi" +
@@ -239,13 +247,13 @@ public class CertificateUtils {
             "ChtAVo+XMQQPEXaaYgdG+s/yKdT5JWUQgqB+qtc48wnEC2oOUuxu/JZKd+BU3HOG" +
             "xLD7B2Bdm0YGSKt9yCp2L9PVJmlB4PrlAm8GWOgDIwIDAQABo1MwUTAdBgNVHQ4E" +
             "FgQU3Fg1NmjjZIszeMJsUrCeZM+64WUwHwYDVR0jBBgwFoAU3Fg1NmjjZIszeMJs" +
-            "UrCeZM+64WUwDwYDVR0TAQH/BAUwAwEB/zANBgkqhkiG9w0BAQsFAAOCAQEAENJY" +
-            "gwTMq682WW+DXinok6Lxvyx0QrFtyQ5Noa3d8vmQ9bFXGCzUXuwDYmcZSqZlG56A" +
-            "/rbDpBA7Fadx/CIpJOsMFL/awoG/itK7W290VKvF25J2gEdy3HSgFJDe0oAoZ7/8" +
-            "0hCYHFPZ8pdvGLVm0zOt9AK2wy2m+W0ugSMT1MRgqgsipUSWSHewBImK865xYaQS" +
-            "lajtrjePUQ2kNql5gtLp+URCNbQVLxnPRDmObSMYKPoWK6mzjEDvWgRTMSj+EsUT" +
-            "nXoQ7A5EA78HAQLuYVb3TNZWSH7YVHNjrJ5ErI84xZPxWhv9RYZeKtKj61ea5xYQ" +
-            "tt5eTeRexWhlHHax7Q==";
+            "UrCeZM+64WUwDwYDVR0TAQH/BAUwAwEB/zANBgkqhkiG9w0BAQsFAAOCAQEAV5wR" +
+            "oNb3luMOqWBRSK+NlWG6enDC39hKQJD1NJuq5P7s+k6Ex94rmmpQly6TQA3Zw/wa" +
+            "BJ2aHHcyfTyiNE3aKlR+ecFCD6eAQQ6QI1MCQ59DTYfIvcfwSMIs31GPXuGKhp6Z" +
+            "rgDyYwAPWs6OhLsV/2dIdAkB11M2mp76klv4MSMEDCofO1WIFfwejz/y2Ya0JGpO" +
+            "0fmt4lRZ6GNPrRZ+Pe5OMd0ASwNk8zDFf2ztUkkRxSKLdbgUEqVQrwgVY/oaJMX3" +
+            "RqaCUPQLgZW85Z3zii4LFLE0JBlh4vUX5pk4jhz33u/Y1eNr/cHbYItjroqXEZFg" +
+            "g9nVG+2RizmTUiuTBQ==";
 
     /**
      * A sample certificate signed by CA1.
@@ -264,11 +272,15 @@ public class CertificateUtils {
      *         Subject Public Key Info:
      *             Public Key Algorithm: rsaEncryption
      *                 Public-Key: (2048 bit)
+     *
+     * generated with:
+     * - openssl req -key key1.pem -new -out sample-cert1.csr
+     * - openssl x509 -req -in sample-cert1.csr -CAkey ca1.key -CA ca1-cert.pem -out sample-cert1.pem -days 3650
      */
     public static String encodedCA1SignedCert =
-            "MIIDPzCCAiegAwIBAgIUFqpYSez/zC7fzZxwF+Az/evz7p4wDQYJKoZIhvcNAQEL" +
-            "BQAwFDESMBAGA1UEAwwJU2FtcGxlQ0ExMB4XDTI0MDQwMTEwMjkyN1oXDTI0MDUw" +
-            "MTEwMjkyN1owWzELMAkGA1UEBhMCQVUxEzARBgNVBAgMClNvbWUtU3RhdGUxITAf" +
+            "MIIDPzCCAiegAwIBAgIUa3xhD+Sj0oJk0hUwM0ONl/lmfrgwDQYJKoZIhvcNAQEL" +
+            "BQAwFDESMBAGA1UEAwwJU2FtcGxlQ0ExMB4XDTI0MDUxOTE2MTI1OVoXDTM0MDUx" +
+            "NzE2MTI1OVowWzELMAkGA1UEBhMCQVUxEzARBgNVBAgMClNvbWUtU3RhdGUxITAf" +
             "BgNVBAoMGEludGVybmV0IFdpZGdpdHMgUHR5IEx0ZDEUMBIGA1UEAwwLc2FtcGxl" +
             "MS5jb20wggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQDV6+2D/c/fHYr2" +
             "NpngyimPiRQf7epqXmlI8x1Ka5NgYG2/BCgEGoMa/0pZ1LRNjMFbh+IbpshMf2oX" +
@@ -278,12 +290,12 @@ public class CertificateUtils {
             "Kb445mVCF9D2jBObBqWV1n6FMmFds8E0pAo+SWj2JvHpJx2HG1otPT5lnLkj7XnP" +
             "UQFWsS4fAgMBAAGjQjBAMB0GA1UdDgQWBBTr7NM+Z/AdzOK2r+I5cAOlkCYhADAf" +
             "BgNVHSMEGDAWgBTcWDU2aONkizN4wmxSsJ5kz7rhZTANBgkqhkiG9w0BAQsFAAOC" +
-            "AQEAG1PJzzzO8vchhlnW7nPzF0whaK3ARpiW3M3TzbMWjxaBVtFID3HgJ8hQuFl2" +
-            "vSv3Yv07gGh7ZbpWd8Iq3oYwH94IeiBfSVGO2iD3GR+fzjk2bqtBlxNmn4tbk3Ya" +
-            "LW4940mHczYiAz2QVbBSGUZfRgGdyxJKazT8PdUpjEfTpUH5lu7OkhCxlGnrg6gv" +
-            "p/yYeO6WrbfRhet/9tMVtBRm4oRePDXdHEMoTl5uFAASoED0XRxF6hEC8eLoWGRC" +
-            "eIAhuxnU0PFH/PRtplkU98A52rvz7Ab1TdYea+fAsc/9nK7OwwZfsXkd9GlYfmPJ" +
-            "86giEJwN+yGN1WnMWBwSR3fCiQ==";
+            "AQEAfVEu2Il5KzinGpR68pIrvETLzj2kbbio6awq7nRC6hJq+Zbn/rf7s240SE43" +
+            "D9cCk34uABMZgyiXhHfdcrjHgGiD7182dhkQc8VKYghh0jJfNurRZcGrSxKvtZJe" +
+            "rNQ6r439qaMUicNPSZHsv8bLSmD6UqNYAJFbxaEJgC5cpspURS4fv5dF7k4xa7UP" +
+            "pwAyHzdtzhb7Dg5zcdaaMRo8ZqrfKUpNEFLoHjel+urWkJb3pHagY/3/cmjYLT3f" +
+            "Y6s4x//CPFlW7vqOBNi0Pes+Lek++9xuMXOK3wFLK9WI1z9FlEduWRlRC4tWwoF9" +
+            "izof7pIaG7MHK4133PCU3a9nww==";
 
     /**
      * The private key for encodedCA1SignedCert
@@ -318,25 +330,35 @@ public class CertificateUtils {
 
     /**
      * A sample CA certificate.
+     *
      * Certificate:
      *     Data:
      *         Version: 3 (0x2)
      *         Serial Number:
-     *             52:af:1a:9e:6e:f0:9b:6d:5e:4a:21:7e:e6:c3:0c:fd:0e:eb:9b:ec
+     *             2b:62:46:46:f1:8f:94:75:eb:93:34:be:ca:57:67:1b:cb:de:6d:12
      *         Signature Algorithm: sha256WithRSAEncryption
      *         Issuer: CN=SampleCA2
      *         Validity
-     *             Not Before: Apr  1 10:41:06 2024 GMT
-     *             Not After : May  1 10:41:06 2024 GMT
+     *             Not Before: May 19 16:17:43 2024 GMT
+     *             Not After : May 17 16:17:43 2034 GMT
      *         Subject: CN=SampleCA2
      *         Subject Public Key Info:
      *             Public Key Algorithm: rsaEncryption
      *                 Public-Key: (2048 bit)
+     *         X509v3 extensions:
+     *             X509v3 Subject Key Identifier:
+     *                 0B:B7:35:CC:7B:F7:09:3A:0C:AF:61:A3:F5:21:07:65:F1:84:77:E5
+     *             X509v3 Authority Key Identifier:
+     *                 0B:B7:35:CC:7B:F7:09:3A:0C:AF:61:A3:F5:21:07:65:F1:84:77:E5
+     *             X509v3 Basic Constraints: critical
+     *                 CA:TRUE
+     *
+     * generated with: openssl req -x509 -new -nodes -key ca2.key -out ca2-cert.pem -subj='/CN=SampleCA2' -days 3650
      */
-    public static String encodedSampleCA2 =
-            "MIIDCTCCAfGgAwIBAgIUUq8anm7wm21eSiF+5sMM/Q7rm+wwDQYJKoZIhvcNAQEL" +
-            "BQAwFDESMBAGA1UEAwwJU2FtcGxlQ0EyMB4XDTI0MDQwMTEwNDEwNloXDTI0MDUw" +
-            "MTEwNDEwNlowFDESMBAGA1UEAwwJU2FtcGxlQ0EyMIIBIjANBgkqhkiG9w0BAQEF" +
+    public static String encodedSampleCA2 = "" +
+            "MIIDCTCCAfGgAwIBAgIUK2JGRvGPlHXrkzS+yldnG8vebRIwDQYJKoZIhvcNAQEL" +
+            "BQAwFDESMBAGA1UEAwwJU2FtcGxlQ0EyMB4XDTI0MDUxOTE2MTc0M1oXDTM0MDUx" +
+            "NzE2MTc0M1owFDESMBAGA1UEAwwJU2FtcGxlQ0EyMIIBIjANBgkqhkiG9w0BAQEF" +
             "AAOCAQ8AMIIBCgKCAQEAokHS7Aa24KbLn5iYabPaLatvlNrhhJBy51EM6gT3HS+C" +
             "qBmytCtwqBHh4pXlt4iCUyYZJIBRn9m77Rcvc7MyrdQY0U6QM9CWmjQeuc783Weu" +
             "k29Enb4BnNINa3cJxR1cAdJYvkTiSHckA0RBlpD3XQgyehTk3QSFi51pubuWV1GH" +
@@ -344,36 +366,45 @@ public class CertificateUtils {
             "L9bTivra+rJov1FVZn7wM/aMqmpkWEiH4bgEakrvjjRkM/QNbo9eb8nvugjztvPR" +
             "gvtYTbvMVofjXGnJVGcjU5XY7Ha6EV2ybBTFx165VQIDAQABo1MwUTAdBgNVHQ4E" +
             "FgQUC7c1zHv3CToMr2Gj9SEHZfGEd+UwHwYDVR0jBBgwFoAUC7c1zHv3CToMr2Gj" +
-            "9SEHZfGEd+UwDwYDVR0TAQH/BAUwAwEB/zANBgkqhkiG9w0BAQsFAAOCAQEAbx+4" +
-            "Oa/rDv9RgqQWzV9nUdBCPGrP5pBe92PliifsFqzIQh5AIeIAdzqGevEVlY8QTl1R" +
-            "C1qPlye9A9hCkaMRQ9yULrb/8ej81iRlAGC1d3NraKIWqRdb+xw2/ysYUT0eSd7A" +
-            "L3TABKt6egkWhVVuICW6bTrb4/1M03+mol5rzUBdHuj0+seIDr7tTLW/t8ffdUd1" +
-            "1PJnDGN3MdMaM/YS5sU7djRT1higUF8Mr0NoyAYMU0XiKgIGlS1EY6VJXLVXPuys" +
-            "0PK6UFB9KfB93GPPOXXWksAppxQF/u5i5QFaijCpk9tx3XVGkwSJqDvbXHS4p0eU" +
-            "1bnpnUVOlgX3BJZGmg==";
+            "9SEHZfGEd+UwDwYDVR0TAQH/BAUwAwEB/zANBgkqhkiG9w0BAQsFAAOCAQEANLGA" +
+            "A6PquB64prHH9JLYChkdlWB+zoiV9FIVd6T5srW9jLlXlSHKiBRNPyOq1PTipal1" +
+            "bfDTz2lioMTsatfQSzTGbwMnjO4UDaft7YNX+KhogQkGwWBY7VmtD9Ge45CaDN0X" +
+            "g0A2K4cGfOu20OOYGRUCQdZJ7eXdhqZ2Iz/PD76RkSq7kRAUGDqRKZhKb0Rll6oS" +
+            "3m7WdJtuHZG3wt1RlbdcHDlW+6eWgZyADcsX6HPgCkglVxYJ918QFsq8Jm1et2tt" +
+            "WxZzCSWOISBB5aJhii9HM0RdJ94AhEsvoiQ0isIfJCTSmkaK0TU2mA41CqjZWlCA" +
+            "OTFLQ5FXjb/0i0TpVA==";
 
     /**
-     * A sample certificate signed by CA1.
+     * A sample certificate signed by CA2.
      *
      * Certificate:
      *     Data:
      *         Version: 3 (0x2)
      *         Serial Number:
-     *             6e:e9:58:30:7f:f0:df:e9:bf:2d:79:5c:46:78:c6:3d:4d:ec:dc:6c
+     *             6c:fc:fc:16:e6:f6:40:aa:80:8b:8e:f1:35:4d:76:13:db:65:0d:1e
      *         Signature Algorithm: sha256WithRSAEncryption
      *         Issuer: CN=SampleCA2
      *         Validity
-     *             Not Before: Apr  1 10:43:06 2024 GMT
-     *             Not After : May  1 10:43:06 2024 GMT
+     *             Not Before: May 19 16:22:57 2024 GMT
+     *             Not After : May 17 16:22:57 2034 GMT
      *         Subject: C=AU, ST=Some-State, O=Internet Widgits Pty Ltd, CN=sample2.com
      *         Subject Public Key Info:
      *             Public Key Algorithm: rsaEncryption
      *                 Public-Key: (2048 bit)
+     *         X509v3 extensions:
+     *             X509v3 Subject Key Identifier:
+     *                 0C:E0:25:56:E3:11:15:F6:CA:F9:89:05:A2:92:C6:53:CC:05:16:EC
+     *             X509v3 Authority Key Identifier:
+     *                 0B:B7:35:CC:7B:F7:09:3A:0C:AF:61:A3:F5:21:07:65:F1:84:77:E5
+     *
+     * generated with:
+     * - openssl req -key key2.pem -new -out sample-cert2.csr
+     * - openssl x509 -req -in sample-cert2.csr -CAkey ca2.key -CA ca2-cert.pem -out sample-cert2.pem -days 3650
      */
-    public static String encodedCA2SignedCert =
-            "MIIDPzCCAiegAwIBAgIUbulYMH/w3+m/LXlcRnjGPU3s3GwwDQYJKoZIhvcNAQEL" +
-            "BQAwFDESMBAGA1UEAwwJU2FtcGxlQ0EyMB4XDTI0MDQwMTEwNDMwNloXDTI0MDUw" +
-            "MTEwNDMwNlowWzELMAkGA1UEBhMCQVUxEzARBgNVBAgMClNvbWUtU3RhdGUxITAf" +
+    public static String encodedCA2SignedCert = "" +
+            "MIIDPzCCAiegAwIBAgIUbPz8Fub2QKqAi47xNU12E9tlDR4wDQYJKoZIhvcNAQEL" +
+            "BQAwFDESMBAGA1UEAwwJU2FtcGxlQ0EyMB4XDTI0MDUxOTE2MjI1N1oXDTM0MDUx" +
+            "NzE2MjI1N1owWzELMAkGA1UEBhMCQVUxEzARBgNVBAgMClNvbWUtU3RhdGUxITAf" +
             "BgNVBAoMGEludGVybmV0IFdpZGdpdHMgUHR5IEx0ZDEUMBIGA1UEAwwLc2FtcGxl" +
             "Mi5jb20wggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQDV2NwXKKPNIZco" +
             "c1LQs1EEJAVu7SJMREwtRKvBzhwibMiMPz1b3+KwGvFKG75nEsEuvOWX8M0poygX" +
@@ -383,12 +414,12 @@ public class CertificateUtils {
             "6hxxchv6cxjXL7Jc1AV4pY46CwDWltOnwS1FYnptXidk2PcUNZsJsF8pWoHkpxYK" +
             "o/C3cXDNAgMBAAGjQjBAMB0GA1UdDgQWBBQM4CVW4xEV9sr5iQWiksZTzAUW7DAf" +
             "BgNVHSMEGDAWgBQLtzXMe/cJOgyvYaP1IQdl8YR35TANBgkqhkiG9w0BAQsFAAOC" +
-            "AQEASp4IWFV34rRQWk3rJLcCalN7rjpYMfC8l7xxixIsdwHKT9tkid7bwwyF/ICz" +
-            "Cty37hTROQBNHBHkhdcGO5AfAMKU3U+hUf2eX5hguQp2UB1bhdEQaIz//mYIlov1" +
-            "8Gvo9JC5yXJ4Nf44SJAxSXJo32lL6e2XGfw8XxCqrI2cnRaDTdIZcm18HZauCPTc" +
-            "L5Y6QcrhBHeVXoiBqR1frcZqZdkp8QC5I54MiR3m44M6P9hYlZV3tQQNtDQW8QO2" +
-            "Q9tAB9Ymv6Q74ltjhzNZaxcCy53d2nZDVCTd1IoClQkPtOO96gKWNvYuAeWuiKHF" +
-            "gA25N4VfZKf2DMiRXMXAiTzlqA==";
+            "AQEAewq85Ex/0vOrdi9PBT6pQD6X4ULbRuzL0bpScEnn1s4v9Zuab29YFDRaJink" +
+            "HR59YdHOv5FDSBDvGu6fVha4u5ojN3TBTxT5bRks/RkXmOnzCm7VEyplHTUALdbW" +
+            "xrpN1UhglwEx+JvJviRoLNeWuuUqvmTDgDjzBmigGjoxA8qas2YAECly0kWrs/LQ" +
+            "JfAGOVTPkIihLS//BhhL6H5eIf9abx1X4KxOLNJtaii06336iB/5FzzIPW7ucr3Z" +
+            "UeLw2i4YaUp2pdVr2Zg0bSdzMRgOoj6bkqwkxGL8OB0VVWOYEsUMx/awflKs7Abn" +
+            "YkWuopOVBVPabWKFgACQGu1mTQ==";
 
     /**
      * The private key for encodedCA2SignedCert
