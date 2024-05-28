@@ -18,12 +18,12 @@
  */
 package net.luminis.tls.handshake;
 
-import net.luminis.tls.Logger;
 import net.luminis.tls.TlsConstants;
 import net.luminis.tls.TlsProtocolException;
 import net.luminis.tls.alert.DecodeErrorException;
 import net.luminis.tls.alert.IllegalParameterAlert;
 import net.luminis.tls.extension.Extension;
+import net.luminis.tls.log.Logger;
 
 import java.nio.ByteBuffer;
 import java.security.PublicKey;

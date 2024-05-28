@@ -21,6 +21,7 @@ package net.luminis.tls.handshake;
 import net.luminis.tls.*;
 import net.luminis.tls.alert.*;
 import net.luminis.tls.extension.*;
+import net.luminis.tls.log.Logger;
 
 import javax.net.ssl.TrustManagerFactory;
 import javax.net.ssl.X509TrustManager;

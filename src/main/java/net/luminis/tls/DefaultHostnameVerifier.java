@@ -18,6 +18,8 @@
  */
 package net.luminis.tls;
 
+import net.luminis.tls.log.Logger;
+
 import java.security.Principal;
 import java.security.cert.CertificateParsingException;
 import java.security.cert.X509Certificate;
