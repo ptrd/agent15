@@ -22,8 +22,13 @@ public class Logger {
 
     private static boolean enabled = false;
 
-    public static void enableDebugLogging(boolean enable) {
-        enabled = enable;
+    public static final String DEBUG_FLAG = "net.luminis.tls.debug";
+
+    static {
+        String debug = System.getProperty(DEBUG_FLAG);
+        if (debug != null && debug.equals("true")) {
+            enabled = true;
+        }
     }
 
     public static void debug(String message) {
