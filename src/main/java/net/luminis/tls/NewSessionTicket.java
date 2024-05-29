@@ -39,8 +39,8 @@ public class NewSessionTicket {
     protected NewSessionTicket() {
     }
 
-    public NewSessionTicket(TlsState state, NewSessionTicketMessage newSessionTicketMessage, TlsConstants.CipherSuite currentCipher) {
-        psk = state.computePSK(newSessionTicketMessage.getTicketNonce());
+    public NewSessionTicket(byte[] psk, NewSessionTicketMessage newSessionTicketMessage, TlsConstants.CipherSuite currentCipher) {
+        this.psk = psk;
         ticketCreationDate = new Date();
         ticketAgeAdd = newSessionTicketMessage.getTicketAgeAdd();
         ticket = newSessionTicketMessage.getTicket();

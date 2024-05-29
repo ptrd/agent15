@@ -453,7 +453,7 @@ public class TlsClientEngine extends TlsEngine implements ClientMessageProcessor
         if (protectedBy != ProtectionKeysType.Application) {
             throw new UnexpectedMessageAlert("incorrect protection level");
         }
-        NewSessionTicket ticket = new NewSessionTicket(state, nst, selectedCipher);
+        NewSessionTicket ticket = new NewSessionTicket(state.computePSK(nst.getTicketNonce()), nst, selectedCipher);
         obtainedNewSessionTickets.add(ticket);
         statusHandler.newSessionTicketReceived(ticket);
     }

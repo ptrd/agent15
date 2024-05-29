@@ -22,7 +22,6 @@ import net.luminis.tls.handshake.NewSessionTicketMessage;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -34,7 +33,7 @@ class NewSessionTicketTest {
         TlsState tlsState = mock(TlsState.class);
         when(tlsState.computePSK(any())).thenReturn(new byte[32]);
         NewSessionTicketMessage ticketMsg = new NewSessionTicketMessage(Integer.MAX_VALUE, 0, new byte[8], new byte[64]);
-        NewSessionTicket newSessionTicket = new NewSessionTicket(tlsState, ticketMsg, TlsConstants.CipherSuite.TLS_CHACHA20_POLY1305_SHA256);
+        NewSessionTicket newSessionTicket = new NewSessionTicket(new byte[32], ticketMsg, TlsConstants.CipherSuite.TLS_CHACHA20_POLY1305_SHA256);
 
         byte[] serializedTicket = newSessionTicket.serialize();
 

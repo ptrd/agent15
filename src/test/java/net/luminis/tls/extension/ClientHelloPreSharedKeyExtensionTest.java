@@ -2,7 +2,6 @@ package net.luminis.tls.extension;
 
 import net.luminis.tls.NewSessionTicket;
 import net.luminis.tls.TlsConstants;
-import net.luminis.tls.TlsState;
 import net.luminis.tls.alert.DecodeErrorException;
 import net.luminis.tls.handshake.NewSessionTicketMessage;
 import net.luminis.tls.util.ByteUtils;
@@ -12,14 +11,13 @@ import java.nio.ByteBuffer;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.Mockito.mock;
 
 
 class ClientHelloPreSharedKeyExtensionTest {
 
     @Test
     void testSerialize() throws Exception {
-        var extension = new ClientHelloPreSharedKeyExtension(new NewSessionTicket(mock(TlsState.class),
+        var extension = new ClientHelloPreSharedKeyExtension(new NewSessionTicket(new byte[32],
                 new NewSessionTicketMessage(3600, 0xffffffff, new byte[]{ 0x00 }, new byte[]{ 0x00, 0x01, 0x02, 0x03 }), TlsConstants.CipherSuite.TLS_AES_128_GCM_SHA256));
         byte[] data = extension.getBytes();
 
@@ -29,7 +27,7 @@ class ClientHelloPreSharedKeyExtensionTest {
     @Test
     void parseSerializedExtension() throws Exception {
 
-        var extension = new ClientHelloPreSharedKeyExtension(new NewSessionTicket(mock(TlsState.class),
+        var extension = new ClientHelloPreSharedKeyExtension(new NewSessionTicket(new byte[32],
                 new NewSessionTicketMessage(3600, 0xca, new byte[]{ 0x00 }, new byte[]{ 0x00, 0x01, 0x02, 0x03 }), TlsConstants.CipherSuite.TLS_AES_128_GCM_SHA256));
         byte[] data = extension.getBytes();
         var parsedExtension = new ClientHelloPreSharedKeyExtension().parse(ByteBuffer.wrap(data));
