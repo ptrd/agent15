@@ -38,7 +38,7 @@ import java.security.interfaces.XECPublicKey;
 import static net.luminis.tls.util.ByteUtils.bytesToHex;
 
 
-public class TlsState {
+public class TlsState implements BinderCalculator {
 
     private static final Charset ISO_8859_1 = Charset.forName("ISO-8859-1");
 
@@ -111,6 +111,7 @@ public class TlsState {
         return earlySecret;
     }
 
+    @Override
     public byte[] computePskBinder(byte[] partialClientHello) {
         String macAlgorithmName = "HmacSHA" + (hashLength * 8);
         try {

@@ -18,9 +18,9 @@
  */
 package net.luminis.tls.extension;
 
+import net.luminis.tls.BinderCalculator;
 import net.luminis.tls.NewSessionTicket;
 import net.luminis.tls.TlsConstants;
-import net.luminis.tls.TlsState;
 import net.luminis.tls.alert.DecodeErrorException;
 import net.luminis.tls.handshake.TlsEngine;
 
@@ -158,12 +158,12 @@ public class ClientHelloPreSharedKeyExtension extends PreSharedKeyExtension {
         return data;
     }
 
-    public void calculateBinder(byte[] clientHello, int pskExtensionStartPosition, TlsState tlsState) {
+    public void calculateBinder(byte[] clientHello, int pskExtensionStartPosition, BinderCalculator calculator) {
         int partialHelloSize = pskExtensionStartPosition + binderPosition;
         byte[] partialHello = new byte[partialHelloSize];
         ByteBuffer.wrap(clientHello).get(partialHello);
 
-        binders.set(0, new PskBinderEntry(tlsState.computePskBinder(partialHello)));
+        binders.set(0, new PskBinderEntry(calculator.computePskBinder(partialHello)));
     }
 
     public List<PskIdentity> getIdentities() {

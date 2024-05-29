@@ -18,11 +18,10 @@
  */
 package net.luminis.tls.handshake;
 
-import net.luminis.tls.TlsState;
-import net.luminis.tls.extension.ClientHelloPreSharedKeyExtension;
-import net.luminis.tls.alert.DecodeErrorException;
+import net.luminis.tls.BinderCalculator;
 import net.luminis.tls.TlsConstants;
 import net.luminis.tls.TlsProtocolException;
+import net.luminis.tls.alert.DecodeErrorException;
 import net.luminis.tls.alert.IllegalParameterAlert;
 import net.luminis.tls.extension.*;
 
@@ -30,7 +29,11 @@ import java.nio.ByteBuffer;
 import java.security.PublicKey;
 import java.security.SecureRandom;
 import java.security.interfaces.ECPublicKey;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+import java.util.Random;
 import java.util.stream.Collectors;
 
 import static net.luminis.tls.TlsConstants.NamedGroup.secp256r1;
@@ -159,11 +162,12 @@ public class ClientHello extends HandshakeMessage {
      * @param supportedSignatures
      * @param ecCurve
      * @param extraExtensions
-     * @param tlsState              can be null when no ClientHelloPreSharedKeyExtension is present, must be non-null when ClientHelloPreSharedKeyExtension is present.
+     * @param binderCalculator              can be null when no ClientHelloPreSharedKeyExtension is present, must be non-null when ClientHelloPreSharedKeyExtension is present.
      * @param pskKeyEstablishmentMode
      */
     public ClientHello(String serverName, PublicKey publicKey, boolean compatibilityMode, List<TlsConstants.CipherSuite> supportedCiphers,
-                       List<TlsConstants.SignatureScheme> supportedSignatures, TlsConstants.NamedGroup ecCurve, List<Extension> extraExtensions, TlsState tlsState, PskKeyEstablishmentMode pskKeyEstablishmentMode) {
+                       List<TlsConstants.SignatureScheme> supportedSignatures, TlsConstants.NamedGroup ecCurve,
+                       List<Extension> extraExtensions, BinderCalculator binderCalculator, PskKeyEstablishmentMode pskKeyEstablishmentMode) {
         this.cipherSuites = supportedCiphers;
 
         ByteBuffer buffer = ByteBuffer.allocate(MAX_CLIENT_HELLO_SIZE);
@@ -245,10 +249,10 @@ public class ClientHello extends HandshakeMessage {
         buffer.get(data);
 
         if (pskExtension != null) {
-            if (tlsState == null) {
-                throw new IllegalArgumentException("TlsState cannot be null when ClientHelloPreSharedKeyExtension is present");
+            if (binderCalculator == null) {
+                throw new IllegalArgumentException("BinderCalculator cannot be null when ClientHelloPreSharedKeyExtension is present");
             }
-            pskExtension.calculateBinder(data, pskExtensionStartPosition, tlsState);
+            pskExtension.calculateBinder(data, pskExtensionStartPosition, binderCalculator);
             buffer.position(pskExtensionStartPosition);
             buffer.put(pskExtension.getBytes());
             buffer.rewind();
