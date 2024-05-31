@@ -16,11 +16,19 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-package net.luminis.tls.handshake;
+package net.luminis.tls.engine.impl;
 
-import net.luminis.tls.*;
+import net.luminis.tls.CertificateUtils;
+import net.luminis.tls.KeyUtils;
+import net.luminis.tls.ProtectionKeysType;
+import net.luminis.tls.TlsConstants;
 import net.luminis.tls.alert.*;
+import net.luminis.tls.engine.CertificateWithPrivateKey;
+import net.luminis.tls.engine.ClientMessageSender;
+import net.luminis.tls.engine.HostnameVerifier;
+import net.luminis.tls.engine.TlsStatusEventHandler;
 import net.luminis.tls.extension.*;
+import net.luminis.tls.handshake.*;
 import net.luminis.tls.util.ByteUtils;
 import net.luminis.tls.util.FieldSetter;
 import org.assertj.core.api.Assertions;
@@ -68,7 +76,7 @@ import static org.mockito.Mockito.*;
 
 class TlsClientEngineTest {
 
-    private TlsClientEngine engine;
+    private TlsClientEngineImpl engine;
     private ECPublicKey publicKey;
     private ClientMessageSender messageSender;
     private TlsConstants.CipherSuite engineCipher;
@@ -77,7 +85,7 @@ class TlsClientEngineTest {
     @BeforeEach
     void initObjectUnderTest() {
         messageSender = Mockito.mock(ClientMessageSender.class);
-        engine = new TlsClientEngine(messageSender, Mockito.mock(TlsStatusEventHandler.class));
+        engine = new TlsClientEngineImpl(messageSender, Mockito.mock(TlsStatusEventHandler.class));
         engine.setServerName("server");
         engineCipher = TLS_AES_128_GCM_SHA256;
         engine.addSupportedCiphers(List.of(engineCipher));
@@ -620,7 +628,7 @@ class TlsClientEngineTest {
         handshakeUpToFinished();
 
         FinishedMessage finishedMessage = new FinishedMessage(new byte[32]);
-        TlsClientEngine stubbedEngine = Mockito.spy(engine);
+        TlsClientEngineImpl stubbedEngine = Mockito.spy(engine);
         Mockito.doReturn(new byte[32]).when(stubbedEngine).computeFinishedVerifyData(ArgumentMatchers.any(), ArgumentMatchers.any());
         stubbedEngine.received(finishedMessage, ProtectionKeysType.Handshake);
 
@@ -661,7 +669,7 @@ class TlsClientEngineTest {
         handshakeUpToFinished(List.of(rsa_pss_rsae_sha256), true, null);
 
         FinishedMessage finishedMessage = new FinishedMessage(new byte[32]);
-        TlsClientEngine stubbedEngine = Mockito.spy(engine);
+        TlsClientEngineImpl stubbedEngine = Mockito.spy(engine);
         Mockito.doReturn(new byte[32]).when(stubbedEngine).computeFinishedVerifyData(ArgumentMatchers.any(), ArgumentMatchers.any());
         // When
         stubbedEngine.received(finishedMessage, ProtectionKeysType.Handshake);
@@ -682,7 +690,7 @@ class TlsClientEngineTest {
         handshakeUpToFinished(List.of(rsa_pss_rsae_sha256), true, null);
 
         FinishedMessage finishedMessage = new FinishedMessage(new byte[32]);
-        TlsClientEngine stubbedEngine = Mockito.spy(engine);
+        TlsClientEngineImpl stubbedEngine = Mockito.spy(engine);
         Mockito.doReturn(new byte[32]).when(stubbedEngine).computeFinishedVerifyData(ArgumentMatchers.any(), ArgumentMatchers.any());
         // When
         stubbedEngine.received(finishedMessage, ProtectionKeysType.Handshake);
@@ -736,7 +744,7 @@ class TlsClientEngineTest {
         handshakeUpToFinished(List.of(rsa_pss_rsae_sha256, rsa_pss_rsae_sha384), true, rsa_pss_rsae_sha384);
 
         FinishedMessage finishedMessage = new FinishedMessage(new byte[32]);
-        TlsClientEngine stubbedEngine = Mockito.spy(engine);
+        TlsClientEngineImpl stubbedEngine = Mockito.spy(engine);
         Mockito.doReturn(new byte[32]).when(stubbedEngine).computeFinishedVerifyData(ArgumentMatchers.any(), ArgumentMatchers.any());
         // When
         stubbedEngine.received(finishedMessage, ProtectionKeysType.Handshake);

@@ -16,11 +16,16 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-package net.luminis.tls.handshake;
+package net.luminis.tls.engine.impl;
 
-import net.luminis.tls.*;
+import net.luminis.tls.NewSessionTicket;
+import net.luminis.tls.ProtectionKeysType;
+import net.luminis.tls.TlsConstants;
+import net.luminis.tls.TlsProtocolException;
 import net.luminis.tls.alert.*;
+import net.luminis.tls.engine.*;
 import net.luminis.tls.extension.*;
+import net.luminis.tls.handshake.*;
 import net.luminis.tls.log.Logger;
 
 import javax.net.ssl.TrustManagerFactory;
@@ -46,7 +51,7 @@ import java.util.stream.Collectors;
 import static net.luminis.tls.TlsConstants.SignatureScheme.*;
 
 
-public class TlsClientEngine extends TlsEngine implements ClientMessageProcessor {
+public class TlsClientEngineImpl extends TlsEngineImpl implements TlsClientEngine, ClientMessageProcessor {
 
     public static final List<TlsConstants.SignatureScheme> AVAILABLE_SIGNATURES = List.of(
             rsa_pss_rsae_sha256,
@@ -94,7 +99,7 @@ public class TlsClientEngine extends TlsEngine implements ClientMessageProcessor
     private List<TlsConstants.SignatureScheme> serverSupportedSignatureSchemes;
 
 
-    public TlsClientEngine(ClientMessageSender clientMessageSender, TlsStatusEventHandler tlsStatusHandler) {
+    public TlsClientEngineImpl(ClientMessageSender clientMessageSender, TlsStatusEventHandler tlsStatusHandler) {
         sender = clientMessageSender;
         statusHandler = tlsStatusHandler;
         supportedCiphers = new ArrayList<>();
@@ -104,10 +109,12 @@ public class TlsClientEngine extends TlsEngine implements ClientMessageProcessor
         clientCertificateSelector = l -> null;
     }
 
+    @Override
     public void startHandshake() throws IOException {
         startHandshake(TlsConstants.NamedGroup.secp256r1, List.of(rsa_pss_rsae_sha256, ecdsa_secp256r1_sha256));
     }
 
+    @Override
     public void startHandshake(TlsConstants.NamedGroup ecCurve) throws IOException {
         startHandshake(ecCurve, List.of(rsa_pss_rsae_sha256));
     }
@@ -119,6 +126,7 @@ public class TlsClientEngine extends TlsEngine implements ClientMessageProcessor
      * @param signatureSchemes   the signature algorithms this peer is willing to accept
      * @throws IOException
      */
+    @Override
     public void startHandshake(TlsConstants.NamedGroup ecCurve, List<TlsConstants.SignatureScheme> signatureSchemes) throws IOException {
         if (status != Status.Start) {
             throw new IllegalStateException("Handshake already started");
@@ -599,26 +607,32 @@ public class TlsClientEngine extends TlsEngine implements ClientMessageProcessor
         }
     }
 
+    @Override
     public void setServerName(String serverName) {
         this.serverName = serverName;
     }
 
+    @Override
     public void setCompatibilityMode(boolean compatibilityMode) {
         this.compatibilityMode = compatibilityMode;
     }
 
+    @Override
     public void addSupportedCiphers(List<TlsConstants.CipherSuite> supportedCiphers) {
         this.supportedCiphers.addAll(supportedCiphers);
     }
 
+    @Override
     public void addExtensions(List<Extension> extensions) {
         this.requestedExtensions.addAll(extensions);
     }
 
+    @Override
     public void add(Extension extension) {
         requestedExtensions.add(extension);
     }
 
+    @Override
     public void setTrustManager(X509TrustManager customTrustManager) {
         this.customTrustManager = customTrustManager;
     }
@@ -627,6 +641,7 @@ public class TlsClientEngine extends TlsEngine implements ClientMessageProcessor
      * Add ticket to use for a new session.
      * @param newSessionTicket
      */
+    @Override
     public void setNewSessionTicket(NewSessionTicket newSessionTicket) {
         this.newSessionTicket = newSessionTicket;
     }
@@ -645,24 +660,29 @@ public class TlsClientEngine extends TlsEngine implements ClientMessageProcessor
      * Returns tickets provided by the current connection.
      * @return
      */
+    @Override
     public List<NewSessionTicket> getNewSessionTickets() {
         return obtainedNewSessionTickets;
     }
 
+    @Override
     public List<X509Certificate> getServerCertificateChain() {
         return serverCertificateChain;
     }
 
+    @Override
     public void setHostnameVerifier(HostnameVerifier hostnameVerifier) {
         if (hostnameVerifier != null) {
             this.hostnameVerifier = hostnameVerifier;
         }
     }
 
+    @Override
     public boolean handshakeFinished() {
         return status == Status.Connected;
     }
 
+    @Override
     public void setClientCertificateCallback(Function<List<X500Principal>, CertificateWithPrivateKey> callback) {
         clientCertificateSelector = callback;
     }

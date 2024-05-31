@@ -1,5 +1,5 @@
 /*
- * Copyright © 2021, 2022, 2023, 2024 Peter Doornbosch
+ * Copyright © 2020, 2021, 2022, 2023, 2024 Peter Doornbosch
  *
  * This file is part of Agent15, an implementation of TLS 1.3 in Java.
  *
@@ -16,14 +16,7 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-package net.luminis.tls.handshake;
+package net.luminis.tls.engine;
 
-
-public interface TlsSession {
-
-    byte[] getPsk();
-
-    String getApplicationLayerProtocol();
-
-    byte[] getData();
+public interface TlsEngine extends MessageProcessor, TrafficSecrets {
 }

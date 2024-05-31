@@ -18,6 +18,7 @@
  */
 package net.luminis.tls;
 
+import net.luminis.tls.engine.impl.TlsState;
 import net.luminis.tls.handshake.NewSessionTicketMessage;
 import org.junit.jupiter.api.Test;
 

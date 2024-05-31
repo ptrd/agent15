@@ -1,5 +1,5 @@
 /*
- * Copyright © 2019, 2020, 2021, 2022, 2023, 2024 Peter Doornbosch
+ * Copyright © 2020, 2021, 2022, 2023, 2024 Peter Doornbosch
  *
  * This file is part of Agent15, an implementation of TLS 1.3 in Java.
  *
@@ -16,18 +16,23 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-package net.luminis.tls;
+package net.luminis.tls.engine;
 
-public interface TrafficSecrets {
+import net.luminis.tls.handshake.CertificateMessage;
+import net.luminis.tls.handshake.CertificateVerifyMessage;
+import net.luminis.tls.handshake.ClientHello;
+import net.luminis.tls.handshake.FinishedMessage;
 
-    byte[] getClientEarlyTrafficSecret();
+import java.io.IOException;
 
-    byte[] getClientHandshakeTrafficSecret();
 
-    byte[] getServerHandshakeTrafficSecret();
+public interface ClientMessageSender {
 
-    byte[] getClientApplicationTrafficSecret();
+    void send(ClientHello clientHello) throws IOException;
 
-    byte[] getServerApplicationTrafficSecret();
+    void send(FinishedMessage finishedMessage) throws IOException;
 
+    void send(CertificateMessage certificateMessage) throws IOException;
+
+    void send(CertificateVerifyMessage certificateVerifyMessage);
 }

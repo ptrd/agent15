@@ -18,6 +18,7 @@
  */
 package net.luminis.tls;
 
+import net.luminis.tls.engine.impl.TranscriptHash;
 import net.luminis.tls.handshake.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

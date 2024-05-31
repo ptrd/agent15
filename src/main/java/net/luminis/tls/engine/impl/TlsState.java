@@ -16,10 +16,12 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-package net.luminis.tls;
+package net.luminis.tls.engine.impl;
 
 import at.favre.lib.hkdf.HKDF;
 import at.favre.lib.hkdf.HkdfMacFactory;
+import net.luminis.tls.BinderCalculator;
+import net.luminis.tls.TlsConstants;
 import net.luminis.tls.log.Logger;
 
 import javax.crypto.KeyAgreement;

@@ -22,7 +22,7 @@ import net.luminis.tls.BinderCalculator;
 import net.luminis.tls.NewSessionTicket;
 import net.luminis.tls.TlsConstants;
 import net.luminis.tls.alert.DecodeErrorException;
-import net.luminis.tls.handshake.TlsEngine;
+import net.luminis.tls.engine.impl.TlsEngineImpl;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -50,7 +50,7 @@ public class ClientHelloPreSharedKeyExtension extends PreSharedKeyExtension {
         long obfuscatedTicketAge = ((new Date().getTime() - ticketCreationDate.getTime()) + ticketAgeAdd) % 0x100000000L;
         identities = List.of(new PskIdentity(sessionTicketIdentity, obfuscatedTicketAge));
         binders = new ArrayList<>();
-        binders.add(new PskBinderEntry(new byte[TlsEngine.hashLength(newSessionTicket.getCipher())]));
+        binders.add(new PskBinderEntry(new byte[TlsEngineImpl.hashLength(newSessionTicket.getCipher())]));
     }
 
     public ClientHelloPreSharedKeyExtension() {

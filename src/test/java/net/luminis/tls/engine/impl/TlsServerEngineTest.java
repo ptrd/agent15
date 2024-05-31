@@ -16,13 +16,24 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-package net.luminis.tls.handshake;
+package net.luminis.tls.engine.impl;
 
-import net.luminis.tls.*;
+import net.luminis.tls.CertificateUtils;
+import net.luminis.tls.KeyUtils;
+import net.luminis.tls.NewSessionTicket;
+import net.luminis.tls.ProtectionKeysType;
+import net.luminis.tls.TlsConstants;
 import net.luminis.tls.alert.DecryptErrorAlert;
 import net.luminis.tls.alert.HandshakeFailureAlert;
 import net.luminis.tls.alert.MissingExtensionAlert;
+import net.luminis.tls.engine.ServerMessageSender;
+import net.luminis.tls.engine.TlsStatusEventHandler;
 import net.luminis.tls.extension.*;
+import net.luminis.tls.handshake.ClientHello;
+import net.luminis.tls.handshake.EncryptedExtensions;
+import net.luminis.tls.handshake.FinishedMessage;
+import net.luminis.tls.handshake.NewSessionTicketMessage;
+import net.luminis.tls.handshake.ServerHello;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -48,7 +59,7 @@ import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.*;
 public class TlsServerEngineTest {
 
-    private TlsServerEngine engine;
+    private TlsServerEngineImpl engine;
     private ECPublicKey publicKey;
     private ServerMessageSender messageSender;
     private X509Certificate serverCertificate;
@@ -66,7 +77,7 @@ public class TlsServerEngineTest {
         serverCertificate = CertificateUtils.inflateCertificate(encodedKwikDotTechRsaCertificate);
         tlsStatusHandler = mock(TlsStatusEventHandler.class);
         tlsSessionRegistry = new TlsSessionRegistryImpl();
-        engine = new TlsServerEngine(serverCertificate, privateKey, messageSender, tlsStatusHandler, tlsSessionRegistry) {
+        engine = new TlsServerEngineImpl(serverCertificate, privateKey, messageSender, tlsStatusHandler, tlsSessionRegistry) {
             protected boolean validateBinder(ClientHelloPreSharedKeyExtension.PskBinderEntry pskBinderEntry, int binderPosition, ClientHello clientHello) {
                 return true;
             }
@@ -340,7 +351,7 @@ public class TlsServerEngineTest {
         X509Certificate certificate = CertificateUtils.inflateCertificate(encodedKwikDotTechRsaCertificate);
 
         // When
-        TlsConstants.SignatureScheme signatureScheme = TlsServerEngine.determineSignatureScheme(certificate);
+        TlsConstants.SignatureScheme signatureScheme = TlsServerEngineImpl.determineSignatureScheme(certificate);
 
         // Then
         assertThat(signatureScheme).isEqualTo(rsa_pss_rsae_sha256);
@@ -352,7 +363,7 @@ public class TlsServerEngineTest {
         X509Certificate certificate = CertificateUtils.inflateCertificate(encodedSampleRsa384Certificate);
 
         // When
-        TlsConstants.SignatureScheme signatureScheme = TlsServerEngine.determineSignatureScheme(certificate);
+        TlsConstants.SignatureScheme signatureScheme = TlsServerEngineImpl.determineSignatureScheme(certificate);
 
         // Then
         assertThat(signatureScheme).isEqualTo(rsa_pss_rsae_sha384);
@@ -364,7 +375,7 @@ public class TlsServerEngineTest {
         X509Certificate certificate = CertificateUtils.inflateCertificate(encodedSampleRsa512Certificate);
 
         // When
-        TlsConstants.SignatureScheme signatureScheme = TlsServerEngine.determineSignatureScheme(certificate);
+        TlsConstants.SignatureScheme signatureScheme = TlsServerEngineImpl.determineSignatureScheme(certificate);
 
         // Then
         assertThat(signatureScheme).isEqualTo(rsa_pss_rsae_sha512);
@@ -376,7 +387,7 @@ public class TlsServerEngineTest {
         X509Certificate certificate = CertificateUtils.inflateCertificate(encodedInteropLeafEcdsaCertificate);
 
         // When
-        TlsConstants.SignatureScheme signatureScheme = TlsServerEngine.determineSignatureScheme(certificate);
+        TlsConstants.SignatureScheme signatureScheme = TlsServerEngineImpl.determineSignatureScheme(certificate);
 
         // Then
         assertThat(signatureScheme).isEqualTo(ecdsa_secp256r1_sha256);
@@ -388,7 +399,7 @@ public class TlsServerEngineTest {
         X509Certificate certificate = CertificateUtils.inflateCertificate(encodedSampleEcdsa384Certificate);
 
         // When
-        TlsConstants.SignatureScheme signatureScheme = TlsServerEngine.determineSignatureScheme(certificate);
+        TlsConstants.SignatureScheme signatureScheme = TlsServerEngineImpl.determineSignatureScheme(certificate);
 
         // Then
         assertThat(signatureScheme).isEqualTo(ecdsa_secp384r1_sha384);
@@ -400,7 +411,7 @@ public class TlsServerEngineTest {
         X509Certificate certificate = CertificateUtils.inflateCertificate(encodedSampleEcdsa512Certificate);
 
         // When
-        TlsConstants.SignatureScheme signatureScheme = TlsServerEngine.determineSignatureScheme(certificate);
+        TlsConstants.SignatureScheme signatureScheme = TlsServerEngineImpl.determineSignatureScheme(certificate);
 
         // Then
         assertThat(signatureScheme).isEqualTo(ecdsa_secp521r1_sha512);

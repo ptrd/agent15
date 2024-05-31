@@ -16,11 +16,13 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-package net.luminis.tls.handshake;
+package net.luminis.tls.engine.impl;
 
 import net.luminis.tls.TlsConstants;
-import net.luminis.tls.TlsState;
+import net.luminis.tls.engine.TlsSession;
+import net.luminis.tls.engine.TlsSessionRegistry;
 import net.luminis.tls.extension.ClientHelloPreSharedKeyExtension;
+import net.luminis.tls.handshake.NewSessionTicketMessage;
 
 import java.security.SecureRandom;
 import java.time.Instant;

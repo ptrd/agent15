@@ -1,5 +1,35 @@
 # Releases
 
+## Current
+
+- added class TlsClientEngineFactory
+- moved TlsEngine implementation to class TlsEngineImpl and moved it to package `net.luminis.tls.engine.impl`
+- converted TlsEngine into an interface
+- moved TlsClientEngine implementation to class TlsClientEngineImpl and moved it to package `net.luminis.tls.engine.impl`
+- converted TlsClientEngine into an interface
+- moved TlsServerEngine implementation to class TlsServerEngineImpl and moved it to package `net.luminis.tls.engine.impl`
+- converted TlsClientEngine into an interface
+- moved the following classes to package `net.luminis.tls.engine`
+  - MessageProcessor
+  - ClientMessageProcessor
+  - ServerMessageProcessor
+  - ClientMessageSender
+  - ServerMessageSender
+  - HostnameVerifier
+  - DefaultHostnameVerifier
+  - CertificateWithPrivateKey
+  - TlsStatusEventHandler
+  - TlsMessageParser
+  - TrafficSecrets
+  - TlsSession
+  - TlsSessionRegistry
+  - TlsServerEngineFactory
+- moved the following classes to package `net.luminis.tls.engine.impl`
+  - TlsState
+  - TranscriptHash
+  - TlsSessionRegistryImpl
+- removed (unused) class Message
+
 ## 1.1 (2024-03-30)
 
 - Use Java KeyStore object to pass certificate and private key to TlsServerEngine.

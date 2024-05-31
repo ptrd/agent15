@@ -16,14 +16,13 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-package net.luminis.tls.handshake;
+package net.luminis.tls.engine.impl;
 
 import net.luminis.tls.TlsConstants;
-import net.luminis.tls.TlsState;
-import net.luminis.tls.TrafficSecrets;
 import net.luminis.tls.alert.ErrorAlert;
 import net.luminis.tls.alert.HandshakeFailureAlert;
 import net.luminis.tls.alert.InternalErrorAlert;
+import net.luminis.tls.engine.TlsEngine;
 import net.luminis.tls.env.AlgorithmMapping;
 import net.luminis.tls.env.PlatformMapping;
 import net.luminis.tls.extension.Extension;
@@ -43,14 +42,14 @@ import java.security.spec.PSSParameterSpec;
 import static net.luminis.tls.TlsConstants.NamedGroup.*;
 import static net.luminis.tls.TlsConstants.SignatureScheme.*;
 
-public abstract class TlsEngine implements MessageProcessor, TrafficSecrets {
+public abstract class TlsEngineImpl implements TlsEngine {
 
     protected PublicKey publicKey;
     protected PrivateKey privateKey;
     protected TlsState state;
     protected AlgorithmMapping algorithmMapping;
 
-    public TlsEngine() {
+    public TlsEngineImpl() {
         algorithmMapping = PlatformMapping.algorithmMapping();
     }
 

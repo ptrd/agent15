@@ -16,17 +16,24 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-package net.luminis.tls.handshake;
+package net.luminis.tls.engine;
 
+import net.luminis.tls.handshake.*;
 
-import net.luminis.tls.ProtectionKeysType;
-import net.luminis.tls.TlsProtocolException;
-import net.luminis.tls.alert.UnexpectedMessageAlert;
+import java.io.IOException;
 
-public interface ClientMessageProcessor extends MessageProcessor {
+public interface ServerMessageSender {
 
-    default void received(ClientHello ch, ProtectionKeysType protectedBy) throws TlsProtocolException {
-        throw new UnexpectedMessageAlert("no client hello expected");
-    }
+    void send(ServerHello sh) throws IOException;
 
+    void send(EncryptedExtensions ee) throws IOException;
+
+    void send(CertificateMessage cm) throws IOException;
+
+    void send(CertificateVerifyMessage cv) throws IOException;
+
+    void send(FinishedMessage finished) throws IOException;
+
+    void send(NewSessionTicketMessage ticket) throws IOException;
 }
+

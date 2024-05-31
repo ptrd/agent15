@@ -16,19 +16,19 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-package net.luminis.tls.handshake;
+package net.luminis.tls.engine.impl;
 
 import net.luminis.tls.ProtectionKeysType;
 import net.luminis.tls.TlsConstants;
 import net.luminis.tls.TlsProtocolException;
-import net.luminis.tls.TlsState;
-import net.luminis.tls.TranscriptHash;
 import net.luminis.tls.alert.DecryptErrorAlert;
 import net.luminis.tls.alert.HandshakeFailureAlert;
 import net.luminis.tls.alert.IllegalParameterAlert;
 import net.luminis.tls.alert.MissingExtensionAlert;
 import net.luminis.tls.alert.UnexpectedMessageAlert;
+import net.luminis.tls.engine.*;
 import net.luminis.tls.extension.*;
+import net.luminis.tls.handshake.*;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -43,7 +43,7 @@ import static net.luminis.tls.TlsConstants.NamedGroup.x25519;
 import static net.luminis.tls.TlsConstants.PskKeyExchangeMode.psk_dhe_ke;
 import static net.luminis.tls.TlsConstants.SignatureScheme.*;
 
-public class TlsServerEngine extends TlsEngine implements ServerMessageProcessor {
+public class TlsServerEngineImpl extends TlsEngineImpl implements TlsServerEngine, ServerMessageProcessor {
 
     // https://www.rfc-editor.org/rfc/rfc8446.html#appendix-A.2
     enum Status {
@@ -73,7 +73,7 @@ public class TlsServerEngine extends TlsEngine implements ServerMessageProcessor
     private Function<ByteBuffer, Boolean> sessionDataVerificationCallback;
 
 
-    public TlsServerEngine(List<X509Certificate> certificates, PrivateKey certificateKey, ServerMessageSender serverMessageSender, TlsStatusEventHandler tlsStatusHandler, TlsSessionRegistry tlsSessionRegistry) {
+    public TlsServerEngineImpl(List<X509Certificate> certificates, PrivateKey certificateKey, ServerMessageSender serverMessageSender, TlsStatusEventHandler tlsStatusHandler, TlsSessionRegistry tlsSessionRegistry) {
         this.serverCertificateChain = certificates;
         this.certificatePrivateKey = certificateKey;
         this.serverMessageSender = serverMessageSender;
@@ -86,7 +86,7 @@ public class TlsServerEngine extends TlsEngine implements ServerMessageProcessor
         sessionRegistry = tlsSessionRegistry;
     }
 
-    public TlsServerEngine(X509Certificate serverCertificate, PrivateKey certificateKey, ServerMessageSender serverMessageSender, TlsStatusEventHandler tlsStatusHandler, TlsSessionRegistry tlsSessionRegistry) {
+    public TlsServerEngineImpl(X509Certificate serverCertificate, PrivateKey certificateKey, ServerMessageSender serverMessageSender, TlsStatusEventHandler tlsStatusHandler, TlsSessionRegistry tlsSessionRegistry) {
         this(List.of(serverCertificate), certificateKey, serverMessageSender, tlsStatusHandler, tlsSessionRegistry);
     }
 
@@ -349,14 +349,17 @@ public class TlsServerEngine extends TlsEngine implements ServerMessageProcessor
         return valid;
     }
 
+    @Override
     public void addSupportedCiphers(List<TlsConstants.CipherSuite> cipherSuites) {
         supportedCiphers.addAll(cipherSuites);
     }
 
+    @Override
     public void setServerMessageSender(ServerMessageSender serverMessageSender) {
         this.serverMessageSender = serverMessageSender;
     }
 
+    @Override
     public void setStatusHandler(TlsStatusEventHandler statusHandler) {
         this.statusHandler = statusHandler;
     }
@@ -366,14 +369,17 @@ public class TlsServerEngine extends TlsEngine implements ServerMessageProcessor
         return selectedCipher;
     }
 
+    @Override
     public List<Extension> getServerExtensions() {
         return serverExtensions;
     }
 
+    @Override
     public void addServerExtensions(Extension extension) {
         serverExtensions.add(extension);
     }
 
+    @Override
     public void setSelectedApplicationLayerProtocol(String applicationProtocol) {
         if (applicationProtocol == null) {
             throw new IllegalArgumentException();
@@ -389,6 +395,7 @@ public class TlsServerEngine extends TlsEngine implements ServerMessageProcessor
      * resumed, the QUIC layer can verify the same QUIC version is used.
      * @param additionalSessionData
      */
+    @Override
     public void setSessionData(byte[] additionalSessionData) {
         this.additionalSessionData = additionalSessionData;
     }
@@ -400,6 +407,7 @@ public class TlsServerEngine extends TlsEngine implements ServerMessageProcessor
      * @param callback  the callback that is called with the stored session data; when the callback returns false
      *                  the session will not be resumed.
      */
+    @Override
     public void setSessionDataVerificationCallback(Function<ByteBuffer, Boolean> callback) {
         this.sessionDataVerificationCallback = callback;
     }

@@ -16,10 +16,9 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-package net.luminis.tls.handshake;
+package net.luminis.tls.engine.impl;
 
 import net.luminis.tls.TlsConstants;
-import net.luminis.tls.TlsState;
 import net.luminis.tls.extension.ClientHelloPreSharedKeyExtension;
 import org.junit.jupiter.api.Test;
 

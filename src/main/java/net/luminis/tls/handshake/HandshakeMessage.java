@@ -18,7 +18,6 @@
  */
 package net.luminis.tls.handshake;
 
-import net.luminis.tls.Message;
 import net.luminis.tls.TlsConstants;
 import net.luminis.tls.TlsProtocolException;
 import net.luminis.tls.alert.DecodeErrorException;
@@ -34,7 +33,7 @@ import java.util.List;
 /**
  * https://datatracker.ietf.org/doc/html/rfc8446#section-4
  */
-public abstract class HandshakeMessage extends Message {
+public abstract class HandshakeMessage {
 
     public abstract TlsConstants.HandshakeType getType();
 

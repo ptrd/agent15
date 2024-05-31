@@ -16,12 +16,18 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-package net.luminis.tls;
+package net.luminis.tls.engine;
 
-import java.security.cert.X509Certificate;
 
-public interface HostnameVerifier {
+import net.luminis.tls.ProtectionKeysType;
+import net.luminis.tls.TlsProtocolException;
+import net.luminis.tls.alert.UnexpectedMessageAlert;
+import net.luminis.tls.handshake.ClientHello;
 
-    boolean verify(String hostname, X509Certificate serverCertificate);
+public interface ClientMessageProcessor extends MessageProcessor {
+
+    default void received(ClientHello ch, ProtectionKeysType protectedBy) throws TlsProtocolException {
+        throw new UnexpectedMessageAlert("no client hello expected");
+    }
 
 }

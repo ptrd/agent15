@@ -16,10 +16,12 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-package net.luminis.tls.handshake;
+package net.luminis.tls.engine;
 
 import net.luminis.tls.TlsConstants;
 import net.luminis.tls.compat.InputStreamCompat;
+import net.luminis.tls.engine.impl.TlsServerEngineImpl;
+import net.luminis.tls.engine.impl.TlsSessionRegistryImpl;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -98,7 +100,7 @@ public class TlsServerEngineFactory {
     }
 
     public TlsServerEngine createServerEngine(ServerMessageSender serverMessageSender, TlsStatusEventHandler tlsStatusHandler) {
-        TlsServerEngine tlsServerEngine = new TlsServerEngine(serverCertificates, certificateKey, serverMessageSender, tlsStatusHandler, tlsSessionRegistry);
+        TlsServerEngineImpl tlsServerEngine = new TlsServerEngineImpl(serverCertificates, certificateKey, serverMessageSender, tlsStatusHandler, tlsSessionRegistry);
         tlsServerEngine.addSupportedCiphers(List.of(TlsConstants.CipherSuite.TLS_AES_128_GCM_SHA256));
         return tlsServerEngine;
     }
