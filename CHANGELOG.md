@@ -1,6 +1,11 @@
 # Releases
 
-## Current
+## 2.0 (2024-06-15)
+
+Made agent15 a Java module, with module name `tech.kwik.agent15`. 
+In order for the module to have proper exports, lots of classes and interfaces changed package; 
+some classes were split in interface and implementation and a factory class was introduced for 
+TlsClientEngine, so clients don't have to have direct access to its implementation.
 
 - added class TlsClientEngineFactory
 - moved TlsEngine implementation to class TlsEngineImpl and moved it to package `net.luminis.tls.engine.impl`
