@@ -272,20 +272,20 @@ public class TlsServerEngine extends TlsEngine implements ServerMessageProcessor
     }
 
     static TlsConstants.SignatureScheme determineSignatureScheme(X509Certificate certificate) throws TlsProtocolException {
-        switch (certificate.getSigAlgName()) {
-            case "SHA256withRSA":
+        switch (certificate.getSigAlgName().toUpperCase()) {
+            case "SHA256WITHRSA":
                 return rsa_pss_rsae_sha256;
-            case "SHA384withRSA":
+            case "SHA384WITHRSA":
                 return rsa_pss_rsae_sha384;
-            case "SHA512withRSA":
+            case "SHA512WITHRSA":
                 return rsa_pss_rsae_sha512;
-            case "SHA256withECDSA":
+            case "SHA256WITHECDSA":
                 return ecdsa_secp256r1_sha256;
-            case "SHA384withECDSA":
+            case "SHA384WITHECDSA":
                 // Checking curve is hardly possible with standard Java:
                 // boolean rightCurve = ((ECPublicKey) certificate.getPublicKey()).getParams().toString().startsWith("secp384r1");
                 return ecdsa_secp384r1_sha384;
-            case "SHA512withECDSA":
+            case "SHA512WITHECDSA":
                 return ecdsa_secp521r1_sha512;
             default:
                 throw new TlsProtocolException("Unknown or unsupported certificate type " + certificate.getSigAlgName());
@@ -404,4 +404,3 @@ public class TlsServerEngine extends TlsEngine implements ServerMessageProcessor
         this.sessionDataVerificationCallback = callback;
     }
 }
-
