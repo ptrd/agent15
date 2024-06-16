@@ -83,6 +83,10 @@ task determineVersion {
 
 compileJava.dependsOn (determineVersion, processResources)
 
+tasks.compileJava {
+    options.javaModuleMainClass = "net.luminis.tls.Version"
+}
+
 group = 'tech.kwik'
 
 java {
