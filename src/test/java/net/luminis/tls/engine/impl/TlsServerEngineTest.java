@@ -34,6 +34,7 @@ import net.luminis.tls.handshake.EncryptedExtensions;
 import net.luminis.tls.handshake.FinishedMessage;
 import net.luminis.tls.handshake.NewSessionTicketMessage;
 import net.luminis.tls.handshake.ServerHello;
+import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -41,7 +42,9 @@ import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
 
 import java.security.KeyFactory;
+import java.security.KeyStore;
 import java.security.PrivateKey;
+import java.security.Security;
 import java.security.cert.X509Certificate;
 import java.security.interfaces.ECPublicKey;
 import java.security.spec.PKCS8EncodedKeySpec;
@@ -355,6 +358,26 @@ public class TlsServerEngineTest {
 
         // Then
         assertThat(signatureScheme).isEqualTo(rsa_pss_rsae_sha256);
+    }
+
+    @Test
+    void rsaSignatureCertificateWithBouncyCastle() throws Exception {
+        try {
+            // Given
+            Security.addProvider(new BouncyCastleProvider());
+            KeyStore keyStore = KeyStore.getInstance("PKCS12", "BC");
+            keyStore.load(getClass().getResourceAsStream("cert.p12"), "secret".toCharArray());
+            X509Certificate certificate = (X509Certificate) keyStore.getCertificate("example");
+
+            // When
+            TlsConstants.SignatureScheme signatureScheme = TlsServerEngineImpl.determineSignatureScheme(certificate);
+
+            // Then
+            assertThat(signatureScheme).isEqualTo(rsa_pss_rsae_sha256);
+        }
+        finally {
+            Security.removeProvider("BC");
+        }
     }
 
     @Test
