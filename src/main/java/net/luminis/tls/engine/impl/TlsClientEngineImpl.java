@@ -57,7 +57,10 @@ public class TlsClientEngineImpl extends TlsEngineImpl implements TlsClientEngin
             rsa_pss_rsae_sha256,
             rsa_pss_rsae_sha384,
             rsa_pss_rsae_sha512,
-            ecdsa_secp256r1_sha256);
+            ecdsa_secp256r1_sha256,
+            ecdsa_secp384r1_sha384,
+            ecdsa_secp521r1_sha512
+            );
 
     private static final Charset ISO_8859_1 = Charset.forName("ISO-8859-1");
 

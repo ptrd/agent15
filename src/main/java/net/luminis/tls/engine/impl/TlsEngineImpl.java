@@ -228,6 +228,20 @@ public abstract class TlsEngineImpl implements TlsEngine {
                 throw new RuntimeException("Missing SHA256withECDSA support");
             }
         }
+        else if (signatureScheme.equals(ecdsa_secp384r1_sha384)) {
+            try {
+                signatureAlgorithm = Signature.getInstance("SHA384withECDSA");
+            } catch (NoSuchAlgorithmException e) {
+                throw new RuntimeException("Missing SHA384withECDSA support");
+            }
+        }
+        else if (signatureScheme.equals(ecdsa_secp521r1_sha512)) {
+            try {
+                signatureAlgorithm = Signature.getInstance("SHA512withECDSA");
+            } catch (NoSuchAlgorithmException e) {
+                throw new RuntimeException("Missing SHA512withECDSA support");
+            }
+        }
         else {
             // Bad luck, not (yet) supported.
             throw new HandshakeFailureAlert("Signature algorithm not supported " + signatureScheme);
