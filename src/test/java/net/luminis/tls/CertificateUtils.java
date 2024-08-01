@@ -46,57 +46,96 @@ public class CertificateUtils {
         return privKey;
     }
 
-    // Subject: C=Netherlands, ST=Noord-Holland, L=Amsterdam, O=Acme, OU=orgUnit, CN=example.com
-    static String encodedCertificate =
-            "MIIDkTCCAnmgAwIBAgIENoUsFTANBgkqhkiG9w0BAQsFADB5MRQwEgYDVQQGEwtO"
-            + "ZXRoZXJsYW5kczEWMBQGA1UECBMNTm9vcmQtSG9sbGFuZDESMBAGA1UEBxMJQW1z"
-            + "dGVyZGFtMQ0wCwYDVQQKEwRBY21lMRAwDgYDVQQLEwdvcmdVbml0MRQwEgYDVQQD"
-            + "EwtleGFtcGxlLmNvbTAeFw0yMDA2MTMxOTMzNDZaFw0yMTA2MTMxOTMzNDZaMHkx"
-            + "FDASBgNVBAYTC05ldGhlcmxhbmRzMRYwFAYDVQQIEw1Ob29yZC1Ib2xsYW5kMRIw"
-            + "EAYDVQQHEwlBbXN0ZXJkYW0xDTALBgNVBAoTBEFjbWUxEDAOBgNVBAsTB29yZ1Vu"
-            + "aXQxFDASBgNVBAMTC2V4YW1wbGUuY29tMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8A"
-            + "MIIBCgKCAQEAtKDu0K5ckEvcaRV3ssntOfjeIXAm1k+P07D5Mt4LOelDa38PFYit"
-            + "Se0F59Y+DHarMIt6WlL3VBI5lp+sjdh0s3/DiAQ4mT5FbCd5CGDXUVNTg7a+wFiv"
-            + "pKrJc9qEuIP1on7wBLdLcFOOsio4EKKfPX4LE415yY/0ia9+Jqs2CSNZQFVPU4/q"
-            + "o6i06FzB5Wo4eheqeygtvifRApOiBkqHQsAevPW7S36DmcHuVflxB66SdBhuG7Ti"
-            + "lB9pxsSjouJv9iL6V3Dskyfz+AflEsVamZ6JptgkykKNCWkjwNmW5zRLxInKe9Lr"
-            + "DG/QJGd2eLRox2jJgBwohaoos8yn2pbBfwIDAQABoyEwHzAdBgNVHQ4EFgQU7A5p"
-            + "4w3cpH2qEgomtT+3ndNMxCkwDQYJKoZIhvcNAQELBQADggEBALEB3tDD8ZE135LD"
-            + "oKoDX9Sml6MxAhq7uBJaL9hWkgz+gqkNjIP+jgZGGKjEwWzfrUAP7dxFekTIXFAY"
-            + "AO6NuJT9tZTPxLBV37Ns8FulRAbofrY5UkdjDD+vjYY8vmU2xMNd48miHp1WV+Vs"
-            + "21tSWUBMoPOcw6uqrnrwJQoyyuIfxLznTOO3OGnvXp/qSrHTaiIpf0yxAOEZ3/Kc"
-            + "q8JO/9AmfykOeWsRKio9/V3Ccg6EiE6fdva6hXEB80ZPQZNEv9aqICupNXSMZ6HO"
-            + "wwnvBmbndxsN/GBSveOI/mkS8hGSqdcCHD2H7ag0BQxsqnp7NtjgYKtTPNB/nChM"
-            + "aB9pFr8=";
+    /**
+     * Certificate:
+     *     Data:
+     *         Version: 3 (0x2)
+     *         Serial Number: 914697237 (0x36852c15)
+     *         Signature Algorithm: sha256WithRSAEncryption
+     *         Issuer: C=Netherlands, ST=Noord-Holland, L=Amsterdam, O=Acme, OU=orgUnit, CN=example.com
+     *         Validity
+     *             Not Before: Jun 13 19:33:46 2020 GMT
+     *             Not After : Jun 13 19:33:46 2021 GMT
+     *         Subject: C=Netherlands, ST=Noord-Holland, L=Amsterdam, O=Acme, OU=orgUnit, CN=example.com
+     *         Subject Public Key Info:
+     *             Public Key Algorithm: rsaEncryption
+     *                 Public-Key: (2048 bit)
+     *         X509v3 extensions:
+     *             X509v3 Subject Key Identifier:
+     *                 EC:0E:69:E3:0D:DC:A4:7D:AA:12:0A:26:B5:3F:B7:9D:D3:4C:C4:29
+     *     Signature Algorithm: sha256WithRSAEncryption
+     */
+    static String encodedCertificate = "" +
+            "MIIDkTCCAnmgAwIBAgIENoUsFTANBgkqhkiG9w0BAQsFADB5MRQwEgYDVQQGEwtO" +
+            "ZXRoZXJsYW5kczEWMBQGA1UECBMNTm9vcmQtSG9sbGFuZDESMBAGA1UEBxMJQW1z" +
+            "dGVyZGFtMQ0wCwYDVQQKEwRBY21lMRAwDgYDVQQLEwdvcmdVbml0MRQwEgYDVQQD" +
+            "EwtleGFtcGxlLmNvbTAeFw0yMDA2MTMxOTMzNDZaFw0yMTA2MTMxOTMzNDZaMHkx" +
+            "FDASBgNVBAYTC05ldGhlcmxhbmRzMRYwFAYDVQQIEw1Ob29yZC1Ib2xsYW5kMRIw" +
+            "EAYDVQQHEwlBbXN0ZXJkYW0xDTALBgNVBAoTBEFjbWUxEDAOBgNVBAsTB29yZ1Vu" +
+            "aXQxFDASBgNVBAMTC2V4YW1wbGUuY29tMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8A" +
+            "MIIBCgKCAQEAtKDu0K5ckEvcaRV3ssntOfjeIXAm1k+P07D5Mt4LOelDa38PFYit" +
+            "Se0F59Y+DHarMIt6WlL3VBI5lp+sjdh0s3/DiAQ4mT5FbCd5CGDXUVNTg7a+wFiv" +
+            "pKrJc9qEuIP1on7wBLdLcFOOsio4EKKfPX4LE415yY/0ia9+Jqs2CSNZQFVPU4/q" +
+            "o6i06FzB5Wo4eheqeygtvifRApOiBkqHQsAevPW7S36DmcHuVflxB66SdBhuG7Ti" +
+            "lB9pxsSjouJv9iL6V3Dskyfz+AflEsVamZ6JptgkykKNCWkjwNmW5zRLxInKe9Lr" +
+            "DG/QJGd2eLRox2jJgBwohaoos8yn2pbBfwIDAQABoyEwHzAdBgNVHQ4EFgQU7A5p" +
+            "4w3cpH2qEgomtT+3ndNMxCkwDQYJKoZIhvcNAQELBQADggEBALEB3tDD8ZE135LD" +
+            "oKoDX9Sml6MxAhq7uBJaL9hWkgz+gqkNjIP+jgZGGKjEwWzfrUAP7dxFekTIXFAY" +
+            "AO6NuJT9tZTPxLBV37Ns8FulRAbofrY5UkdjDD+vjYY8vmU2xMNd48miHp1WV+Vs" +
+            "21tSWUBMoPOcw6uqrnrwJQoyyuIfxLznTOO3OGnvXp/qSrHTaiIpf0yxAOEZ3/Kc" +
+            "q8JO/9AmfykOeWsRKio9/V3Ccg6EiE6fdva6hXEB80ZPQZNEv9aqICupNXSMZ6HO" +
+            "wwnvBmbndxsN/GBSveOI/mkS8hGSqdcCHD2H7ag0BQxsqnp7NtjgYKtTPNB/nChM" +
+            "aB9pFr8=";
 
     static String encodedPrivateKey =
             "MIIEvwIBADANBgkqhkiG9w0BAQEFAASCBKkwggSlAgEAAoIBAQC0oO7QrlyQS9xp" +
-                    "FXeyye05+N4hcCbWT4/TsPky3gs56UNrfw8ViK1J7QXn1j4Mdqswi3paUvdUEjmW" +
-                    "n6yN2HSzf8OIBDiZPkVsJ3kIYNdRU1ODtr7AWK+kqslz2oS4g/WifvAEt0twU46y" +
-                    "KjgQop89fgsTjXnJj/SJr34mqzYJI1lAVU9Tj+qjqLToXMHlajh6F6p7KC2+J9EC" +
-                    "k6IGSodCwB689btLfoOZwe5V+XEHrpJ0GG4btOKUH2nGxKOi4m/2IvpXcOyTJ/P4" +
-                    "B+USxVqZnomm2CTKQo0JaSPA2ZbnNEvEicp70usMb9AkZ3Z4tGjHaMmAHCiFqiiz" +
-                    "zKfalsF/AgMBAAECggEBAKEgUghLEX0SfsoqgT02jWxCSPwxDCPukxE2dAVhN0hw" +
-                    "gVi53d3KrzIbwkHdxjnd/bVvJjS+f6w6Ga74PrfFl8yrMuP5R/fDKbBhwcCsikYc" +
-                    "e4oqERyJwBy20L+M9QmXhR1v+HFshFnt34Okz6BfQIddEUpe0H3x8SSFLJYX8jrR" +
-                    "Ec7HtdgtxN9CAxiS3uxSS+zS3cs5W9upzH448LwfYZDzLpDKrdGeiIISD2r2FRE5" +
-                    "NS1+ob2a8g8tbZnsjgNQjwsmPOGVkXjvxQULc4tSePo/pvNUPGRpjwTWOH3S+37s" +
-                    "L99FpslR3yeH2dWMv3zm0zmuSjJKpvXAfrua/jmno3kCgYEA56Or48NKxNj1oMph" +
-                    "lAj0oVwF0BAj11cnMK51gXSKak4zLQXtDK/iqZlZ0p+he8v3k+6TNrNIWRhticzg" +
-                    "DWE6Q3CeNov7jMvm0zZ+ssxoOxlwTk3yRCm5xi+XZ1SVy4u/CLiBlaY+OsMQhWux" +
-                    "PVciOaqXKMiZBaRt/OmOSMTLgesCgYEAx5/r//xGcG+XP6IHmaPuFfjJtyY2r87c" +
-                    "QzI48KC+W8ZYNuzMTUm1AQCpnIQG3iMbq3ZUm9ALmvERK+FGCGd0L1xEbtfaevcb" +
-                    "X1z6qqDBN3WZI7oh772SUjFhZoHJFKGbQCIJ3sG0whyY2QK20qsyZcKXiWRNqu7m" +
-                    "XfbJs+qaxb0CgYEAlvqbIs07gqpXDwJaL37W1AWC1GZwtf7cUGKlvEcVoMxvlrzy" +
-                    "EP7jIeAOJ7ZcLrB3IjiyQ0j/svK1EsgykQX6T9KrjKoYv2B3httSIYARv9OI28D6" +
-                    "U2tO5tpGONds+0qOrUR1UfEVRn+12QCkeXK9oBCMjcyR0JeoCNzCHLQIYRkCgYEA" +
-                    "mTXBUJ/ThBnxUHJQOPgbFBv03S9kC3zNinkyQGRulUteixElIDBwzksu4iRmjPkP" +
-                    "FILmHwwGzC02y6HDOVIFVxAOqa/bTEL5bDCVZn2oraMBHO2PfEvX0GN76Mu1g7Mg" +
-                    "z5EQWDn9PHnsSaoOnROtw3IdEeK8xXNDtVxipEZr8VUCgYAAz9yKIB3HEBNYBT7g" +
-                    "pyjkmSJDeftpup13UxDNcDQ47jwWgkQLVr1IBjLVa5NEQ28igQzY4Zugmb3qgf5u" +
-                    "T85zQNvlhax7H00x+L8caBimErMrO7j3sKbnC2evp/2tUfS4997/icD1TKs76sJ1" +
-                    "3Z9e2GPTQz4pixzAJJQG1sozSw==";
+            "FXeyye05+N4hcCbWT4/TsPky3gs56UNrfw8ViK1J7QXn1j4Mdqswi3paUvdUEjmW" +
+            "n6yN2HSzf8OIBDiZPkVsJ3kIYNdRU1ODtr7AWK+kqslz2oS4g/WifvAEt0twU46y" +
+            "KjgQop89fgsTjXnJj/SJr34mqzYJI1lAVU9Tj+qjqLToXMHlajh6F6p7KC2+J9EC" +
+            "k6IGSodCwB689btLfoOZwe5V+XEHrpJ0GG4btOKUH2nGxKOi4m/2IvpXcOyTJ/P4" +
+            "B+USxVqZnomm2CTKQo0JaSPA2ZbnNEvEicp70usMb9AkZ3Z4tGjHaMmAHCiFqiiz" +
+            "zKfalsF/AgMBAAECggEBAKEgUghLEX0SfsoqgT02jWxCSPwxDCPukxE2dAVhN0hw" +
+            "gVi53d3KrzIbwkHdxjnd/bVvJjS+f6w6Ga74PrfFl8yrMuP5R/fDKbBhwcCsikYc" +
+            "e4oqERyJwBy20L+M9QmXhR1v+HFshFnt34Okz6BfQIddEUpe0H3x8SSFLJYX8jrR" +
+            "Ec7HtdgtxN9CAxiS3uxSS+zS3cs5W9upzH448LwfYZDzLpDKrdGeiIISD2r2FRE5" +
+            "NS1+ob2a8g8tbZnsjgNQjwsmPOGVkXjvxQULc4tSePo/pvNUPGRpjwTWOH3S+37s" +
+            "L99FpslR3yeH2dWMv3zm0zmuSjJKpvXAfrua/jmno3kCgYEA56Or48NKxNj1oMph" +
+            "lAj0oVwF0BAj11cnMK51gXSKak4zLQXtDK/iqZlZ0p+he8v3k+6TNrNIWRhticzg" +
+            "DWE6Q3CeNov7jMvm0zZ+ssxoOxlwTk3yRCm5xi+XZ1SVy4u/CLiBlaY+OsMQhWux" +
+            "PVciOaqXKMiZBaRt/OmOSMTLgesCgYEAx5/r//xGcG+XP6IHmaPuFfjJtyY2r87c" +
+            "QzI48KC+W8ZYNuzMTUm1AQCpnIQG3iMbq3ZUm9ALmvERK+FGCGd0L1xEbtfaevcb" +
+            "X1z6qqDBN3WZI7oh772SUjFhZoHJFKGbQCIJ3sG0whyY2QK20qsyZcKXiWRNqu7m" +
+            "XfbJs+qaxb0CgYEAlvqbIs07gqpXDwJaL37W1AWC1GZwtf7cUGKlvEcVoMxvlrzy" +
+            "EP7jIeAOJ7ZcLrB3IjiyQ0j/svK1EsgykQX6T9KrjKoYv2B3httSIYARv9OI28D6" +
+            "U2tO5tpGONds+0qOrUR1UfEVRn+12QCkeXK9oBCMjcyR0JeoCNzCHLQIYRkCgYEA" +
+            "mTXBUJ/ThBnxUHJQOPgbFBv03S9kC3zNinkyQGRulUteixElIDBwzksu4iRmjPkP" +
+            "FILmHwwGzC02y6HDOVIFVxAOqa/bTEL5bDCVZn2oraMBHO2PfEvX0GN76Mu1g7Mg" +
+            "z5EQWDn9PHnsSaoOnROtw3IdEeK8xXNDtVxipEZr8VUCgYAAz9yKIB3HEBNYBT7g" +
+            "pyjkmSJDeftpup13UxDNcDQ47jwWgkQLVr1IBjLVa5NEQ28igQzY4Zugmb3qgf5u" +
+            "T85zQNvlhax7H00x+L8caBimErMrO7j3sKbnC2evp/2tUfS4997/icD1TKs76sJ1" +
+            "3Z9e2GPTQz4pixzAJJQG1sozSw==";
 
+    /**
+     * Self-signed certificate for kwik.tech
+     *
+     * Certificate:
+     *     Data:
+     *         Version: 3 (0x2)
+     *         Serial Number: 662855123 (0x27825dd3)
+     *         Signature Algorithm: sha256WithRSAEncryption
+     *         Issuer: CN=kwik.tech
+     *         Validity
+     *             Not Before: Jun  1 10:24:33 2020 GMT
+     *             Not After : Jun  1 10:24:33 2021 GMT
+     *         Subject: CN=kwik.tech
+     *         Subject Public Key Info:
+     *             Public Key Algorithm: rsaEncryption
+     *                 Public-Key: (2048 bit)
+     *         X509v3 extensions:
+     *             X509v3 Subject Key Identifier:
+     *                 0A:11:35:6A:5C:D4:44:7B:9D:72:19:7B:2D:67:E4:D0:92:1D:B5:6C
+     *     Signature Algorithm: sha256WithRSAEncryption
+     */
     public static String encodedKwikDotTechRsaCertificate =
             "MIICxzCCAa+gAwIBAgIEJ4Jd0zANBgkqhkiG9w0BAQsFADAUMRIwEAYDVQQDEwlr" +
             "d2lrLnRlY2gwHhcNMjAwNjAxMTAyNDMzWhcNMjEwNjAxMTAyNDMzWjAUMRIwEAYD" +
@@ -142,6 +181,43 @@ public class CertificateUtils {
             "iN/5yyqMuAaKpu6/2ESRPIG1xbn1yttyRusGqkD7G8cTi6FixjGLIeoQ9/0FaOPV" +
             "Jw7iHTfpu+iPQlmvb660GBs=";
 
+    /**
+     * Certificate:
+     *     Data:
+     *         Version: 3 (0x2)
+     *         Serial Number:
+     *             2a:89:24:1a:52:e7:ba:b9:19:1f:ce:f6:1b:d1:cd:84:58:12:db:01
+     *         Signature Algorithm: ecdsa-with-SHA256
+     *         Issuer: O=interop runner Root Certificate Authority
+     *         Validity
+     *             Not Before: Mar 25 21:09:01 2024 GMT
+     *             Not After : Apr  4 21:09:01 2024 GMT
+     *         Subject: O=interop runner leaf
+     *         Subject Public Key Info:
+     *             Public Key Algorithm: id-ecPublicKey
+     *                 Public-Key: (256 bit)
+     *                 pub:
+     *                     04:0b:11:69:0a:bc:a4:17:ba:a2:8d:44:17:07:4b:
+     *                     be:e1:68:b2:44:61:e9:2b:56:6d:5e:2e:b8:33:28:
+     *                     bb:96:b3:47:95:08:a8:a6:50:ba:6e:bc:88:34:70:
+     *                     c1:9e:24:da:7b:1a:87:a4:4e:25:f1:c4:a3:68:ca:
+     *                     b9:12:4d:a5:a9
+     *                 ASN1 OID: prime256v1
+     *                 NIST CURVE: P-256
+     *         X509v3 extensions:
+     *             X509v3 Subject Alternative Name:
+     *                 DNS:server, DNS:server4, DNS:server6, DNS:server46
+     *             X509v3 Subject Key Identifier:
+     *                 1E:E6:98:9F:4E:8F:F5:8F:64:2C:AB:7E:E7:94:42:62:44:2D:1A:47
+     *             X509v3 Authority Key Identifier:
+     *                 34:37:3B:B2:C9:89:29:0F:E3:01:47:C8:A6:B2:AA:5C:05:E3:90:4C
+     *     Signature Algorithm: ecdsa-with-SHA256
+     *     Signature Value:
+     *         30:44:02:20:2f:46:f6:d1:49:cc:ed:72:b4:32:ab:95:88:aa:
+     *         36:40:ab:b9:fa:32:9f:ec:3f:98:98:e9:a2:4b:96:55:9e:73:
+     *         02:20:25:20:9c:c3:c5:da:ab:4f:a4:71:f0:a3:b6:09:b8:5a:
+     *         c9:54:4f:9e:30:35:f6:50:4c:1d:3f:ff:c7:88:e6:09
+     */
     public static String encodedInteropLeafEcdsaCertificate =
             "MIIBxDCCAWugAwIBAgIUKokkGlLnurkZH872G9HNhFgS2wEwCgYIKoZIzj0EAwIw" +
             "NDEyMDAGA1UECgwpaW50ZXJvcCBydW5uZXIgUm9vdCBDZXJ0aWZpY2F0ZSBBdXRo" +
@@ -159,6 +235,30 @@ public class CertificateUtils {
             "KiwoGV/5qKt7Issz+s9dvlljACKhRANCAAQLEWkKvKQXuqKNRBcHS77haLJEYekr" +
             "Vm1eLrgzKLuWs0eVCKimULpuvIg0cMGeJNp7GoekTiXxxKNoyrkSTaWp";
 
+    /**
+     * Certificate:
+     *     Data:
+     *         Version: 3 (0x2)
+     *         Serial Number:
+     *             5f:aa:5e:23:77:9e:2d:6e:7c:26:38:13:c7:f8:99:ba:42:d5:4a:95
+     *         Signature Algorithm: sha384WithRSAEncryption
+     *         Issuer: CN=sample
+     *         Validity
+     *             Not Before: Mar 29 11:47:34 2024 GMT
+     *             Not After : Apr 29 11:47:34 2024 GMT
+     *         Subject: CN=sample
+     *         Subject Public Key Info:
+     *             Public Key Algorithm: rsaEncryption
+     *                 Public-Key: (1024 bit)
+     *         X509v3 extensions:
+     *             X509v3 Subject Key Identifier:
+     *                 53:26:A7:F8:5D:FE:C7:3C:25:5A:AC:2D:99:F9:18:06:8C:C1:15:36
+     *             X509v3 Authority Key Identifier:
+     *                 53:26:A7:F8:5D:FE:C7:3C:25:5A:AC:2D:99:F9:18:06:8C:C1:15:36
+     *             X509v3 Basic Constraints: critical
+     *                 CA:TRUE
+     *     Signature Algorithm: sha384WithRSAEncryption
+     */
     public static String encodedSampleRsa384Certificate =
             "MIIB/jCCAWegAwIBAgIUX6peI3eeLW58JjgTx/iZukLVSpUwDQYJKoZIhvcNAQEM" +
             "BQAwETEPMA0GA1UEAwwGc2FtcGxlMB4XDTI0MDMyOTExNDczNFoXDTI0MDQyOTEx" +
@@ -172,6 +272,30 @@ public class CertificateUtils {
             "UsU3w2QCSd24pdM1HNlvnd1FJLTRLJV3ptlSL8a1wrKKPRiHLPHmCsjKKhA57bpC" +
             "J3+fplNjwbBB5ZGGHtjPdvbwe14O/CXVgUcb6SGWTdlhSw==";
 
+    /**
+     * Certificate:
+     *     Data:
+     *         Version: 3 (0x2)
+     *         Serial Number:
+     *             76:2f:4c:0c:2a:93:c1:46:da:18:39:56:a9:e2:fc:99:66:26:bc:de
+     *         Signature Algorithm: sha512WithRSAEncryption
+     *         Issuer: CN=sample
+     *         Validity
+     *             Not Before: Mar 29 11:52:29 2024 GMT
+     *             Not After : Apr 29 11:52:29 2024 GMT
+     *         Subject: CN=sample
+     *         Subject Public Key Info:
+     *             Public Key Algorithm: rsaEncryption
+     *                 Public-Key: (1024 bit)
+     *         X509v3 extensions:
+     *             X509v3 Subject Key Identifier:
+     *                 70:79:DA:72:CC:4C:AE:DB:9A:40:44:EF:FA:1B:C7:CE:79:F7:93:7E
+     *             X509v3 Authority Key Identifier:
+     *                 70:79:DA:72:CC:4C:AE:DB:9A:40:44:EF:FA:1B:C7:CE:79:F7:93:7E
+     *             X509v3 Basic Constraints: critical
+     *                 CA:TRUE
+     *     Signature Algorithm: sha512WithRSAEncryption
+     */
     public static String encodedSampleRsa512Certificate =
             "MIIB/jCCAWegAwIBAgIUdi9MDCqTwUbaGDlWqeL8mWYmvN4wDQYJKoZIhvcNAQEN" +
             "BQAwETEPMA0GA1UEAwwGc2FtcGxlMB4XDTI0MDMyOTExNTIyOVoXDTI0MDQyOTEx" +
@@ -185,7 +309,41 @@ public class CertificateUtils {
             "EyG1Zfex1GL9sMlezZa9mOzSIVzUTThsZ/DZDGy+loe9Eu5Tmc/+chOKqPPLoeJJ" +
             "aQkRfqDYTe2rzcvnXCSfqlq8ME0sdJGjLM7hCn9cee6s8A==";
 
-    public static String encodedSampleEcdsa384Certificate = "" +
+    /**
+     * Certificate:
+     *     Data:
+     *         Version: 3 (0x2)
+     *         Serial Number:
+     *             4e:99:ae:67:9f:46:37:ec:db:20:d2:74:f1:7f:78:4e:95:15:4c:a9
+     *         Signature Algorithm: ecdsa-with-SHA384
+     *         Issuer: CN=sample
+     *         Validity
+     *             Not Before: Mar 29 12:19:52 2024 GMT
+     *             Not After : Apr 29 12:19:52 2024 GMT
+     *         Subject: CN=sample
+     *         Subject Public Key Info:
+     *             Public Key Algorithm: id-ecPublicKey
+     *                 Public-Key: (384 bit)
+     *                 pub:
+     *                     04:32:30:4c:d3:8c:19:94:4b:10:55:76:9d:f8:9d:
+     *                     11:70:a5:12:ac:ce:33:42:cf:ab:fc:58:41:88:fe:
+     *                     84:da:e7:35:3d:32:ec:67:49:45:cc:44:c0:60:75:
+     *                     ea:08:90:97:d5:6c:da:e6:80:35:ca:d9:d6:2b:ca:
+     *                     38:dd:c1:80:03:dc:c0:d5:81:ae:d7:06:8e:69:e9:
+     *                     40:31:21:a2:1b:25:31:5c:21:a2:48:66:96:16:53:
+     *                     2e:01:1a:ea:7c:f1:ae
+     *                 ASN1 OID: secp384r1
+     *                 NIST CURVE: P-384
+     *         X509v3 extensions:
+     *             X509v3 Subject Key Identifier:
+     *                 7A:34:BB:BC:70:C6:70:1E:FE:F7:95:1B:A3:69:8F:5C:02:75:DD:C5
+     *             X509v3 Authority Key Identifier:
+     *                 7A:34:BB:BC:70:C6:70:1E:FE:F7:95:1B:A3:69:8F:5C:02:75:DD:C5
+     *             X509v3 Basic Constraints: critical
+     *                 CA:TRUE
+     *     Signature Algorithm: ecdsa-with-SHA384
+     */
+    public static String encodedSampleEcdsa384Certificate =
             "MIIBszCCATqgAwIBAgIUTpmuZ59GN+zbINJ08X94TpUVTKkwCgYIKoZIzj0EAwMw" +
             "ETEPMA0GA1UEAwwGc2FtcGxlMB4XDTI0MDMyOTEyMTk1MloXDTI0MDQyOTEyMTk1" +
             "MlowETEPMA0GA1UEAwwGc2FtcGxlMHYwEAYHKoZIzj0CAQYFK4EEACIDYgAEMjBM" +
@@ -197,6 +355,42 @@ public class CertificateUtils {
             "OhwVQaECMAPRFXsCo6K+kmY1EGRp9z1OehGuIwp/D3U3KOshNuTJeBMLy1smEEaK" +
             "Y13bk20TAA==";
 
+    /**
+     * Certificate:
+     *     Data:
+     *         Version: 3 (0x2)
+     *         Serial Number:
+     *             1f:62:43:ab:6c:82:96:4c:c5:2d:e2:e8:51:47:df:e6:ee:e2:65:42
+     *         Signature Algorithm: ecdsa-with-SHA512
+     *         Issuer: CN=sample
+     *         Validity
+     *             Not Before: Mar 29 12:31:09 2024 GMT
+     *             Not After : Apr 29 12:31:09 2024 GMT
+     *         Subject: CN=sample
+     *         Subject Public Key Info:
+     *             Public Key Algorithm: id-ecPublicKey
+     *                 Public-Key: (521 bit)
+     *                 pub:
+     *                     04:01:56:dd:a5:64:fa:92:4a:1f:9e:c1:84:65:58:
+     *                     d2:0b:88:e2:d1:69:ff:7e:07:10:68:18:81:2d:4a:
+     *                     c0:81:d5:5c:b9:d2:ac:c2:98:24:3b:38:cd:3b:46:
+     *                     44:8f:46:80:dc:a5:ae:f7:de:d0:e3:0e:8e:98:d5:
+     *                     d0:2d:de:b1:c0:44:4a:00:3f:bb:28:f2:91:d3:43:
+     *                     70:00:13:ce:26:b0:e9:35:8c:94:16:ba:64:6f:96:
+     *                     be:b1:1e:b6:c8:8e:76:8a:33:ef:dd:dc:d0:e9:6c:
+     *                     4d:0c:66:74:5c:9a:71:7e:5e:c2:ac:8f:a8:00:9d:
+     *                     a6:bc:6b:5f:29:34:91:99:3f:4c:72:0a:90
+     *                 ASN1 OID: secp521r1
+     *                 NIST CURVE: P-521
+     *         X509v3 extensions:
+     *             X509v3 Subject Key Identifier:
+     *                 39:5B:B6:1B:E1:47:9A:5C:AB:34:5E:07:E7:F3:E7:27:08:2E:B5:58
+     *             X509v3 Authority Key Identifier:
+     *                 39:5B:B6:1B:E1:47:9A:5C:AB:34:5E:07:E7:F3:E7:27:08:2E:B5:58
+     *             X509v3 Basic Constraints: critical
+     *                 CA:TRUE
+     *     Signature Algorithm: ecdsa-with-SHA512
+     */
     public static String encodedSampleEcdsa512Certificate =
             "MIIB/jCCAWCgAwIBAgIUH2JDq2yClkzFLeLoUUff5u7iZUIwCgYIKoZIzj0EAwQw" +
             "ETEPMA0GA1UEAwwGc2FtcGxlMB4XDTI0MDMyOTEyMzEwOVoXDTI0MDQyOTEyMzEw" +
