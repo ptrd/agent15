@@ -1,5 +1,10 @@
 # Releases
 
+
+## 2.1 (2024-08-04)
+
+Added client engine support for signature algorithms ecdsa_secp384r1_sha384 and ecdsa_secp521r1_sha512.
+
 ## 2.0 (2024-06-15)
 
 Made agent15 a Java module, with module name `tech.kwik.agent15`. 
