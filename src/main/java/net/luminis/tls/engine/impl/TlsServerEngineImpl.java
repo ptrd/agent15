@@ -130,17 +130,17 @@ public class TlsServerEngineImpl extends TlsEngineImpl implements TlsServerEngin
                 .findFirst()
                 .orElseThrow(() -> new IllegalParameterAlert("key share named group not supported (and no HelloRetryRequest support)"));
 
-       SignatureAlgorithmsExtension signatureAlgorithmsExtension = (SignatureAlgorithmsExtension) clientHello.getExtensions().stream()
+        SignatureAlgorithmsExtension signatureAlgorithmsExtension = (SignatureAlgorithmsExtension) clientHello.getExtensions().stream()
                 .filter(ext -> ext instanceof SignatureAlgorithmsExtension)
                 .findFirst()
                 .orElseThrow(() -> new MissingExtensionAlert("signature algorithms extension is required in Client Hello"));
 
-       clientHello.getExtensions().stream()
-               .filter(ext -> ext instanceof PskKeyExchangeModesExtension)
-               .findFirst()
-               .ifPresent(extension -> {
-                   clientSupportedKeyExchangeModes.addAll(((PskKeyExchangeModesExtension) extension).getKeyExchangeModes());
-               });
+        clientHello.getExtensions().stream()
+                .filter(ext -> ext instanceof PskKeyExchangeModesExtension)
+                .findFirst()
+                .ifPresent(extension -> {
+                    clientSupportedKeyExchangeModes.addAll(((PskKeyExchangeModesExtension) extension).getKeyExchangeModes());
+                });
 
         // This implementation (yet) only supports rsa_pss_rsae_sha256 (non compliant, see https://tools.ietf.org/html/rfc8446#section-9.1)
         if (!signatureAlgorithmsExtension.getSignatureAlgorithms().contains(rsa_pss_rsae_sha256)) {
