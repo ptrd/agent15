@@ -48,7 +48,7 @@ public class TlsServerEngineFactory {
     private TlsSessionRegistry tlsSessionRegistry = new TlsSessionRegistryImpl();
 
     /**
-     * Creates a tls server engine factory, given a RSA certificate and its private key.
+     * Creates a tls server engine factory, given an RSA certificate and its private key.
      * @param certificateFile
      * @param certificateKeyFile
      * @throws IOException
