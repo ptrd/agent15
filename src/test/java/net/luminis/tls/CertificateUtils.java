@@ -240,6 +240,49 @@ public class CertificateUtils {
      *     Data:
      *         Version: 3 (0x2)
      *         Serial Number:
+     *             15:3a:7c:78:fb:ae:0d:2e:7c:a1:31:71:44:e5:65:83:5f:74:24:90
+     *         Signature Algorithm: sha256WithRSAEncryption
+     *         Issuer: CN=SampleCA1
+     *         Validity
+     *             Not Before: Aug  6 18:28:10 2024 GMT
+     *             Not After : Sep  5 18:28:10 2024 GMT
+     *         Subject: CN=sample.com
+     *         Subject Public Key Info:
+     *             Public Key Algorithm: rsaEncryption
+     *                 Public-Key: (3072 bit)
+     *         X509v3 extensions:
+     *             X509v3 Subject Key Identifier:
+     *                 6D:3E:E9:10:E9:F1:1E:FC:3D:47:82:6F:48:5D:85:48:2B:CE:52:42
+     *             X509v3 Authority Key Identifier:
+     *                 DC:58:35:36:68:E3:64:8B:33:78:C2:6C:52:B0:9E:64:CF:BA:E1:65
+     *     Signature Algorithm: sha256WithRSAEncryption
+     */
+    public static String encodedSampleRsa3072Certificate = 
+            "MIIDeTCCAmGgAwIBAgIUFTp8ePuuDS58oTFxROVlg190JJAwDQYJKoZIhvcNAQEL" +
+            "BQAwFDESMBAGA1UEAwwJU2FtcGxlQ0ExMB4XDTI0MDgwNjE4MjgxMFoXDTI0MDkw" +
+            "NTE4MjgxMFowFTETMBEGA1UEAwwKc2FtcGxlLmNvbTCCAaIwDQYJKoZIhvcNAQEB" +
+            "BQADggGPADCCAYoCggGBAJnM7tha9MWJI5MBuquaRaBAlc4NlLJ7ZotqDB2Lntfe" +
+            "li85qB0vHBJU3clVWfY/RoPCexN2YM7v6sRC09QPq0138rI43b5h+7qoopeazr0T" +
+            "57RvGqXYcxu95/ymkNXAq3CvguRsBNlnN2mOOqjl+uHWDL8jzMdYPmcZWQVWo2BW" +
+            "V8O30/CLGpzB7+yHxbn2OQ/m66WI7WzQifB4Ca/dAYHRqwOr54IoPQpb/kWMCawU" +
+            "Tr9vZfdKcbSYqsrT36NNO6s6sxdVIO/QbctIbYIyRrYj9ivtGqyJbtuPkAVa1dUi" +
+            "ssRV+tLrW04oyU9WfvS1OyyfbjS20phyNpr/v1g6b+gXbN7oMBcAePLmo/jaBIet" +
+            "cnRkTERx8IdQskBJ/pf5TIY9C90nJ5IUuqkIp8olUOJfWXRH/NuaA/7IHVpqGRH+" +
+            "bq2fLdBXFnqk5YnUgQI3JCPItmv9+K6lwQCU6u0f5NXnZkNW1kK0gXFYJyrfEMVh" +
+            "L0FASE/FRIHiF0ixz73r6QIDAQABo0IwQDAdBgNVHQ4EFgQUbT7pEOnxHvw9R4Jv" +
+            "SF2FSCvOUkIwHwYDVR0jBBgwFoAU3Fg1NmjjZIszeMJsUrCeZM+64WUwDQYJKoZI" +
+            "hvcNAQELBQADggEBADEZQQh6lF9q19XzHRwtsbo7XHbric74bHrHeyQ+Wa6g7pyC" +
+            "oA/jpfKvp70RHWk89h4Jy+fdM5vhSH2n+JCnrIbKqcggOQnrBcS2VcJr5fe33d8B" +
+            "fodLxbNVSWDJwY5PEIYJYo870ffFjU9k4jW9pqiuXWAUnBGqRoKEOmlZPe++V1ep" +
+            "0XTaEWXqjuskOoWhdVGhH+KImDlIHPueWRTbPUkRAGCP5aI7OBMUb/i649EtrRQZ" +
+            "zD1okEL+QdJUMMICvuK3NZxTasZ5JJ6+1WqD5rgN2RwU0gmQSxy587R3fCrTy5ZS" +
+            "DTwcomtvEEcleR1iL2yjFFHPn06C+4kjSkdpD9Y=";
+    
+    /**
+     * Certificate:
+     *     Data:
+     *         Version: 3 (0x2)
+     *         Serial Number:
      *             5f:aa:5e:23:77:9e:2d:6e:7c:26:38:13:c7:f8:99:ba:42:d5:4a:95
      *         Signature Algorithm: sha384WithRSAEncryption
      *         Issuer: CN=sample
@@ -271,6 +314,52 @@ public class CertificateUtils {
             "gQAQ4Q5CFMN6KTTWG4tJ+j9ZuLgfFwoJQ6uDM7b0ZUbDBoXUac9rt8T6MuqewJAB" +
             "UsU3w2QCSd24pdM1HNlvnd1FJLTRLJV3ptlSL8a1wrKKPRiHLPHmCsjKKhA57bpC" +
             "J3+fplNjwbBB5ZGGHtjPdvbwe14O/CXVgUcb6SGWTdlhSw==";
+
+    /**
+     * Certificate:
+     *     Data:
+     *         Version: 3 (0x2)
+     *         Serial Number:
+     *             38:39:ef:8d:dd:7f:5a:4e:4b:2a:da:27:d4:d9:11:6e:dc:22:87:8d
+     *         Signature Algorithm: sha256WithRSAEncryption
+     *         Issuer: CN=SampleCA1
+     *         Validity
+     *             Not Before: Aug  6 18:59:45 2024 GMT
+     *             Not After : Sep  5 18:59:45 2024 GMT
+     *         Subject: CN=sample.com
+     *         Subject Public Key Info:
+     *             Public Key Algorithm: rsaEncryption
+     *                 Public-Key: (4096 bit)
+     *         X509v3 extensions:
+     *             X509v3 Subject Key Identifier:
+     *                 39:88:02:88:14:29:8B:6F:0E:5A:18:7C:76:C6:AC:55:2C:DF:4B:1C
+     *             X509v3 Authority Key Identifier:
+     *                 DC:58:35:36:68:E3:64:8B:33:78:C2:6C:52:B0:9E:64:CF:BA:E1:65
+     *     Signature Algorithm: sha256WithRSAEncryption
+     */
+    public static String encodedSampleRsa4096Certificate =
+            "MIID+TCCAuGgAwIBAgIUODnvjd1/Wk5LKton1NkRbtwih40wDQYJKoZIhvcNAQEL" +
+            "BQAwFDESMBAGA1UEAwwJU2FtcGxlQ0ExMB4XDTI0MDgwNjE4NTk0NVoXDTI0MDkw" +
+            "NTE4NTk0NVowFTETMBEGA1UEAwwKc2FtcGxlLmNvbTCCAiIwDQYJKoZIhvcNAQEB" +
+            "BQADggIPADCCAgoCggIBALGGIlWa+ibpa2DUpFiO6ivCuZaXWTa65bfEf090UdQg" +
+            "wE9yf9J3v1U+4IKv5hG6/uB5XU/W6VUjZzrGufV1x6FKN4iJ/iJSEGZ9Y2WuckSk" +
+            "p2kkwuIYvBRly/5LJAGuZq4Z/T6BaM19fWNsQgp5WnF1+QxwhKBhZmEYWjQ4Hdpi" +
+            "T1LgmqqQVvfBg4GPihzXMvjkZAAKEKfH4Vf4gl5lriFtjSOjil8nSUe/CBk+WipP" +
+            "2ywgFH/mqMGB1nN+o3RAYVhujehx7Hjn6q3plx/qczl6wkDZXN1L67wsbXjqZSHx" +
+            "NDK1kJENAIQVTU6v1uu1FKEKYBfcj+iQysTnbpZ5cF6Hb1M5lN207iR7nsXnqAh0" +
+            "M+3v4KhvLSXj6TIoe4qNn3PAfhJRHwZ72H3HtnZmSy+poWqgvRd9RiwmIWxF89Kb" +
+            "UWrzoqi1yj7vj7zrBmk7KcjQH9XSkoZVsJaMU/IL5j6sb1r785wYnnxyrs+n4Jfv" +
+            "nA7n5nzrA2NWyq9/Sf8qPZnh2KeTfKFMcz7k9YOmZFhBtb+pg/6nf9q4qPH1Ng8V" +
+            "W0Je0+mfrn0FKIXIrG8DtthNIfDuEkD7rrW7jQQBDQIiy9Dxlqi3wHVsLrmeuFHx" +
+            "LtBAw4/f/KxvRT++MykEVEHs9sd178XTK/nbVJ06WdE6Ekcqyeb7jWMz5szI5CMp" +
+            "AgMBAAGjQjBAMB0GA1UdDgQWBBQ5iAKIFCmLbw5aGHx2xqxVLN9LHDAfBgNVHSME" +
+            "GDAWgBTcWDU2aONkizN4wmxSsJ5kz7rhZTANBgkqhkiG9w0BAQsFAAOCAQEAOAY4" +
+            "rFjG+sxYlKUx9a+Mzyjlox+mYf9S4NqzvGcvFb2U4ogLHC0Lx0uwdmdgsCZzQ0Jv" +
+            "vtrHXm0susJhyRy1VtqxDUzBXZ0D530jOxOgqDs+c6iyk4NC0zXQkb8edW0XzjON" +
+            "De5A2k3b9U+nkA0q68gRYeO+xcr/XG+YUTUq1ubd656TZ2JJL1vSRr5A9qUtUeWn" +
+            "OcHBm9gEMTWVBC/BiN/xAMBlsSDBkF/SDjrH2glwq78S2tK8zWbVHT1DV8NXA0Pb" +
+            "AM14VNux0NuzWix4rGxrJEBq9XmSo8mdWmTLEzUUbb3rSERNhVoL319rvOVJCoOQ" +
+            "sOEXoWDw+iZHBn7zOA==";
 
     /**
      * Certificate:
@@ -645,4 +734,56 @@ public class CertificateUtils {
             "NL8bxL+U7474eR4OJNt2FU/XX+IDiEkbx+hql8T71frBRAGYVhoNm0UUw42g/cK2" +
             "yFU3H82qRLxBJ7kNaxXITmeDoNecP8zs6J6sUSakviVQJ8qsb40VlffcOphMBGQv" +
             "QZdM6NwTd1EMUctmNDE4txHW";
+
+    /**
+     * EC certificate signed by RSA.
+     * generated with:
+     * - openssl req -key key-ec-384.pem -new -out ec-384.csr -subj /CN=ec-sample.com
+     * - openssl x509 -req -in  ec-384.csr -CAkey ca1.key -CA ca1-cert.pem -out ec-384-rsa-signed-cert.pem -days 3650
+     *
+     * Certificate:
+     *     Data:
+     *         Version: 3 (0x2)
+     *         Serial Number:
+     *             4c:4f:3d:f9:7e:1b:b5:e7:70:be:69:42:c0:61:99:64:6d:ad:c6:8a
+     *         Signature Algorithm: sha256WithRSAEncryption
+     *         Issuer: CN=SampleCA1
+     *         Validity
+     *             Not Before: Aug  3 08:45:46 2024 GMT
+     *             Not After : Aug  1 08:45:46 2034 GMT
+     *         Subject: CN=ec-sample.com
+     *         Subject Public Key Info:
+     *             Public Key Algorithm: id-ecPublicKey
+     *                 Public-Key: (384 bit)
+     *                 pub:
+     *                     04:32:30:4c:d3:8c:19:94:4b:10:55:76:9d:f8:9d:
+     *                     11:70:a5:12:ac:ce:33:42:cf:ab:fc:58:41:88:fe:
+     *                     84:da:e7:35:3d:32:ec:67:49:45:cc:44:c0:60:75:
+     *                     ea:08:90:97:d5:6c:da:e6:80:35:ca:d9:d6:2b:ca:
+     *                     38:dd:c1:80:03:dc:c0:d5:81:ae:d7:06:8e:69:e9:
+     *                     40:31:21:a2:1b:25:31:5c:21:a2:48:66:96:16:53:
+     *                     2e:01:1a:ea:7c:f1:ae
+     *                 ASN1 OID: secp384r1
+     *                 NIST CURVE: P-384
+     *         X509v3 extensions:
+     *             X509v3 Subject Key Identifier:
+     *                 7A:34:BB:BC:70:C6:70:1E:FE:F7:95:1B:A3:69:8F:5C:02:75:DD:C5
+     *             X509v3 Authority Key Identifier:
+     *                 DC:58:35:36:68:E3:64:8B:33:78:C2:6C:52:B0:9E:64:CF:BA:E1:65
+     *     Signature Algorithm: sha256WithRSAEncryption
+     */
+    public static String encodedCA1SignedEcCert =
+            "MIICTjCCATagAwIBAgIUTE89+X4btedwvmlCwGGZZG2txoowDQYJKoZIhvcNAQEL" +
+            "BQAwFDESMBAGA1UEAwwJU2FtcGxlQ0ExMB4XDTI0MDgwMzA4NDU0NloXDTM0MDgw" +
+            "MTA4NDU0NlowGDEWMBQGA1UEAwwNZWMtc2FtcGxlLmNvbTB2MBAGByqGSM49AgEG" +
+            "BSuBBAAiA2IABDIwTNOMGZRLEFV2nfidEXClEqzOM0LPq/xYQYj+hNrnNT0y7GdJ" +
+            "RcxEwGB16giQl9Vs2uaANcrZ1ivKON3BgAPcwNWBrtcGjmnpQDEhohslMVwhokhm" +
+            "lhZTLgEa6nzxrqNCMEAwHQYDVR0OBBYEFHo0u7xwxnAe/veVG6Npj1wCdd3FMB8G" +
+            "A1UdIwQYMBaAFNxYNTZo42SLM3jCbFKwnmTPuuFlMA0GCSqGSIb3DQEBCwUAA4IB" +
+            "AQAvfub87xiJudEQQ1IWTZf59Mmz5S4Dgath+/thHc71imF11J2TGcZb17mcpmPk" +
+            "QYrGfRTqPwqdcYrTZJqkaRE41q2yf8m60GGk/N+MTPoFaLS4VNTZxl/dsTTOCNwi" +
+            "gfjOdcRUxQQ2pTABKu5zbt/wcef2xPM5Of31i4GsSv6hZzRuuON39J5LjpJJB/jI" +
+            "G1E16Aic36n4RRcab7cGMAYWCuJdgjYmqcyiCzJcb31yX5fPLkzQPhJzaZzVdnMZ" +
+            "sJEeWqeYVnnNBvbDYHzGFpBBAYwi717o/F9SakFSP6y/fZvuJCZFokwZDqi1ZE24" +
+            "8aEob86obktI8G+A53myGGSM";
 }
