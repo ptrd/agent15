@@ -25,12 +25,14 @@ import org.junit.jupiter.api.Test;
 
 import java.security.KeyStore;
 import java.security.Security;
+import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.util.List;
 
 import static net.luminis.tls.TlsConstants.SignatureScheme;
 import static net.luminis.tls.TlsConstants.SignatureScheme.*;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class TlsServerEngineFactoryTest {
 
@@ -40,7 +42,7 @@ class TlsServerEngineFactoryTest {
         X509Certificate certificate = CertificateUtils.inflateCertificate(CertificateUtils.encodedKwikDotTechRsaCertificate);
 
         // When
-        List<TlsConstants.SignatureScheme> signatureScheme = TlsServerEngineFactory.preferredSignatureSchemes(certificate);
+        List<TlsConstants.SignatureScheme> signatureScheme = TlsServerEngineFactory.preferredSignatureSchemes(certificate, null);
 
         // Then
         assertThat(signatureScheme).containsExactly(rsa_pss_rsae_sha256, rsa_pss_rsae_sha384, rsa_pss_rsae_sha512);
@@ -70,7 +72,7 @@ class TlsServerEngineFactoryTest {
             X509Certificate certificate = (X509Certificate) keyStore.getCertificate("example");
 
             // When
-            List<TlsConstants.SignatureScheme> signatureScheme = TlsServerEngineFactory.preferredSignatureSchemes(certificate);
+            List<TlsConstants.SignatureScheme> signatureScheme = TlsServerEngineFactory.preferredSignatureSchemes(certificate, null);
 
             // Then
             assertThat(signatureScheme).containsExactly(rsa_pss_rsae_sha256, rsa_pss_rsae_sha384, rsa_pss_rsae_sha512);
@@ -86,7 +88,7 @@ class TlsServerEngineFactoryTest {
         X509Certificate certificate = CertificateUtils.inflateCertificate(CertificateUtils.encodedSampleRsa3072Certificate);
 
         // When
-        List<SignatureScheme> signatureScheme = TlsServerEngineFactory.preferredSignatureSchemes(certificate);
+        List<SignatureScheme> signatureScheme = TlsServerEngineFactory.preferredSignatureSchemes(certificate, null);
 
         // Then
         assertThat(signatureScheme).containsExactly(rsa_pss_rsae_sha384, rsa_pss_rsae_sha256, rsa_pss_rsae_sha512);
@@ -98,7 +100,7 @@ class TlsServerEngineFactoryTest {
         X509Certificate certificate = CertificateUtils.inflateCertificate(CertificateUtils.encodedSampleRsa4096Certificate);
 
         // When
-        List<SignatureScheme> signatureScheme = TlsServerEngineFactory.preferredSignatureSchemes(certificate);
+        List<SignatureScheme> signatureScheme = TlsServerEngineFactory.preferredSignatureSchemes(certificate, null);
 
         // Then
         assertThat(signatureScheme).containsExactly(rsa_pss_rsae_sha512, rsa_pss_rsae_sha256, rsa_pss_rsae_sha384);
@@ -110,7 +112,7 @@ class TlsServerEngineFactoryTest {
         X509Certificate certificate = CertificateUtils.inflateCertificate(CertificateUtils.encodedInteropLeafEcdsaCertificate);
 
         // When
-        List<SignatureScheme> signatureScheme = TlsServerEngineFactory.preferredSignatureSchemes(certificate);
+        List<SignatureScheme> signatureScheme = TlsServerEngineFactory.preferredSignatureSchemes(certificate, null);
 
         // Then
         assertThat(signatureScheme).containsExactly(ecdsa_secp256r1_sha256);
@@ -122,7 +124,7 @@ class TlsServerEngineFactoryTest {
         X509Certificate certificate = CertificateUtils.inflateCertificate(CertificateUtils.encodedSampleEcdsa384Certificate);
 
         // When
-        List<SignatureScheme> signatureScheme = TlsServerEngineFactory.preferredSignatureSchemes(certificate);
+        List<SignatureScheme> signatureScheme = TlsServerEngineFactory.preferredSignatureSchemes(certificate, null);
 
         // Then
         assertThat(signatureScheme).containsExactly(ecdsa_secp384r1_sha384);
@@ -134,7 +136,7 @@ class TlsServerEngineFactoryTest {
         X509Certificate certificate = CertificateUtils.inflateCertificate(CertificateUtils.encodedSampleEcdsa512Certificate);
 
         // When
-        List<SignatureScheme> signatureScheme = TlsServerEngineFactory.preferredSignatureSchemes(certificate);
+        List<SignatureScheme> signatureScheme = TlsServerEngineFactory.preferredSignatureSchemes(certificate, null);
 
         // Then
         assertThat(signatureScheme).containsExactly(ecdsa_secp521r1_sha512);
@@ -146,10 +148,33 @@ class TlsServerEngineFactoryTest {
         X509Certificate certificate = CertificateUtils.inflateCertificate(CertificateUtils.encodedCA1SignedEcCert);
 
         // When
-        List<SignatureScheme> signatureScheme = TlsServerEngineFactory.preferredSignatureSchemes(certificate);
+        List<SignatureScheme> signatureScheme = TlsServerEngineFactory.preferredSignatureSchemes(certificate, null);
 
         // Then
         assertThat(signatureScheme).containsExactly(ecdsa_secp384r1_sha384);
     }
 
+    @Test
+    void signatureAlgorithmCannotBeDeterminedAutomaticallyWithEcCertificateWithBouncyCastle() throws Exception {
+        try {
+            // Given
+            Security.addProvider(new BouncyCastleProvider());
+            KeyStore keyStore = KeyStore.getInstance("PKCS12", "BC");
+            keyStore.load(getClass().getResourceAsStream("ec-rsa-signed.p12"), "secret".toCharArray());
+            X509Certificate certificate = (X509Certificate) keyStore.getCertificate("example");
+
+            // When
+            assertThatThrownBy(() ->
+                    TlsServerEngineFactory.preferredSignatureSchemes(certificate, null)
+            ).isInstanceOf(CertificateException.class);
+
+            List<SignatureScheme> signatureScheme = TlsServerEngineFactory.preferredSignatureSchemes(certificate, "secp256r1");
+
+            // Then
+            assertThat(signatureScheme).containsExactly(ecdsa_secp256r1_sha256);
+        }
+        finally {
+            Security.removeProvider("BC");
+        }
+    }
 }

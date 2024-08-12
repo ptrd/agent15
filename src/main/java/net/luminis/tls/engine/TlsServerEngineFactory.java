@@ -65,7 +65,7 @@ public class TlsServerEngineFactory {
      */
     @Deprecated
     public TlsServerEngineFactory(InputStream certificateFile, InputStream certificateKeyFile) throws IOException, CertificateException, InvalidKeySpecException {
-        this(readCertificates(certificateFile), readPrivateKey(certificateKeyFile));
+        this(readCertificates(certificateFile), readPrivateKey(certificateKeyFile), null);
     }
 
     /**
@@ -78,13 +78,27 @@ public class TlsServerEngineFactory {
      * @throws InvalidKeySpecException
      */
     public TlsServerEngineFactory(KeyStore keyStore, String alias, char[] keyPassword) throws IOException, CertificateException, InvalidKeySpecException {
-        this(getCertificates(keyStore, alias), getPrivateKey(keyStore, alias, keyPassword));
+        this(getCertificates(keyStore, alias), getPrivateKey(keyStore, alias, keyPassword), null);
     }
 
-    private TlsServerEngineFactory(List<X509Certificate> certificateChain, PrivateKey certificateKey) throws CertificateException {
+    /**
+     * Creates a tls server engine factory, extracting certificate and private key from the given keystore
+     * @param keyStore      keystore containing the server certificate and its private key
+     * @param alias         the alias of the certificate
+     * @param keyPassword   the password for the private key
+     * @param ecCurve       the curve name for ECDSA certificates (in case it cannot be derived from the certificate), or null for RSA certificates
+     * @throws IOException
+     * @throws CertificateException
+     * @throws InvalidKeySpecException
+     */
+    public TlsServerEngineFactory(KeyStore keyStore, String alias, char[] keyPassword, String ecCurve) throws IOException, CertificateException, InvalidKeySpecException {
+        this(getCertificates(keyStore, alias), getPrivateKey(keyStore, alias, keyPassword), ecCurve);
+    }
+
+    private TlsServerEngineFactory(List<X509Certificate> certificateChain, PrivateKey certificateKey, String ecCurve) throws CertificateException {
         this.certificateChain = certificateChain;
         this.certificateKey = certificateKey;
-        preferredSignatureSchemes = preferredSignatureSchemes(certificateChain.get(0));
+        preferredSignatureSchemes = preferredSignatureSchemes(certificateChain.get(0), ecCurve);
     }
 
     private static List<X509Certificate> getCertificates(KeyStore keyStore, String alias) {
@@ -116,7 +130,7 @@ public class TlsServerEngineFactory {
         return tlsServerEngine;
     }
 
-    static List<TlsConstants.SignatureScheme> preferredSignatureSchemes(X509Certificate certificate) throws CertificateException {
+    static List<TlsConstants.SignatureScheme> preferredSignatureSchemes(X509Certificate certificate, String ecCurve) throws CertificateException {
         LinkedHashSet<TlsConstants.SignatureScheme> preferred = new LinkedHashSet<>();
         String algorithm = certificate.getPublicKey().getAlgorithm();
         if (algorithm.equals("RSA")) {
@@ -135,15 +149,8 @@ public class TlsServerEngineFactory {
             preferred.addAll(List.of(rsa_pss_rsae_sha256, rsa_pss_rsae_sha384, rsa_pss_rsae_sha512));
         }
         else if (algorithm.equals("EC")) {
-            ECPublicKey ecPublicKey = (ECPublicKey) certificate.getPublicKey();
-            ECParameterSpec params = ecPublicKey.getParams();
-            String curveName;
-            // Unfortunately, Java does not provide a proper way to get the curve name from the public key.
-            // Standard JDK (with standard security providers) emits string representation like
-            // "secp256r1 [NIST P-256,X9.62 prime256v1] (1.2.840.10045.3.1.7)", so:
-            String paramsContents = params.toString();
-            if (paramsContents.contains(" ")) {
-                curveName = paramsContents.substring(0, paramsContents.indexOf(" "));
+            String curveName = ecCurve != null? ecCurve: determineCurveName(certificate);
+            if (curveName != null) {
                 // https://cabforum.org/working-groups/server/baseline-requirements/documents/
                 // 7.1.3.2.2 ECDSA:
                 // "If the signing key is P‐256, the signature MUST use ECDSA with SHA‐256."
@@ -164,13 +171,27 @@ public class TlsServerEngineFactory {
                 }
             }
             else {
-                throw new CertificateException("Unable to extract EC curve name from certificate (" + paramsContents + ")");
+                throw new CertificateException("Unable to extract EC curve name from certificate (with public key: " + certificate.getPublicKey() + ")");
             }
         }
         else {
             throw new CertificateException("Unsupported certificate type " + algorithm);
         }
         return new ArrayList(preferred);
+    }
+
+    private static String determineCurveName(Certificate certificate) {
+        ECPublicKey ecPublicKey = (ECPublicKey) certificate.getPublicKey();
+        ECParameterSpec params = ecPublicKey.getParams();
+        // Unfortunately, Java does not provide a proper way to get the curve name from the public key.
+        // Standard JDK (with standard security providers) emits string representation like
+        // "secp256r1 [NIST P-256,X9.62 prime256v1] (1.2.840.10045.3.1.7)", so:
+        String paramsContents = params.toString();
+        if (paramsContents.contains(" ")) {
+            return paramsContents.substring(0, paramsContents.indexOf(" "));
+        } else {
+            return null;
+        }
     }
 
     private static List<X509Certificate> readCertificates(InputStream file) throws IOException, CertificateException {
