@@ -43,7 +43,7 @@ import java.util.stream.Collectors;
 
 public class TlsServerEngineFactory {
 
-    private List<X509Certificate> serverCertificates;
+    private List<X509Certificate> certificateChain;
     private PrivateKey certificateKey;
     private TlsSessionRegistry tlsSessionRegistry = new TlsSessionRegistryImpl();
 
@@ -58,8 +58,7 @@ public class TlsServerEngineFactory {
      */
     @Deprecated
     public TlsServerEngineFactory(InputStream certificateFile, InputStream certificateKeyFile) throws IOException, CertificateException, InvalidKeySpecException {
-        this.serverCertificates = readCertificates(certificateFile);
-        this.certificateKey = readPrivateKey(certificateKeyFile);
+        this(readCertificates(certificateFile), readPrivateKey(certificateKeyFile));
     }
 
     /**
@@ -72,8 +71,12 @@ public class TlsServerEngineFactory {
      * @throws InvalidKeySpecException
      */
     public TlsServerEngineFactory(KeyStore keyStore, String alias, char[] keyPassword) throws IOException, CertificateException, InvalidKeySpecException {
-        this.serverCertificates = getCertificates(keyStore, alias);
-        this.certificateKey = getPrivateKey(keyStore, alias, keyPassword);
+        this(getCertificates(keyStore, alias), getPrivateKey(keyStore, alias, keyPassword));
+    }
+
+    private TlsServerEngineFactory(List<X509Certificate> certificateChain, PrivateKey certificateKey) {
+        this.certificateChain = certificateChain;
+        this.certificateKey = certificateKey;
     }
 
     private static List<X509Certificate> getCertificates(KeyStore keyStore, String alias) {
@@ -100,7 +103,7 @@ public class TlsServerEngineFactory {
     }
 
     public TlsServerEngine createServerEngine(ServerMessageSender serverMessageSender, TlsStatusEventHandler tlsStatusHandler) {
-        TlsServerEngineImpl tlsServerEngine = new TlsServerEngineImpl(serverCertificates, certificateKey, serverMessageSender, tlsStatusHandler, tlsSessionRegistry);
+        TlsServerEngineImpl tlsServerEngine = new TlsServerEngineImpl(certificateChain, certificateKey, serverMessageSender, tlsStatusHandler, tlsSessionRegistry);
         tlsServerEngine.addSupportedCiphers(List.of(TlsConstants.CipherSuite.TLS_AES_128_GCM_SHA256));
         return tlsServerEngine;
     }
@@ -126,7 +129,7 @@ public class TlsServerEngineFactory {
         return certs;
     }
 
-    private RSAPrivateKey readPrivateKey(InputStream file) throws IOException, InvalidKeySpecException {
+    private static RSAPrivateKey readPrivateKey(InputStream file) throws IOException, InvalidKeySpecException {
         String key = new String(InputStreamCompat.readAllBytes(file), Charset.defaultCharset());
 
         String privateKeyPEM = key
