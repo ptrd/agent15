@@ -33,7 +33,6 @@ import net.luminis.tls.handshake.EncryptedExtensions;
 import net.luminis.tls.handshake.FinishedMessage;
 import net.luminis.tls.handshake.NewSessionTicketMessage;
 import net.luminis.tls.handshake.ServerHello;
-import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -41,9 +40,7 @@ import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
 
 import java.security.KeyFactory;
-import java.security.KeyStore;
 import java.security.PrivateKey;
-import java.security.Security;
 import java.security.cert.X509Certificate;
 import java.security.interfaces.ECPublicKey;
 import java.security.spec.PKCS8EncodedKeySpec;
@@ -51,7 +48,8 @@ import java.util.Base64;
 import java.util.Collections;
 import java.util.List;
 
-import static net.luminis.tls.CertificateUtils.*;
+import static net.luminis.tls.CertificateUtils.encodedKwikDotTechRsaCertificate;
+import static net.luminis.tls.CertificateUtils.encodedKwikDotTechRsaCertificatePrivateKey;
 import static net.luminis.tls.TlsConstants.*;
 import static net.luminis.tls.TlsConstants.CipherSuite.TLS_AES_128_GCM_SHA256;
 import static net.luminis.tls.TlsConstants.CipherSuite.TLS_CHACHA20_POLY1305_SHA256;
@@ -82,7 +80,7 @@ public class TlsServerEngineTest {
         serverCertificate = CertificateUtils.inflateCertificate(encodedKwikDotTechRsaCertificate);
         tlsStatusHandler = mock(TlsStatusEventHandler.class);
         tlsSessionRegistry = new TlsSessionRegistryImpl();
-        engine = new TlsServerEngineImpl(serverCertificate, privateKey, messageSender, tlsStatusHandler, tlsSessionRegistry) {
+        engine = new TlsServerEngineImpl(serverCertificate, privateKey, List.of(rsa_pss_rsae_sha256), messageSender, tlsStatusHandler, tlsSessionRegistry) {
             protected boolean validateBinder(ClientHelloPreSharedKeyExtension.PskBinderEntry pskBinderEntry, int binderPosition, ClientHello clientHello) {
                 return true;
             }
@@ -350,123 +348,6 @@ public class TlsServerEngineTest {
         verify(tlsStatusHandler, never()).isEarlyDataAccepted();
     }
 
-    @Test
-    void selectedSignatureAlgorithForRsaWith2048BitsKey() throws Exception {
-        // Given
-        X509Certificate certificate = CertificateUtils.inflateCertificate(encodedKwikDotTechRsaCertificate);
-
-        // When
-        List<SignatureScheme> signatureScheme = TlsServerEngineImpl.preferredSignatureSchemes(certificate);
-
-        // Then
-        assertThat(signatureScheme).containsExactly(rsa_pss_rsae_sha256, rsa_pss_rsae_sha384, rsa_pss_rsae_sha512);
-    }
-
-    @Test
-    void selectedSignatureAlgorithForRsaWith1024BitsKeyWithBouncyCastle() throws Exception {
-        try {
-            // Given
-            // Certificate:
-            //    Data:
-            //        Version: 3 (0x2)
-            //        Serial Number:
-            //            45:96:c5:8e:ae:15:ee:63:82:1a:3d:bc:fa:7c:e2:8f:fd:13:5b:3a
-            //        Signature Algorithm: sha256WithRSAEncryption
-            //        Issuer: CN=example
-            //        Validity
-            //            Not Before: Jun 22 16:25:57 2024 GMT
-            //            Not After : Jun 20 16:25:57 2034 GMT
-            //        Subject: CN=example
-            //        Subject Public Key Info:
-            //            Public Key Algorithm: rsaEncryption
-            //                Public-Key: (1024 bit)
-            Security.addProvider(new BouncyCastleProvider());
-            KeyStore keyStore = KeyStore.getInstance("PKCS12", "BC");
-            keyStore.load(getClass().getResourceAsStream("rsa1048cert.p12"), "secret".toCharArray());
-            X509Certificate certificate = (X509Certificate) keyStore.getCertificate("example");
-
-            // When
-            List<SignatureScheme> signatureScheme = TlsServerEngineImpl.preferredSignatureSchemes(certificate);
-
-            // Then
-            assertThat(signatureScheme).containsExactly(rsa_pss_rsae_sha256, rsa_pss_rsae_sha384, rsa_pss_rsae_sha512);
-        }
-        finally {
-            Security.removeProvider("BC");
-        }
-    }
-
-    @Test
-    void selectedSignatureAlgorithForRsaWith3072BitsKey() throws Exception {
-        // Given
-        X509Certificate certificate = CertificateUtils.inflateCertificate(encodedSampleRsa3072Certificate);
-
-        // When
-        List<SignatureScheme> signatureScheme = TlsServerEngineImpl.preferredSignatureSchemes(certificate);
-
-        // Then
-        assertThat(signatureScheme).containsExactly(rsa_pss_rsae_sha384, rsa_pss_rsae_sha256, rsa_pss_rsae_sha512);
-    }
-
-    @Test
-    void selectedSignatureAlgorithForRsaWith4096BitsKey() throws Exception {
-        // Given
-        X509Certificate certificate = CertificateUtils.inflateCertificate(encodedSampleRsa4096Certificate);
-
-        // When
-        List<SignatureScheme> signatureScheme = TlsServerEngineImpl.preferredSignatureSchemes(certificate);
-
-        // Then
-        assertThat(signatureScheme).containsExactly(rsa_pss_rsae_sha512, rsa_pss_rsae_sha256, rsa_pss_rsae_sha384);
-    }
-
-    @Test
-    void ecdsaSignatureCertificate() throws Exception {
-        // Given
-        X509Certificate certificate = CertificateUtils.inflateCertificate(encodedInteropLeafEcdsaCertificate);
-
-        // When
-        List<SignatureScheme> signatureScheme = TlsServerEngineImpl.preferredSignatureSchemes(certificate);
-
-        // Then
-        assertThat(signatureScheme).containsExactly(ecdsa_secp256r1_sha256);
-    }
-
-    @Test
-    void ecdsa384SignatureCertificate() throws Exception {
-        // Given
-        X509Certificate certificate = CertificateUtils.inflateCertificate(encodedSampleEcdsa384Certificate);
-
-        // When
-        List<SignatureScheme> signatureScheme = TlsServerEngineImpl.preferredSignatureSchemes(certificate);
-
-        // Then
-        assertThat(signatureScheme).containsExactly(ecdsa_secp384r1_sha384);
-    }
-
-    @Test
-    void ecdsa512SignatureCertificate() throws Exception {
-        // Given
-        X509Certificate certificate = CertificateUtils.inflateCertificate(encodedSampleEcdsa512Certificate);
-
-        // When
-        List<SignatureScheme> signatureScheme = TlsServerEngineImpl.preferredSignatureSchemes(certificate);
-
-        // Then
-        assertThat(signatureScheme).containsExactly(ecdsa_secp521r1_sha512);
-    }
-
-    @Test
-    void ecdsa384signedByRsaCaCertificate() throws Exception {
-        // Given
-        X509Certificate certificate = CertificateUtils.inflateCertificate(encodedCA1SignedEcCert);
-
-        // When
-        List<SignatureScheme> signatureScheme = TlsServerEngineImpl.preferredSignatureSchemes(certificate);
-
-        // Then
-        assertThat(signatureScheme).containsExactly(ecdsa_secp384r1_sha384);
-    }
 
     @Test
     void serverPreferredSignatureAlgorithmShouldBeSelectedIfClientSupportsIt1() throws Exception {

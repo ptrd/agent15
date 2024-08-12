@@ -35,9 +35,6 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.security.PrivateKey;
 import java.security.cert.X509Certificate;
-import java.security.interfaces.ECPublicKey;
-import java.security.interfaces.RSAPublicKey;
-import java.security.spec.ECParameterSpec;
 import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -45,7 +42,6 @@ import java.util.stream.Collectors;
 import static net.luminis.tls.TlsConstants.CipherSuite.TLS_AES_128_GCM_SHA256;
 import static net.luminis.tls.TlsConstants.NamedGroup.x25519;
 import static net.luminis.tls.TlsConstants.PskKeyExchangeMode.psk_dhe_ke;
-import static net.luminis.tls.TlsConstants.SignatureScheme.*;
 
 public class TlsServerEngineImpl extends TlsEngineImpl implements TlsServerEngine, ServerMessageProcessor {
 
@@ -68,6 +64,7 @@ public class TlsServerEngineImpl extends TlsEngineImpl implements TlsServerEngin
     private TranscriptHash transcriptHash;
     private TlsConstants.CipherSuite selectedCipher;
     private SignatureScheme signatureScheme;
+    private final List<SignatureScheme> preferredSignatureSchemes;
     private List<Extension> serverExtensions;
     private List<TlsConstants.PskKeyExchangeMode> clientSupportedKeyExchangeModes;
     private TlsSessionRegistry sessionRegistry;
@@ -78,11 +75,13 @@ public class TlsServerEngineImpl extends TlsEngineImpl implements TlsServerEngin
     private Function<ByteBuffer, Boolean> sessionDataVerificationCallback;
 
 
-    public TlsServerEngineImpl(List<X509Certificate> certificates, PrivateKey certificateKey, ServerMessageSender serverMessageSender, TlsStatusEventHandler tlsStatusHandler, TlsSessionRegistry tlsSessionRegistry) {
+    public TlsServerEngineImpl(List<X509Certificate> certificates, PrivateKey certificateKey, List<SignatureScheme> preferredSignatureSchemes, ServerMessageSender serverMessageSender, TlsStatusEventHandler tlsStatusHandler, TlsSessionRegistry tlsSessionRegistry) {
         this.serverCertificateChain = certificates;
         this.certificatePrivateKey = certificateKey;
+        this.preferredSignatureSchemes = preferredSignatureSchemes;
         this.serverMessageSender = serverMessageSender;
         this.statusHandler = tlsStatusHandler;
+
         supportedCiphers = new HashSet<>();
         supportedCiphers.add(TLS_AES_128_GCM_SHA256);
         extensions = new ArrayList<>();
@@ -91,8 +90,8 @@ public class TlsServerEngineImpl extends TlsEngineImpl implements TlsServerEngin
         sessionRegistry = tlsSessionRegistry;
     }
 
-    public TlsServerEngineImpl(X509Certificate serverCertificate, PrivateKey certificateKey, ServerMessageSender serverMessageSender, TlsStatusEventHandler tlsStatusHandler, TlsSessionRegistry tlsSessionRegistry) {
-        this(List.of(serverCertificate), certificateKey, serverMessageSender, tlsStatusHandler, tlsSessionRegistry);
+    public TlsServerEngineImpl(X509Certificate serverCertificate, PrivateKey certificateKey, List<SignatureScheme> preferredSignatureSchemes, ServerMessageSender serverMessageSender, TlsStatusEventHandler tlsStatusHandler, TlsSessionRegistry tlsSessionRegistry) {
+        this(List.of(serverCertificate), certificateKey, preferredSignatureSchemes, serverMessageSender, tlsStatusHandler, tlsSessionRegistry);
     }
 
     @Override
@@ -147,7 +146,7 @@ public class TlsServerEngineImpl extends TlsEngineImpl implements TlsServerEngin
                     clientSupportedKeyExchangeModes.addAll(((PskKeyExchangeModesExtension) extension).getKeyExchangeModes());
                 });
 
-        signatureScheme = determineSignatureAlgorithm(signatureAlgorithmsExtension.getSignatureAlgorithms(), preferredSignatureSchemes(serverCertificateChain.get(0)));
+        signatureScheme = determineSignatureAlgorithm(signatureAlgorithmsExtension.getSignatureAlgorithms(), preferredSignatureSchemes);
 
         Optional<Extension> pskExtension = clientHello.getExtensions().stream().filter(ext -> ext instanceof ClientHelloPreSharedKeyExtension).findFirst();
 
@@ -278,63 +277,6 @@ public class TlsServerEngineImpl extends TlsEngineImpl implements TlsServerEngin
                 .filter(clientAlgorithms::contains)
                 .findFirst()
                 .orElseThrow(() -> new HandshakeFailureAlert("Failed to negotiate signature algorithm"));
-    }
-
-    static List<SignatureScheme> preferredSignatureSchemes(X509Certificate certificate) throws TlsProtocolException {
-        LinkedHashSet<SignatureScheme> preferred = new LinkedHashSet<>();
-        String algorithm = certificate.getPublicKey().getAlgorithm();
-        if (algorithm.equals("RSA")) {
-            RSAPublicKey rsaPublicKey = (RSAPublicKey) certificate.getPublicKey();
-            int keySize = rsaPublicKey.getModulus().bitLength();
-            if (keySize <= 2048) {
-                preferred.add(rsa_pss_rsae_sha256);
-            }
-            else if (keySize >= 4096) {
-                preferred.add(rsa_pss_rsae_sha512);
-            }
-            else {
-                preferred.add(rsa_pss_rsae_sha384);
-            }
-            // And add all the others (without duplicates => LinkedHashSet)
-            preferred.addAll(List.of(rsa_pss_rsae_sha256, rsa_pss_rsae_sha384, rsa_pss_rsae_sha512));
-        }
-        else if (algorithm.equals("EC")) {
-            ECPublicKey ecPublicKey = (ECPublicKey) certificate.getPublicKey();
-            ECParameterSpec params = ecPublicKey.getParams();
-            String curveName;
-            // Unfortunately, Java does not provide a proper way to get the curve name from the public key.
-            // Standard JDK (with standard security providers) emits string representation like
-            // "secp256r1 [NIST P-256,X9.62 prime256v1] (1.2.840.10045.3.1.7)", so:
-            String paramsContents = params.toString();
-            if (paramsContents.contains(" ")) {
-                curveName = paramsContents.substring(0, paramsContents.indexOf(" "));
-                // https://cabforum.org/working-groups/server/baseline-requirements/documents/
-                // 7.1.3.2.2 ECDSA:
-                // "If the signing key is P‐256, the signature MUST use ECDSA with SHA‐256."
-                // "If the signing key is P‐384, the signature MUST use ECDSA with SHA‐384."
-                // "If the signing key is P‐521, the signature MUST use ECDSA with SHA‐512."
-                switch (curveName) {
-                    case "secp256r1":
-                        preferred.add(ecdsa_secp256r1_sha256);
-                        break;
-                    case "secp384r1":
-                        preferred.add(ecdsa_secp384r1_sha384);
-                        break;
-                    case "secp521r1":
-                        preferred.add(ecdsa_secp521r1_sha512);
-                        break;
-                    default:
-                        throw new TlsProtocolException("Unsupported curve " + curveName);
-                }
-            }
-            else {
-                throw new TlsProtocolException("Unable to extract curve name from " + paramsContents);
-            }
-        }
-        else {
-            throw new TlsProtocolException("Unsupported certificate type " + algorithm);
-        }
-        return new ArrayList(preferred);
     }
 
     private boolean isAcceptable(byte[] sessionData) {

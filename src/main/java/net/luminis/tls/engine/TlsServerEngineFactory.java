@@ -32,20 +32,27 @@ import java.security.cert.Certificate;
 import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
+import java.security.interfaces.ECPublicKey;
 import java.security.interfaces.RSAPrivateKey;
+import java.security.interfaces.RSAPublicKey;
+import java.security.spec.ECParameterSpec;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import static net.luminis.tls.TlsConstants.SignatureScheme.*;
+
 public class TlsServerEngineFactory {
 
-    private List<X509Certificate> certificateChain;
-    private PrivateKey certificateKey;
-    private TlsSessionRegistry tlsSessionRegistry = new TlsSessionRegistryImpl();
+    private final List<X509Certificate> certificateChain;
+    private final PrivateKey certificateKey;
+    private final TlsSessionRegistry tlsSessionRegistry = new TlsSessionRegistryImpl();
+    private final List<TlsConstants.SignatureScheme> preferredSignatureSchemes;
 
     /**
      * Creates a tls server engine factory, given an RSA certificate and its private key.
@@ -74,9 +81,10 @@ public class TlsServerEngineFactory {
         this(getCertificates(keyStore, alias), getPrivateKey(keyStore, alias, keyPassword));
     }
 
-    private TlsServerEngineFactory(List<X509Certificate> certificateChain, PrivateKey certificateKey) {
+    private TlsServerEngineFactory(List<X509Certificate> certificateChain, PrivateKey certificateKey) throws CertificateException {
         this.certificateChain = certificateChain;
         this.certificateKey = certificateKey;
+        preferredSignatureSchemes = preferredSignatureSchemes(certificateChain.get(0));
     }
 
     private static List<X509Certificate> getCertificates(KeyStore keyStore, String alias) {
@@ -103,9 +111,66 @@ public class TlsServerEngineFactory {
     }
 
     public TlsServerEngine createServerEngine(ServerMessageSender serverMessageSender, TlsStatusEventHandler tlsStatusHandler) {
-        TlsServerEngineImpl tlsServerEngine = new TlsServerEngineImpl(certificateChain, certificateKey, serverMessageSender, tlsStatusHandler, tlsSessionRegistry);
+        TlsServerEngineImpl tlsServerEngine = new TlsServerEngineImpl(certificateChain, certificateKey, preferredSignatureSchemes, serverMessageSender, tlsStatusHandler, tlsSessionRegistry);
         tlsServerEngine.addSupportedCiphers(List.of(TlsConstants.CipherSuite.TLS_AES_128_GCM_SHA256));
         return tlsServerEngine;
+    }
+
+    static List<TlsConstants.SignatureScheme> preferredSignatureSchemes(X509Certificate certificate) throws CertificateException {
+        LinkedHashSet<TlsConstants.SignatureScheme> preferred = new LinkedHashSet<>();
+        String algorithm = certificate.getPublicKey().getAlgorithm();
+        if (algorithm.equals("RSA")) {
+            RSAPublicKey rsaPublicKey = (RSAPublicKey) certificate.getPublicKey();
+            int keySize = rsaPublicKey.getModulus().bitLength();
+            if (keySize <= 2048) {
+                preferred.add(rsa_pss_rsae_sha256);
+            }
+            else if (keySize >= 4096) {
+                preferred.add(rsa_pss_rsae_sha512);
+            }
+            else {
+                preferred.add(rsa_pss_rsae_sha384);
+            }
+            // And add all the others (without duplicates => LinkedHashSet)
+            preferred.addAll(List.of(rsa_pss_rsae_sha256, rsa_pss_rsae_sha384, rsa_pss_rsae_sha512));
+        }
+        else if (algorithm.equals("EC")) {
+            ECPublicKey ecPublicKey = (ECPublicKey) certificate.getPublicKey();
+            ECParameterSpec params = ecPublicKey.getParams();
+            String curveName;
+            // Unfortunately, Java does not provide a proper way to get the curve name from the public key.
+            // Standard JDK (with standard security providers) emits string representation like
+            // "secp256r1 [NIST P-256,X9.62 prime256v1] (1.2.840.10045.3.1.7)", so:
+            String paramsContents = params.toString();
+            if (paramsContents.contains(" ")) {
+                curveName = paramsContents.substring(0, paramsContents.indexOf(" "));
+                // https://cabforum.org/working-groups/server/baseline-requirements/documents/
+                // 7.1.3.2.2 ECDSA:
+                // "If the signing key is P‐256, the signature MUST use ECDSA with SHA‐256."
+                // "If the signing key is P‐384, the signature MUST use ECDSA with SHA‐384."
+                // "If the signing key is P‐521, the signature MUST use ECDSA with SHA‐512."
+                switch (curveName) {
+                    case "secp256r1":
+                        preferred.add(ecdsa_secp256r1_sha256);
+                        break;
+                    case "secp384r1":
+                        preferred.add(ecdsa_secp384r1_sha384);
+                        break;
+                    case "secp521r1":
+                        preferred.add(ecdsa_secp521r1_sha512);
+                        break;
+                    default:
+                        throw new CertificateException("Unsupported EC curve " + curveName);
+                }
+            }
+            else {
+                throw new CertificateException("Unable to extract EC curve name from certificate (" + paramsContents + ")");
+            }
+        }
+        else {
+            throw new CertificateException("Unsupported certificate type " + algorithm);
+        }
+        return new ArrayList(preferred);
     }
 
     private static List<X509Certificate> readCertificates(InputStream file) throws IOException, CertificateException {
