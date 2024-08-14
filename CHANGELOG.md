@@ -1,6 +1,13 @@
 # Releases
 
 
+## 2.2 (2024-08-14)
+
+Server engine fixes / improvements:
+- Added option to explicitly specify the certificate's public key EC curve, in case this can not be determined automatically.  
+- Implement proper negotiation between client and server concerning signature algorithm.
+- Fixed server engine to base the signature algorithm used for the certificate verification on the type of the certificate's public key.
+
 ## 2.1 (2024-08-04)
 
 Added client engine support for signature algorithms ecdsa_secp384r1_sha384 and ecdsa_secp521r1_sha512.
