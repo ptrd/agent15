@@ -130,6 +130,15 @@ public class TlsServerEngineFactory {
         return tlsServerEngine;
     }
 
+    /**
+     * Determines the preferred signature schemes for the given certificate.
+     * @param certificate
+     * @param ecCurve
+     * @return
+     * @throws CertificateException  when the certificate signature algorithm is not supported or cannot (completely) be determined.
+     * For example, Java has no proper way to get the curve name from an EC public key, so in some cases it cannot be determined.
+     * In that case, the curve name should be provided as an argument.
+     */
     static List<TlsConstants.SignatureScheme> preferredSignatureSchemes(X509Certificate certificate, String ecCurve) throws CertificateException {
         LinkedHashSet<TlsConstants.SignatureScheme> preferred = new LinkedHashSet<>();
         String algorithm = certificate.getPublicKey().getAlgorithm();
