@@ -1,5 +1,9 @@
 # Releases
 
+## WIP
+
+- TlsServerEngineFactory constructors now only throw CertificateException, no IOException or InvalidKeySpecException anymore.
+  This is strictly speaking a breaking change, but the fix is trivial.
 
 ## 2.2 (2024-08-14)
 

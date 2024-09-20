@@ -73,11 +73,9 @@ public class TlsServerEngineFactory {
      * @param keyStore      keystore containing the server certificate and its private key
      * @param alias         the alias of the certificate
      * @param keyPassword   the password for the private key
-     * @throws IOException
-     * @throws CertificateException
-     * @throws InvalidKeySpecException
+     * @throws CertificateException  when the certificate signature algorithm is not supported or cannot (completely) be determined.
      */
-    public TlsServerEngineFactory(KeyStore keyStore, String alias, char[] keyPassword) throws IOException, CertificateException, InvalidKeySpecException {
+    public TlsServerEngineFactory(KeyStore keyStore, String alias, char[] keyPassword) throws CertificateException {
         this(getCertificates(keyStore, alias), getPrivateKey(keyStore, alias, keyPassword), null);
     }
 
@@ -87,11 +85,9 @@ public class TlsServerEngineFactory {
      * @param alias         the alias of the certificate
      * @param keyPassword   the password for the private key
      * @param ecCurve       the curve name for ECDSA certificates (in case it cannot be derived from the certificate), or null for RSA certificates
-     * @throws IOException
-     * @throws CertificateException
-     * @throws InvalidKeySpecException
+     * @throws CertificateException  when the certificate signature algorithm is not supported or cannot (completely) be determined.
      */
-    public TlsServerEngineFactory(KeyStore keyStore, String alias, char[] keyPassword, String ecCurve) throws IOException, CertificateException, InvalidKeySpecException {
+    public TlsServerEngineFactory(KeyStore keyStore, String alias, char[] keyPassword, String ecCurve) throws CertificateException {
         this(getCertificates(keyStore, alias), getPrivateKey(keyStore, alias, keyPassword), ecCurve);
     }
 
