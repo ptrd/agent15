@@ -11,7 +11,7 @@ repositories {
 }
 
 dependencies {
-    def junitVersion = "5.10.0"
+    def junitVersion = "5.10.2"
 
     // https://mvnrepository.com/artifact/at.favre.lib/hkdf
     implementation group: 'at.favre.lib', name: 'hkdf', version: '2.0.0'
