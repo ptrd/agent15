@@ -127,6 +127,14 @@ public class TlsServerEngineFactory {
     }
 
     /**
+     * Disposes resources uses by this factory.
+     * This will actually shut down the session registry associated with this factory, effectively disabling session resumption.
+     */
+    public void dispose() {
+        tlsSessionRegistry.shutdown();
+    }
+
+    /**
      * Determines the preferred signature schemes for the given certificate.
      * @param certificate
      * @param ecCurve

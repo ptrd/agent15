@@ -26,9 +26,14 @@ import net.luminis.tls.handshake.NewSessionTicketMessage;
 
 import java.security.SecureRandom;
 import java.time.Instant;
-import java.util.*;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
+import java.util.NoSuchElementException;
+import java.util.Random;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -41,10 +46,13 @@ public class TlsSessionRegistryImpl implements TlsSessionRegistry {
     private Random randomGenerator = new SecureRandom();
     private Map<BytesKey, Session> sessions = new ConcurrentHashMap<>();
     private int ticketLifeTimeInSeconds;
+    private volatile boolean closed;
+    private ScheduledExecutorService scheduledExecutorService;
 
     public TlsSessionRegistryImpl() {
         ticketLifeTimeInSeconds = (int) TimeUnit.HOURS.toSeconds(DEFAULT_TICKET_LIFETIME_HOURS);
-        Executors.newSingleThreadScheduledExecutor().scheduleAtFixedRate(this::cleanupExpiredPsks, 1, 1, TimeUnit.MINUTES);
+        scheduledExecutorService = Executors.newSingleThreadScheduledExecutor();
+        scheduledExecutorService.scheduleAtFixedRate(this::cleanupExpiredPsks, 1, 1, TimeUnit.MINUTES);
     }
 
     public TlsSessionRegistryImpl(int ticketLifeTimeInSeconds) {
@@ -59,17 +67,22 @@ public class TlsSessionRegistryImpl implements TlsSessionRegistry {
 
     @Override
     public NewSessionTicketMessage createNewSessionTicketMessage(byte ticketNonce, TlsConstants.CipherSuite cipher, TlsState tlsState, String applicationProtocol, Long maxEarlyDataSize, byte[] data) {
-        byte[] psk = tlsState.computePSK(new byte[] { ticketNonce });
-        long ageAdd = randomGenerator.nextLong();
-        byte[] ticketId = new byte[DEFAULT_TICKET_LENGTH];
-        randomGenerator.nextBytes(ticketId);
-        Instant expiry = Instant.now().plusMillis(TimeUnit.SECONDS.toMillis(ticketLifeTimeInSeconds));
-        sessions.put(new BytesKey(ticketId), new Session(ticketId, ticketNonce, ageAdd, psk, cipher, Instant.now(), expiry, applicationProtocol, data));
-        if (maxEarlyDataSize != null) {
-            return new NewSessionTicketMessage(ticketLifeTimeInSeconds, ageAdd, new byte[]{ ticketNonce }, ticketId, maxEarlyDataSize);
+        if (! closed) {
+            byte[] psk = tlsState.computePSK(new byte[]{ticketNonce});
+            long ageAdd = randomGenerator.nextLong();
+            byte[] ticketId = new byte[DEFAULT_TICKET_LENGTH];
+            randomGenerator.nextBytes(ticketId);
+            Instant expiry = Instant.now().plusMillis(TimeUnit.SECONDS.toMillis(ticketLifeTimeInSeconds));
+            sessions.put(new BytesKey(ticketId), new Session(ticketId, ticketNonce, ageAdd, psk, cipher, Instant.now(), expiry, applicationProtocol, data));
+            if (maxEarlyDataSize != null) {
+                return new NewSessionTicketMessage(ticketLifeTimeInSeconds, ageAdd, new byte[]{ticketNonce}, ticketId, maxEarlyDataSize);
+            }
+            else {
+                return new NewSessionTicketMessage(ticketLifeTimeInSeconds, ageAdd, new byte[]{ticketNonce}, ticketId);
+            }
         }
         else {
-            return new NewSessionTicketMessage(ticketLifeTimeInSeconds, ageAdd, new byte[]{ ticketNonce }, ticketId);
+            return null;
         }
     }
 
@@ -109,6 +122,13 @@ public class TlsSessionRegistryImpl implements TlsSessionRegistry {
         else {
             throw new NoSuchElementException();
         }
+    }
+
+    @Override
+    public void shutdown() {
+        closed = true;
+        scheduledExecutorService.shutdown();
+        sessions.clear();
     }
 
     void cleanupExpiredPsks() {

@@ -91,4 +91,48 @@ class TlsSessionRegistryImplTest {
         assertThat(selectedIdentity).isNull();
     }
 
+    @Test
+    void whenClosedNewSessionShouldNotBeAdded() {
+        // Given
+        var registry = new TlsSessionRegistryImpl();
+        TlsState tlsState = mock(TlsState.class);
+        when(tlsState.computePSK(any())).thenReturn(new byte[16]);
+        registry.shutdown();
+
+        // When
+        var ticketMessage = registry.createNewSessionTicketMessage((byte) 0, TlsConstants.CipherSuite.TLS_AES_128_GCM_SHA256, tlsState, "");
+
+        // Then
+        assertThat(ticketMessage).isNull();
+    }
+
+    @Test
+    void whenClosedSessionShouldNotBeReturned() {
+        // Given
+        var registry = new TlsSessionRegistryImpl();
+        TlsState tlsState = mock(TlsState.class);
+        when(tlsState.computePSK(any())).thenReturn(new byte[16]);
+        var ticketMessage = registry.createNewSessionTicketMessage((byte) 0, TlsConstants.CipherSuite.TLS_AES_128_GCM_SHA256, tlsState, "");
+
+        // When
+        registry.shutdown();
+
+        // Then
+        assertThat(registry.useSession(new ClientHelloPreSharedKeyExtension.PskIdentity(ticketMessage.getTicket(), 0))).isNull();
+    }
+
+    @Test
+    void whenClosedSessionDataShouldNotBePeeked() {
+        // Given
+        var registry = new TlsSessionRegistryImpl();
+        TlsState tlsState = mock(TlsState.class);
+        when(tlsState.computePSK(any())).thenReturn(new byte[16]);
+        var ticketMessage = registry.createNewSessionTicketMessage((byte) 0, TlsConstants.CipherSuite.TLS_AES_128_GCM_SHA256, tlsState, "");
+
+        // When
+        registry.shutdown();
+
+        // Then
+        assertThat(registry.useSession(new ClientHelloPreSharedKeyExtension.PskIdentity(ticketMessage.getTicket(), 0))).isNull();
+    }
 }

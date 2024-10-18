@@ -324,7 +324,9 @@ public class TlsServerEngineImpl extends TlsEngineImpl implements TlsServerEngin
         if (sessionRegistry != null && clientSupportedKeyExchangeModes.contains(psk_dhe_ke)) {  // Server only supports psk_dhe_ke
             NewSessionTicketMessage newSessionTicketMessage =
                     sessionRegistry.createNewSessionTicketMessage(currentTicketNumber++, selectedCipher, state, selectedApplicationLayerProtocol, maxEarlyDataSize, additionalSessionData);
-            serverMessageSender.send(newSessionTicketMessage);
+            if (newSessionTicketMessage != null) {
+                serverMessageSender.send(newSessionTicketMessage);
+            }
         }
     }
 

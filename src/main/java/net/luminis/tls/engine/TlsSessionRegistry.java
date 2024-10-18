@@ -39,4 +39,6 @@ public interface TlsSessionRegistry {
     TlsSession useSession(ClientHelloPreSharedKeyExtension.PskIdentity pskIdentity);
 
     byte[] peekSessionData(ClientHelloPreSharedKeyExtension.PskIdentity pskIdentity) throws NoSuchElementException;
+
+    void shutdown();
 }
