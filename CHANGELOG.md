@@ -1,7 +1,8 @@
 # Releases
 
-## WIP
+## 2.3 (2024-10-19)
 
+- added dispose method to TlsServerEngineFactory
 - TlsServerEngineFactory constructors now only throw CertificateException, no IOException or InvalidKeySpecException anymore.
   This is strictly speaking a breaking change, but the fix is trivial.
 
