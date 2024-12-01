@@ -99,7 +99,11 @@ public class TlsServerEngineFactory {
 
     private static List<X509Certificate> getCertificates(KeyStore keyStore, String alias) {
         try {
-            return Arrays.stream(keyStore.getCertificateChain(alias))
+            Certificate[] certificates = keyStore.getCertificateChain(alias);
+            if (certificates == null) {
+                throw new IllegalArgumentException("No certificate found for alias " + alias);
+            }
+            return Arrays.stream(certificates)
                     .map(c -> (X509Certificate) c)
                     .collect(Collectors.toList());
         }

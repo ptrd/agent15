@@ -49,6 +49,38 @@ class TlsServerEngineFactoryTest {
     }
 
     @Test
+    void whenCertificateCannotBeFoundInKeystoreProperExceptionShouldBeThrown() throws Exception {
+        // Given
+        KeyStore keyStore = KeyStore.getInstance("PKCS12");
+        keyStore.load(getClass().getResourceAsStream("ec-rsa-signed.p12"), "secret".toCharArray());
+
+        String alias = "wrong";
+        String keyPassword = "dontcare";
+
+        // When
+        assertThatThrownBy(() -> new TlsServerEngineFactory(keyStore, alias, keyPassword.toCharArray()))
+                // Then
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("No certificate found for alias");
+    }
+
+    @Test
+    void whenCertificateCannotBeLoadedFromKeystoreProperExceptionShouldBeThrown() throws Exception {
+        // Given
+        KeyStore keyStore = KeyStore.getInstance("PKCS12");
+        keyStore.load(getClass().getResourceAsStream("ec-rsa-signed.p12"), "secret".toCharArray());
+
+        String alias = "example";
+        String keyPassword = "wrong";
+
+        // When
+        assertThatThrownBy(() -> new TlsServerEngineFactory(keyStore, alias, keyPassword.toCharArray()))
+                // Then
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("bad key");
+    }
+
+    @Test
     void selectedSignatureAlgorithForRsaWith1024BitsKeyWithBouncyCastle() throws Exception {
         try {
             // Given
