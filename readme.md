@@ -22,7 +22,7 @@ because the Kwik project does not use them. The messages that are not implemente
 - EndOfEarlyData: not used by QUIC, see https://www.rfc-editor.org/rfc/rfc9001.html#name-removing-the-endofearlydata
 - KeyUpdateRequest: not used by QUIC, see https://www.rfc-editor.org/rfc/rfc9001.html#name-key-update
 
-Also, not all extensions are supported, see the [source](https://bitbucket.org/pjtr/agent15/src/master/src/net/luminis/tls/extension/) 
+Also, not all extensions are supported, see the [source](https://bitbucket.org/pjtr/agent15/src/master/src/main/java/net/luminis/tls/extension/) 
 for an overview of which extensions are supported. 
 However, the message parser will create an `UnknownExtension` object for unsupported extensions, so parsing will not fail 
 (as it does for unsupported handshake message types).
