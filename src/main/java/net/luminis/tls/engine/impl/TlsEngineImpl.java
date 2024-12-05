@@ -193,7 +193,7 @@ public abstract class TlsEngineImpl implements TlsEngine {
                 signatureAlgorithm = Signature.getInstance(algorithmMapping.get("RSASSA-PSS"));
                 signatureAlgorithm.setParameter(new PSSParameterSpec("SHA-256", "MGF1", new MGF1ParameterSpec("SHA-256"), 32, 1));
             } catch (NoSuchAlgorithmException e) {
-                throw new RuntimeException("Missing RSASSA-PSS support");
+                noRsaSsaPssSupport();
             } catch (InvalidAlgorithmParameterException e) {
                 // Fairly impossible (because the parameters is hard coded)
                 throw new RuntimeException(e);
@@ -204,7 +204,7 @@ public abstract class TlsEngineImpl implements TlsEngine {
                 signatureAlgorithm = Signature.getInstance(algorithmMapping.get("RSASSA-PSS"));
                 signatureAlgorithm.setParameter(new PSSParameterSpec("SHA-384", "MGF1", new MGF1ParameterSpec("SHA-384"), 48, 1));
             } catch (NoSuchAlgorithmException e) {
-                throw new RuntimeException("Missing RSASSA-PSS support");
+                noRsaSsaPssSupport();
             } catch (InvalidAlgorithmParameterException e) {
                 // Fairly impossible (because the parameters is hard coded)
                 throw new RuntimeException(e);
@@ -215,7 +215,7 @@ public abstract class TlsEngineImpl implements TlsEngine {
                 signatureAlgorithm = Signature.getInstance(algorithmMapping.get("RSASSA-PSS"));
                 signatureAlgorithm.setParameter(new PSSParameterSpec("SHA-512", "MGF1", new MGF1ParameterSpec("SHA-512"), 64, 1));
             } catch (NoSuchAlgorithmException e) {
-                throw new RuntimeException("Missing RSASSA-PSS support");
+                noRsaSsaPssSupport();
             } catch (InvalidAlgorithmParameterException e) {
                 // Fairly impossible (because the parameters is hard coded)
                 throw new RuntimeException(e);
@@ -247,6 +247,15 @@ public abstract class TlsEngineImpl implements TlsEngine {
             throw new HandshakeFailureAlert("Signature algorithm not supported " + signatureScheme);
         }
         return signatureAlgorithm;
+    }
+
+    private static void noRsaSsaPssSupport() {
+        boolean runningOnAndroid = System.getProperty("java.vendor") != null && System.getProperty("java.vendor").contains("Android");
+        String msg = "Missing RSASSA-PSS support";
+        if (runningOnAndroid) {
+            msg += ". Did you set PlatformMapping.usePlatformMapping(PlatformMapping.Platform.Android)?";
+        }
+        throw new RuntimeException(msg);
     }
 
     @Override
