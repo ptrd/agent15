@@ -1,5 +1,5 @@
 /*
- * Copyright © 2023, 2024 Peter Doornbosch
+ * Copyright © 2023, 2024, 2025 Peter Doornbosch
  *
  * This file is part of Agent15, an implementation of TLS 1.3 in Java.
  *
