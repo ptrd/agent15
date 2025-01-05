@@ -1,11 +1,11 @@
 module tech.kwik.agent15 {
 
-    exports net.luminis.tls;
-    exports net.luminis.tls.alert;
-    exports net.luminis.tls.engine;
-    exports net.luminis.tls.env;
-    exports net.luminis.tls.extension;
-    exports net.luminis.tls.handshake;
+    exports tech.kwik.agent15;
+    exports tech.kwik.agent15.alert;
+    exports tech.kwik.agent15.engine;
+    exports tech.kwik.agent15.env;
+    exports tech.kwik.agent15.extension;
+    exports tech.kwik.agent15.handshake;
 
     requires at.favre.lib.hkdf;
 }

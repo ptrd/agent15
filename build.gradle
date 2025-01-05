@@ -51,7 +51,7 @@ test {
 
 jar {
     manifest {
-        attributes 'Main-Class': 'net.luminis.tls.Version'
+        attributes 'Main-Class': 'tech.kwik.agent15.Version'
     }
 }
 
@@ -76,7 +76,7 @@ task determineVersion {
             }
             project.version = versionTag
 
-            ext.versionDir = new File("${buildDir}", "generated/net/luminis/tls")
+            ext.versionDir = new File("${buildDir}", "generated/tech/kwik/agent15")
             versionDir.mkdirs()
 
             new File(versionDir, "version.properties").text = versionTag
@@ -87,7 +87,7 @@ task determineVersion {
 compileJava.dependsOn (determineVersion, processResources)
 
 tasks.compileJava {
-    options.javaModuleMainClass = "net.luminis.tls.Version"
+    options.javaModuleMainClass = "tech.kwik.agent15.Version"
 }
 
 group = 'tech.kwik'
@@ -118,7 +118,7 @@ publishing {
                     developer {
                         id = 'peterd'
                         name = 'Peter Doornbosch'
-                        email = 'peter.doornbosch@luminis.eu'
+                        email = 'peter.doornbosch@gmail.com'
                     }
                 }
 
