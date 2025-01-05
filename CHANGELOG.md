@@ -1,5 +1,10 @@
 # Releases
 
+## 3.0 (2025-01-05)
+
+Moved all classes to new package structure, starting with `tech.kwik.agent15`.
+To migrate projects using agent15, simply do a find-and-replace `net.luminis.tls` by `tech.kwik.agent15`.
+
 ## 2.3 (2024-10-19)
 
 - added dispose method to TlsServerEngineFactory
