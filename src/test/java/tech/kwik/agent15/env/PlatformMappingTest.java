@@ -19,9 +19,9 @@
 package tech.kwik.agent15.env;
 
 
-import tech.kwik.agent15.util.FieldSetter;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import tech.kwik.agent15.util.FieldSetter;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -52,6 +52,19 @@ class PlatformMappingTest {
 
         // Then
         assertThat(PlatformMapping.algorithmMapping().get("RSASSA-PSS")).isEqualTo("SHA256withRSA/PSS");
+    }
+
+    @Test
+    void androidMappingHasAlternativesForRSASSA_PSS_withDifferentHashSizes() {
+        // Given
+
+        // When
+        PlatformMapping.usePlatformMapping(PlatformMapping.Platform.Android);
+
+        // Then
+        assertThat(PlatformMapping.algorithmMapping().get("RSASSA-PSS", 256)).isEqualTo("SHA256withRSA/PSS");
+        assertThat(PlatformMapping.algorithmMapping().get("RSASSA-PSS", 384)).isEqualTo("SHA384withRSA/PSS");
+        assertThat(PlatformMapping.algorithmMapping().get("RSASSA-PSS", 512)).isEqualTo("SHA512withRSA/PSS");
     }
 
     @Test

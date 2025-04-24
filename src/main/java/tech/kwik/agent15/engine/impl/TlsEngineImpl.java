@@ -190,7 +190,7 @@ public abstract class TlsEngineImpl implements TlsEngine {
         // rsa_pss_rsae_sha256 (for CertificateVerify and certificates), and ecdsa_secp256r1_sha256."
         if (signatureScheme.equals(rsa_pss_rsae_sha256)) {
             try {
-                signatureAlgorithm = Signature.getInstance(algorithmMapping.get("RSASSA-PSS"));
+                signatureAlgorithm = Signature.getInstance(algorithmMapping.get("RSASSA-PSS", 256));
                 signatureAlgorithm.setParameter(new PSSParameterSpec("SHA-256", "MGF1", new MGF1ParameterSpec("SHA-256"), 32, 1));
             } catch (NoSuchAlgorithmException e) {
                 noRsaSsaPssSupport();
@@ -201,7 +201,7 @@ public abstract class TlsEngineImpl implements TlsEngine {
         }
         else if (signatureScheme.equals(rsa_pss_rsae_sha384)) {
             try {
-                signatureAlgorithm = Signature.getInstance(algorithmMapping.get("RSASSA-PSS"));
+                signatureAlgorithm = Signature.getInstance(algorithmMapping.get("RSASSA-PSS", 384));
                 signatureAlgorithm.setParameter(new PSSParameterSpec("SHA-384", "MGF1", new MGF1ParameterSpec("SHA-384"), 48, 1));
             } catch (NoSuchAlgorithmException e) {
                 noRsaSsaPssSupport();
@@ -212,7 +212,7 @@ public abstract class TlsEngineImpl implements TlsEngine {
         }
         else if (signatureScheme.equals(rsa_pss_rsae_sha512)) {
             try {
-                signatureAlgorithm = Signature.getInstance(algorithmMapping.get("RSASSA-PSS"));
+                signatureAlgorithm = Signature.getInstance(algorithmMapping.get("RSASSA-PSS", 512));
                 signatureAlgorithm.setParameter(new PSSParameterSpec("SHA-512", "MGF1", new MGF1ParameterSpec("SHA-512"), 64, 1));
             } catch (NoSuchAlgorithmException e) {
                 noRsaSsaPssSupport();

@@ -59,6 +59,11 @@ public class PlatformMapping {
         public String get(String value) {
             return value;
         }
+
+        @Override
+        public String get(String signatureAlgorithm, int hashLength) {
+            return signatureAlgorithm;
+        }
     }
 
     private static class AndroidMapping implements AlgorithmMapping {
@@ -72,6 +77,30 @@ public class PlatformMapping {
             }
             else {
                 return value;
+            }
+        }
+
+        @Override
+        public String get(String signatureAlgorithm, int hashLength) {
+            if (signatureAlgorithm == null) {
+                return null;
+            }
+            if (signatureAlgorithm.equals("RSASSA-PSS")) {
+                if (hashLength == 256) {
+                    return "SHA256withRSA/PSS";
+                }
+                else if (hashLength == 384) {
+                    return "SHA384withRSA/PSS";
+                }
+                else if (hashLength == 512) {
+                    return "SHA512withRSA/PSS";
+                }
+                else {
+                    throw new IllegalArgumentException("Unsupported hash length: " + hashLength);
+                }
+            }
+            else {
+                return signatureAlgorithm;
             }
         }
     }

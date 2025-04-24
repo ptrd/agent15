@@ -23,5 +23,8 @@ package tech.kwik.agent15.env;
  */
 public interface AlgorithmMapping {
 
+    @Deprecated
     String get(String value);
+
+    String get(String signatureAlgorithm, int hashLength);
 }
