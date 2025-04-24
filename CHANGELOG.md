@@ -1,5 +1,10 @@
 # Releases
 
+## 3.1 (2025-04-24)
+
+- Added method to AlgorithmMapping interface to map signature algorithm properly.
+- Added method to parse handshake message without immediately processing it.
+
 ## 3.0 (2025-01-05)
 
 Moved all classes to new package structure, starting with `tech.kwik.agent15`.
