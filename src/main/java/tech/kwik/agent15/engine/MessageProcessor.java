@@ -26,6 +26,18 @@ import java.io.IOException;
 
 public interface MessageProcessor {
 
+    default void received(HandshakeMessage msg, ProtectionKeysType protectedBy) throws TlsProtocolException, IOException {
+        if (msg instanceof ClientHello) received((ClientHello) msg, protectedBy);
+        else if (msg instanceof ServerHello) received((ServerHello) msg, protectedBy);
+        else if (msg instanceof EncryptedExtensions) received((EncryptedExtensions) msg, protectedBy);
+        else if (msg instanceof CertificateMessage) received((CertificateMessage) msg, protectedBy);
+        else if (msg instanceof CertificateVerifyMessage) received((CertificateVerifyMessage) msg, protectedBy);
+        else if (msg instanceof FinishedMessage) received((FinishedMessage) msg, protectedBy);
+        else if (msg instanceof NewSessionTicketMessage) received((NewSessionTicketMessage) msg, protectedBy);
+        else if (msg instanceof CertificateRequestMessage) received((CertificateRequestMessage) msg, protectedBy);
+        else throw new TlsProtocolException("Unexpected message type: " + msg.getClass().getSimpleName());
+    }
+
     void received(ClientHello ch, ProtectionKeysType protectedBy) throws TlsProtocolException, IOException;
 
     void received(ServerHello sh, ProtectionKeysType protectedBy) throws TlsProtocolException, IOException;
