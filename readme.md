@@ -9,7 +9,7 @@ Agent15 is an open source implementation of the [handshake protocol](https://dat
 It was developed for, and is used by [Kwik](https://bitbucket.org/pjtr/kwik/src/master/), a 100% pure Java implementation of the QUIC protocol. 
 QUIC uses TLS 1.3 for encryption, but only the handshake layer, not the record layer (see [RFC 9001, sec 3](https://www.rfc-editor.org/rfc/rfc9001.html#name-protocol-overview)).
 
-Agent15 is created and maintained by Peter Doornbosch. The latest greatest can always be found on [BitBucket](https://bitbucket.org/pjtr/agent15).
+Agent15 is created and maintained by Peter Doornbosch. The latest greatest can always be found on [GitHub](https://github.com/ptrd/agent15).
 
 ## Status
 
@@ -58,6 +58,16 @@ The following elliptic curves are supported:
 - secp256r1
 - X25519
 
+Coming soon (see https://github.com/ptrd/agent15/tree/support-hybrid-key-exchange):
+
+- secp384r1 and secp521r1
+- X448
+
+and post-quantum hybrid key exchanges:
+
+- X25519MLKEM768
+- SecP256r1MLKEM768 and SecP384r1MLKEM1024
+
 ### Features
 
 The engines support session resumption with a PSK (obtained via a NewSessionTicket message). The server uses an in-memory
@@ -71,7 +81,7 @@ Maven coordinates:
     <dependency>
         <groupId>tech.kwik</groupId>
         <artifactId>agent15</artifactId>
-        <version>3.2</version>
+        <version>3.3</version>
     </dependency>
 
 
@@ -109,6 +119,7 @@ Many thanks to Michael Driscoll ([@xargsnotbombs](https://twitter.com/xargsnotbo
 the brilliant ["The New Illustrated TLS Connection, Every byte explained and reproduced"](https://tls13.ulfheim.net/);
 I never would have succeeded in writing a functional TLS library without this help. 
 Thanks to Piet van Dongen for creating the marvellous logo!
+Thanks to Chris Burdess for his help to implement RFC 10024 (Post-Quantum Traditional (PQ/T) Hybrid Key Agreement Mechanisms).
 
 ## License
 
