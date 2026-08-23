@@ -1,1 +1,4 @@
 rootProject.name = 'agent15'
+
+include 'core'
+include 'pqc'

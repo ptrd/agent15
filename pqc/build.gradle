@@ -1,0 +1,70 @@
+// The ML-KEM based (hybrid) key exchange groups of RFC 10024. These need java.security.KEM and the
+// ML-KEM key pair generator, which are only finalized in Java 25 -- hence this module targets 25,
+// where core Agent15 targets 11.
+java {
+    sourceCompatibility = JavaVersion.VERSION_25
+    targetCompatibility = JavaVersion.VERSION_25
+}
+
+base {
+    archivesName = 'agent15-pqc'
+}
+
+dependencies {
+    api project(':core')
+
+    // 1.78.1 predates ML-KEM support (only pre-standardisation Kyber round 3,
+    // which is not wire-compatible with FIPS 203 ML-KEM); 1.79+ has real
+    // ML-KEM, used to cross-check MLKEMKeyExchange's wire format against an
+    // independent implementation.
+    testImplementation("org.bouncycastle:bcprov-jdk18on:1.81")
+}
+
+publishing {
+    publications {
+        library(MavenPublication) {
+            artifactId = 'agent15-pqc'
+            from components.java
+            pom {
+                name = 'Agent15-PQC'
+                description = 'Post-quantum (ML-KEM) hybrid key exchange groups for Agent15.'
+                url = 'https://github.com/ptrd/agent15'
+
+                licenses {
+                    license {
+                        name = 'GNU Lesser General Public License v3'
+                        url = 'https://www.gnu.org/licenses/lgpl-3.0-standalone.html'
+                    }
+                }
+
+                developers {
+                    developer {
+                        id = 'peterd'
+                        name = 'Peter Doornbosch'
+                        email = 'peter.doornbosch@gmail.com'
+                    }
+                }
+
+                scm {
+                    connection = 'scm:git:git@github.com:ptrd/agent15.git'
+                    developerConnection = 'scm:git:git@github.com:ptrd/agent15.git'
+                    url = 'https://github.com/ptrd/agent15'
+                }
+            }
+        }
+    }
+    repositories {
+        maven {
+            name = "ossrh-staging-api"
+            url = "https://ossrh-staging-api.central.sonatype.com/service/local/staging/deploy/maven2/"
+            credentials {
+                username = project.properties.ossrhUsername
+                password = project.properties.ossrhPassword
+            }
+        }
+    }
+}
+
+signing {
+    sign publishing.publications.library
+}
