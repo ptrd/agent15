@@ -122,6 +122,43 @@ class XDHKeyExchangeTest {
     }
 
     @Test
+    void parseTooLongKeyShareThrows() {
+        // One byte too many; without an explicit length check, the JCA would silently truncate the key data.
+        byte[] data = ByteUtils.hexToBytes(X25519_KEY_EXCHANGE_DATA + "ff");
+
+        assertThatThrownBy(() -> xdhKeyExchange.parseKeyShare(data))
+                .isInstanceOf(IllegalParameterAlert.class)
+                .hasMessageContaining("key length");
+    }
+
+    @Test
+    void parseTooShortKeyShareThrows() {
+        // One byte too few; without an explicit length check, the JCA would silently zero-pad the key data.
+        byte[] data = ByteUtils.hexToBytes(X25519_KEY_EXCHANGE_DATA.substring(2));
+
+        assertThatThrownBy(() -> xdhKeyExchange.parseKeyShare(data))
+                .isInstanceOf(IllegalParameterAlert.class)
+                .hasMessageContaining("key length");
+    }
+
+    @Test
+    void parseEmptyKeyShareThrows() {
+        assertThatThrownBy(() -> xdhKeyExchange.parseKeyShare(new byte[0]))
+                .isInstanceOf(IllegalParameterAlert.class)
+                .hasMessageContaining("key length");
+    }
+
+    @Test
+    void parseX25519SizedX448KeyShareThrows() {
+        // A 32 byte key share is valid for x25519, but not for x448.
+        byte[] data = ByteUtils.hexToBytes(X25519_KEY_EXCHANGE_DATA);
+
+        assertThatThrownBy(() -> new XDHKeyExchange(TlsConstants.NamedGroup.x448).parseKeyShare(data))
+                .isInstanceOf(IllegalParameterAlert.class)
+                .hasMessageContaining("key length");
+    }
+
+    @Test
     void parseKeyShareDoesNotModifyTheGivenArray() throws Exception {
         byte[] data = ByteUtils.hexToBytes(X25519_KEY_EXCHANGE_DATA);
 

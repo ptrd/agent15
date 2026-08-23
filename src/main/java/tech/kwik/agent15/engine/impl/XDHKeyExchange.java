@@ -123,6 +123,11 @@ public class XDHKeyExchange implements KeyExchange {
     }
 
     XECPublicKey parseKeyShare(byte[] keyExchangeData) throws IllegalParameterAlert {
+        // Must be checked explicitly: the JCA silently truncates key data that is too long (and masks the most
+        // significant bit) and zero-pads key data that is too short, so wrong sized key shares would be accepted.
+        if (keyExchangeData.length != CURVE_KEY_LENGTHS.get(namedGroup)) {
+            throw new IllegalParameterAlert("Invalid " + namedGroup.name() + " key length: " + keyExchangeData.length);
+        }
         return rawToEncodedXDHPublicKey(namedGroup, keyExchangeData);
     }
 
