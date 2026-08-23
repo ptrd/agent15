@@ -21,6 +21,8 @@ package tech.kwik.agent15.engine.impl;
 import tech.kwik.agent15.TlsConstants;
 import tech.kwik.agent15.engine.KeyExchange;
 import tech.kwik.agent15.engine.KeyExchangeFactory;
+import tech.kwik.agent15.engine.MLKEM768KeyExchange;
+import tech.kwik.agent15.engine.MLKEM1024KeyExchange;
 
 import static tech.kwik.agent15.TlsConstants.NamedGroup.*;
 
@@ -34,10 +36,27 @@ public class KeyExchangeFactoryImpl implements KeyExchangeFactory {
         if (group == secp256r1 || group == secp384r1 || group == secp521r1) {
             return new ECKeyExchange(group);
         }
+        if (group == X25519MLKEM768) {
+            return new X25519MLKEM768KeyExchange();
+        }
+        if (group == SecP256r1MLKEM768) {
+            return new SecP256r1MLKEM768KeyExchange();
+        }
+        if (group == SecP384r1MLKEM1024) {
+            return new SecP384r1MLKEM1024KeyExchange();
+        }
         return null;
     }
 
     @Override
     public void init() {
+        // MLKEM768KeyExchange/MLKEM1024KeyExchange each derive and cache a
+        // DER prefix from a throwaway key pair the first time the class is
+        // touched (measured ~260-500us). Touching them here, explicitly,
+        // means that cost lands during this warm-up call rather than on
+        // whichever handshake happens to be first to need one of the
+        // hybrid groups.
+        new MLKEM768KeyExchange();
+        new MLKEM1024KeyExchange();
     }
 }
