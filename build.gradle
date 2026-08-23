@@ -48,6 +48,13 @@ subprojects {
         options.addBooleanOption('html5', true)
     }
 
+    tasks.withType(JavaCompile).configureEach {
+        // Suppresses two module warnings that are both expected: core's qualified 'exports ... to
+        // tech.kwik.agent15.pqc' cannot be resolved when compiling core (the pqc module is not, and must not be,
+        // on core's module path), and both module names have a component ending in a digit ("agent15").
+        options.compilerArgs << '-Xlint:-module'
+    }
+
     // The version is only known once determineVersion has run, so make sure it has, before any archive is named.
     tasks.withType(Jar).configureEach {
         dependsOn rootProject.tasks.determineVersion
