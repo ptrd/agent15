@@ -33,16 +33,6 @@ import java.util.Arrays;
  * order flag; all the splitting/concatenating/combining is implemented
  * once, here, so the order can't independently drift between the three
  * places it has to agree.
- *
- * TODO once Peter's classical ECDH/XDH KeyExchange implementations land
- * on this branch, add the three concrete one-line subclasses this base
- * is for (lengths/order per RFC 10024 section 7; classical share length
- * is the same for client and server in all three):
- *   - X25519MLKEM768KeyExchange:     new X25519_KeyExchange(), 32,       new MLKEM768KeyExchange(), 1184, 1088, pqcFirst=true
- *   - SecP256r1MLKEM768KeyExchange:  new ECDH_KeyExchange(secp256r1), 65, new MLKEM768KeyExchange(), 1184, 1088, pqcFirst=false
- *   - SecP384r1MLKEM1024KeyExchange: new ECDH_KeyExchange(secp384r1), 97, new MLKEM1024KeyExchange(), 1568, 1568, pqcFirst=false
- * Classical class/constructor names above are guesses pending what
- * Peter actually calls them -- adjust to match.
  */
 public abstract class HybridKeyExchange implements KeyExchange {
 
