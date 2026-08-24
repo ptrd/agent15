@@ -16,14 +16,15 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-package tech.kwik.agent15.pqc;
+package tech.kwik.agent15.pqc.impl;
 
 import org.junit.jupiter.api.Test;
 import tech.kwik.agent15.alert.IllegalParameterAlert;
 import tech.kwik.agent15.engine.KeyExchange;
+import tech.kwik.agent15.pqc.impl.HybridKeyExchange;
+import tech.kwik.agent15.pqc.impl.MLKEM768KeyExchange;
 
 import java.security.SecureRandom;
-import java.util.Arrays;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;

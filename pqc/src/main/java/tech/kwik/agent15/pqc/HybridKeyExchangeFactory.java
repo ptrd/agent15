@@ -21,6 +21,11 @@ package tech.kwik.agent15.pqc;
 import tech.kwik.agent15.TlsConstants;
 import tech.kwik.agent15.engine.KeyExchange;
 import tech.kwik.agent15.engine.KeyExchangeFactory;
+import tech.kwik.agent15.pqc.impl.MLKEM1024KeyExchange;
+import tech.kwik.agent15.pqc.impl.MLKEM768KeyExchange;
+import tech.kwik.agent15.pqc.impl.SecP256r1MLKEM768KeyExchange;
+import tech.kwik.agent15.pqc.impl.SecP384r1MLKEM1024KeyExchange;
+import tech.kwik.agent15.pqc.impl.X25519MLKEM768KeyExchange;
 
 import static tech.kwik.agent15.TlsConstants.NamedGroup.SecP256r1MLKEM768;
 import static tech.kwik.agent15.TlsConstants.NamedGroup.SecP384r1MLKEM1024;

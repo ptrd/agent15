@@ -23,6 +23,9 @@ import tech.kwik.agent15.engine.KeyExchange;
 import tech.kwik.agent15.engine.impl.ECKeyExchange;
 import tech.kwik.agent15.engine.impl.KeyExchangeFactoryImpl;
 import tech.kwik.agent15.engine.impl.XDHKeyExchange;
+import tech.kwik.agent15.pqc.impl.SecP256r1MLKEM768KeyExchange;
+import tech.kwik.agent15.pqc.impl.SecP384r1MLKEM1024KeyExchange;
+import tech.kwik.agent15.pqc.impl.X25519MLKEM768KeyExchange;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static tech.kwik.agent15.TlsConstants.NamedGroup.*;
