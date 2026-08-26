@@ -39,6 +39,10 @@ public class SupportedGroupsExtension extends Extension {
         namedGroups.add(namedGroup);
     }
 
+    public SupportedGroupsExtension(List<TlsConstants.NamedGroup> namedGroups) {
+        this.namedGroups.addAll(namedGroups);
+    }
+
     public SupportedGroupsExtension(ByteBuffer buffer) throws DecodeErrorException {
         int extensionDataLength = parseExtensionHeader(buffer, TlsConstants.ExtensionType.supported_groups, 2 + 2);
         int namedGroupsLength = buffer.getShort() & 0xffff;
