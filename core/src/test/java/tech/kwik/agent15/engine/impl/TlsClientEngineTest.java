@@ -57,6 +57,7 @@ import java.security.spec.PSSParameterSpec;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
+import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 
@@ -70,6 +71,7 @@ import static tech.kwik.agent15.TlsConstants.CipherSuite.TLS_AES_256_GCM_SHA384;
 import static tech.kwik.agent15.TlsConstants.CipherSuite.TLS_CHACHA20_POLY1305_SHA256;
 import static tech.kwik.agent15.TlsConstants.NamedGroup.secp256r1;
 import static tech.kwik.agent15.TlsConstants.NamedGroup.x25519;
+import static tech.kwik.agent15.TlsConstants.NamedGroup.x448;
 import static tech.kwik.agent15.TlsConstants.SignatureScheme.*;
 import static tech.kwik.agent15.util.CertificateUtils.*;
 import static tech.kwik.agent15.util.TestUtils.regardless;
@@ -992,6 +994,83 @@ class TlsClientEngineTest {
         ArgumentCaptor<CertificateVerifyMessage> messageCaptor = ArgumentCaptor.forClass(CertificateVerifyMessage.class);
         verify(messageSender).send(messageCaptor.capture());
         assertThat(messageCaptor.getValue().getSignatureScheme()).isEqualTo(rsa_pss_rsae_sha384);
+    }
+
+
+    @Test
+    void clientHelloSentByEngineOffersTheGivenSupportedGroups() throws Exception {
+        // When
+        engine.startHandshake(secp256r1, List.of(secp256r1, x448, x25519), List.of(rsa_pss_rsae_sha256));
+
+        // Then
+        ArgumentCaptor<ClientHello> messageCaptor = ArgumentCaptor.forClass(ClientHello.class);
+        verify(messageSender).send(messageCaptor.capture());
+
+        SupportedGroupsExtension supportedGroups = (SupportedGroupsExtension) messageCaptor.getValue().getExtensions().stream()
+                .filter(ext -> ext instanceof SupportedGroupsExtension)
+                .findFirst().orElseThrow();
+        assertThat(supportedGroups.getNamedGroups()).containsExactly(secp256r1, x448, x25519);
+    }
+
+    @Test
+    void whenSupportedGroupsAreGivenKeyShareStillUsesTheGivenNamedGroupOnly() throws Exception {
+        // When
+        engine.startHandshake(x25519, List.of(secp256r1, x448, x25519), List.of(rsa_pss_rsae_sha256));
+
+        // Then
+        ArgumentCaptor<ClientHello> messageCaptor = ArgumentCaptor.forClass(ClientHello.class);
+        verify(messageSender).send(messageCaptor.capture());
+
+        KeyShareExtension keyShare = (KeyShareExtension) messageCaptor.getValue().getExtensions().stream()
+                .filter(ext -> ext instanceof KeyShareExtension)
+                .findFirst().orElseThrow();
+        assertThat(keyShare.getKeyShareEntries())
+                .extracting(KeyShareExtension.KeyShareEntry::getNamedGroup)
+                .containsExactly(x25519);
+    }
+
+    @Test
+    void whenNoSupportedGroupsAreGivenOnlyTheKeyShareGroupIsOffered() throws Exception {
+        // When
+        engine.startHandshake(x25519, List.of(rsa_pss_rsae_sha256));
+
+        // Then
+        ArgumentCaptor<ClientHello> messageCaptor = ArgumentCaptor.forClass(ClientHello.class);
+        verify(messageSender).send(messageCaptor.capture());
+
+        SupportedGroupsExtension supportedGroups = (SupportedGroupsExtension) messageCaptor.getValue().getExtensions().stream()
+                .filter(ext -> ext instanceof SupportedGroupsExtension)
+                .findFirst().orElseThrow();
+        assertThat(supportedGroups.getNamedGroups()).containsExactly(x25519);
+    }
+
+    @Test
+    void supportedGroupsNotContainingTheKeyShareGroupLeadsToException() {
+        assertThatThrownBy(() ->
+                // When
+                engine.startHandshake(secp256r1, List.of(x448, x25519), List.of(rsa_pss_rsae_sha256)))
+                // Then
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("secp256r1");
+    }
+
+    @Test
+    void unsupportedGroupInSupportedGroupsLeadsToException() {
+        assertThatThrownBy(() ->
+                // When
+                engine.startHandshake(secp256r1, List.of(secp256r1, TlsConstants.NamedGroup.ffdhe8192), List.of(rsa_pss_rsae_sha256)))
+                // Then
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("ffdhe8192");
+    }
+
+    @Test
+    void emptySupportedGroupsLeadsToException() {
+        assertThatThrownBy(() ->
+                // When
+                engine.startHandshake(secp256r1, Collections.emptyList(), List.of(rsa_pss_rsae_sha256)))
+                // Then
+                .isInstanceOf(IllegalArgumentException.class);
     }
 
     private void startHandshakeWithPsk() throws Exception {

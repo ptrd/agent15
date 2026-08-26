@@ -151,18 +151,40 @@ public class ClientHello extends HandshakeMessage {
 
     /**
      * @param serverName
+     * @param ecCurve
      * @param keyShare
      * @param compatibilityMode
      * @param supportedCiphers
      * @param supportedSignatures
-     * @param ecCurve
      * @param extraExtensions
      * @param binderCalculator              can be null when no ClientHelloPreSharedKeyExtension is present, must be non-null when ClientHelloPreSharedKeyExtension is present.
      * @param pskKeyEstablishmentMode
      */
-    public ClientHello(String serverName, byte[] keyShare, boolean compatibilityMode, List<TlsConstants.CipherSuite> supportedCiphers,
-                       List<TlsConstants.SignatureScheme> supportedSignatures, TlsConstants.NamedGroup ecCurve,
+    public ClientHello(String serverName, TlsConstants.NamedGroup ecCurve, byte[] keyShare, boolean compatibilityMode,
+                       List<TlsConstants.CipherSuite> supportedCiphers, List<TlsConstants.SignatureScheme> supportedSignatures,
                        List<Extension> extraExtensions, BinderCalculator binderCalculator, PskKeyEstablishmentMode pskKeyEstablishmentMode) {
+        this(serverName, ecCurve, keyShare, compatibilityMode, supportedCiphers, supportedSignatures, List.of(ecCurve),
+                extraExtensions, binderCalculator, pskKeyEstablishmentMode);
+    }
+
+    /**
+     * @param serverName
+     * @param ecCurve
+     * @param keyShare
+     * @param compatibilityMode
+     * @param supportedCiphers
+     * @param supportedSignatures
+     * @param supportedGroups
+     * @param extraExtensions
+     * @param binderCalculator        can be null when no ClientHelloPreSharedKeyExtension is present, must be non-null when ClientHelloPreSharedKeyExtension is present.
+     * @param pskKeyEstablishmentMode
+     */
+    public ClientHello(String serverName, TlsConstants.NamedGroup ecCurve, byte[] keyShare, boolean compatibilityMode,
+                       List<TlsConstants.CipherSuite> supportedCiphers, List<TlsConstants.SignatureScheme> supportedSignatures,
+                       List<TlsConstants.NamedGroup> supportedGroups, List<Extension> extraExtensions, BinderCalculator binderCalculator, PskKeyEstablishmentMode pskKeyEstablishmentMode) {
+        if (! supportedGroups.contains(ecCurve)) {
+            throw new IllegalArgumentException("ecCurve must be in supportedGroups");
+        }
         this.cipherSuites = supportedCiphers;
 
         ByteBuffer buffer = ByteBuffer.allocate(MAX_CLIENT_HELLO_SIZE);
@@ -209,7 +231,7 @@ public class ClientHello extends HandshakeMessage {
         Extension[] defaultExtensions = new Extension[] {
                 new ServerNameExtension(serverName),
                 new SupportedVersionsExtension(TlsConstants.HandshakeType.client_hello),
-                new SupportedGroupsExtension(ecCurve),
+                new SupportedGroupsExtension(supportedGroups),
                 new SignatureAlgorithmsExtension(supportedSignatures),
                 new KeyShareExtension(keyShare, ecCurve, TlsConstants.HandshakeType.client_hello),
         };

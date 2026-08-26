@@ -105,17 +105,17 @@ public class TlsServerEngineTest {
         // Given
         engine.addSupportedCiphers(List.of(TLS_CHACHA20_POLY1305_SHA256));
 
-        ClientHello clientHello1 =  new ClientHello("localhost", KEY_EXCHANGE_DATA, false,
+        ClientHello clientHello1 =  new ClientHello("localhost", NamedGroup.secp256r1, KEY_EXCHANGE_DATA, false,
                 List.of(TLS_AES_128_GCM_SHA256),
                 List.of(rsa_pss_rsae_sha256),
-                NamedGroup.secp256r1, Collections.emptyList(), null, ClientHello.PskKeyEstablishmentMode.none);
+                Collections.emptyList(), null, ClientHello.PskKeyEstablishmentMode.none);
         engine.received(clientHello1, ProtectionKeysType.None);
 
         // When
-        ClientHello clientHello2 =  new ClientHello("localhost", KEY_EXCHANGE_DATA, false,
+        ClientHello clientHello2 =  new ClientHello("localhost", NamedGroup.secp256r1, KEY_EXCHANGE_DATA, false,
                 List.of(TLS_CHACHA20_POLY1305_SHA256),   // Intentionally different cipher, this is the crux of the test!
                 List.of(rsa_pss_rsae_sha256),
-                NamedGroup.secp256r1, Collections.emptyList(), null, ClientHello.PskKeyEstablishmentMode.none);
+                Collections.emptyList(), null, ClientHello.PskKeyEstablishmentMode.none);
         regardless(() ->
                 engine.received(clientHello2, ProtectionKeysType.None)
         );
@@ -127,10 +127,10 @@ public class TlsServerEngineTest {
     @Test
     void failingCipherNegotiationLeadsToHandshakeException() throws Exception {
         // Given
-        ClientHello clientHello = new ClientHello("localhost", KEY_EXCHANGE_DATA, false,
+        ClientHello clientHello = new ClientHello("localhost", NamedGroup.secp256r1, KEY_EXCHANGE_DATA, false,
                 List.of(TLS_CHACHA20_POLY1305_SHA256),
                 List.of(rsa_pss_rsae_sha256),
-                NamedGroup.secp256r1, Collections.emptyList(), null, ClientHello.PskKeyEstablishmentMode.both);
+                Collections.emptyList(), null, ClientHello.PskKeyEstablishmentMode.both);
 
         assertThatThrownBy(() ->
                 // When
@@ -226,10 +226,10 @@ public class TlsServerEngineTest {
     @Test
     void serverSelectsCipherFromOptionsGivenByClientHello() throws Exception {
         // Given
-        ClientHello clientHello = new ClientHello("localhost", KEY_EXCHANGE_DATA, false,
+        ClientHello clientHello = new ClientHello("localhost", NamedGroup.secp256r1, KEY_EXCHANGE_DATA, false,
                 List.of(TLS_CHACHA20_POLY1305_SHA256, TLS_AES_128_GCM_SHA256),
                 List.of(rsa_pss_rsae_sha256),
-                NamedGroup.secp256r1, Collections.emptyList(), null, ClientHello.PskKeyEstablishmentMode.both);
+                Collections.emptyList(), null, ClientHello.PskKeyEstablishmentMode.both);
 
         // When
         engine.received(clientHello, ProtectionKeysType.None);
@@ -574,10 +574,10 @@ public class TlsServerEngineTest {
     }
 
     private ClientHello createDefaultClientHello(List<Extension> extensions, TlsState state) {
-        return new ClientHello("localhost", KEY_EXCHANGE_DATA, false,
+        return new ClientHello("localhost", NamedGroup.secp256r1, KEY_EXCHANGE_DATA, false,
                 List.of(TLS_AES_128_GCM_SHA256),
                 List.of(rsa_pss_rsae_sha256),
-                NamedGroup.secp256r1, extensions, state, ClientHello.PskKeyEstablishmentMode.none);
+                extensions, state, ClientHello.PskKeyEstablishmentMode.none);
     }
 
     private void simulateAlpnNegotation() throws Exception {

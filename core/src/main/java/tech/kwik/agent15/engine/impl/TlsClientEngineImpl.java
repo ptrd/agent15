@@ -146,6 +146,21 @@ public class TlsClientEngineImpl extends TlsEngineImpl implements TlsClientEngin
      */
     @Override
     public void startHandshake(TlsConstants.NamedGroup ecNamedGroup, List<TlsConstants.SignatureScheme> signatureSchemes) throws IOException {
+        startHandshake(ecNamedGroup, List.of(ecNamedGroup), signatureSchemes);
+    }
+
+    /**
+     * Start TLS handshake with given parameters
+     *
+     * @param ecNamedGroup     the EC named group to use for the DHE key generation (and thus for the key share
+     *                         extension); must be one of the given supported groups.
+     * @param supportedGroups  the named groups to advertise in the supported groups extension; the order determines
+     *                         the client's preference. Must contain the given ecNamedGroup.
+     * @param signatureSchemes the signature algorithms this peer is willing to accept
+     * @throws IOException
+     */
+    @Override
+    public void startHandshake(TlsConstants.NamedGroup ecNamedGroup, List<TlsConstants.NamedGroup> supportedGroups, List<TlsConstants.SignatureScheme> signatureSchemes) throws IOException {
         if (status != Status.Start) {
             throw new IllegalStateException("Handshake already started");
         }
@@ -154,6 +169,15 @@ public class TlsClientEngineImpl extends TlsEngineImpl implements TlsClientEngin
             var unsupportedSignatures = new ArrayList<>(signatureSchemes);
             unsupportedSignatures.removeAll(AVAILABLE_SIGNATURES);
             throw new IllegalArgumentException("Unsupported signature scheme(s): " + unsupportedSignatures);
+        }
+        if (!supportedGroups.contains(ecNamedGroup)) {
+            throw new IllegalArgumentException("Supported groups must contain the named group used for the key share (" + ecNamedGroup + ")");
+        }
+        if (!keyExchangeFactory.getSupportedGroups().containsAll(supportedGroups)) {
+            // Do not offer groups that cannot be used for key exchange (e.g. when the server would select one of them).
+            var unsupportedGroups = new ArrayList<>(supportedGroups);
+            unsupportedGroups.removeAll(keyExchangeFactory.getSupportedGroups());
+            throw new IllegalArgumentException("Unsupported named group(s): " + unsupportedGroups);
         }
         if (newSessionTicket != null && isExpired(newSessionTicket)) {
             // https://www.rfc-editor.org/rfc/rfc8446#section-4.6.1
@@ -194,8 +218,8 @@ public class TlsClientEngineImpl extends TlsEngineImpl implements TlsClientEngin
             // Defer initialization of TlsState until selected cipher is known.
         }
 
-        clientHello = new ClientHello(serverName, keyExchange.getClientKeyShare(), compatibilityMode, supportedCiphers, supportedSignatures,
-                ecNamedGroup, extensions, state, ClientHello.PskKeyEstablishmentMode.PSKwithDHE);
+        clientHello = new ClientHello(serverName, ecNamedGroup, keyExchange.getClientKeyShare(), compatibilityMode,
+                supportedCiphers, supportedSignatures, supportedGroups, extensions, state, ClientHello.PskKeyEstablishmentMode.PSKwithDHE);
         sentExtensions = clientHello.getExtensions();
 
         if (state != null) {

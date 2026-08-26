@@ -112,6 +112,18 @@ public interface TlsClientEngine extends TlsEngine {
     void startHandshake(TlsConstants.NamedGroup ecCurve, List<TlsConstants.SignatureScheme> signatureSchemes) throws IOException;
 
     /**
+     * Start TLS handshake with given parameters
+     *
+     * @param ecCurve          the EC named group to use for the DHE key generation (and thus for the key share
+     *                         extension); must be one of the given supported groups.
+     * @param supportedGroups  the named groups to advertise in the supported groups extension; the order determines
+     *                         the client's preference. Must contain the given ecCurve.
+     * @param signatureSchemes the signature algorithms this peer (the client) is willing to accept
+     * @throws IOException
+     */
+    void startHandshake(TlsConstants.NamedGroup ecCurve, List<TlsConstants.NamedGroup> supportedGroups, List<TlsConstants.SignatureScheme> signatureSchemes) throws IOException;
+
+    /**
      * Returns whether the handshake has (successfully) finished.
      * @return
      */
