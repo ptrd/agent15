@@ -89,7 +89,8 @@ public class TlsServerEngineTest {
         serverCertificate = CertificateUtils.inflateCertificate(encodedKwikDotTechRsaCertificate);
         tlsStatusHandler = mock(TlsStatusEventHandler.class);
         tlsSessionRegistry = new TlsSessionRegistryImpl();
-        engine = new TlsServerEngineImpl(List.of(serverCertificate), privateKey, List.of(rsa_pss_rsae_sha256), messageSender, tlsStatusHandler, tlsSessionRegistry) {
+        engine = new TlsServerEngineImpl(List.of(serverCertificate), privateKey, List.of(rsa_pss_rsae_sha256),
+                messageSender, tlsStatusHandler, tlsSessionRegistry, keyExchangeFactorySupporting(NamedGroup.secp256r1)) {
             protected boolean validateBinder(ClientHelloPreSharedKeyExtension.PskBinderEntry pskBinderEntry, int binderPosition, ClientHello clientHello) {
                 return true;
             }

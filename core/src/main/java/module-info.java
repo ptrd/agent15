@@ -59,4 +59,6 @@ module tech.kwik.agent15 {
 
     // Key exchange groups that core does not implement itself (e.g. the hybrid groups provided by agent15-pqc).
     uses tech.kwik.agent15.engine.KeyExchangeFactory;
+
+    provides tech.kwik.agent15.engine.KeyExchangeFactory with tech.kwik.agent15.engine.impl.KeyExchangeFactoryImpl;
 }

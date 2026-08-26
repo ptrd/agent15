@@ -1,5 +1,5 @@
 /*
- * Copyright © 2026 Peter Doornbosch, Chris Burdess
+ * Copyright © 2026 Peter Doornbosch
  *
  * This file is part of Agent15, an implementation of TLS 1.3 in Java.
  *
@@ -22,30 +22,41 @@ import tech.kwik.agent15.TlsConstants;
 import tech.kwik.agent15.engine.KeyExchange;
 import tech.kwik.agent15.engine.KeyExchangeFactory;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.ServiceLoader;
 
-import static tech.kwik.agent15.TlsConstants.NamedGroup.*;
+public class KeyExchangeFactoryScanner implements KeyExchangeFactory {
 
-public class KeyExchangeFactoryImpl implements KeyExchangeFactory {
+    private final Map<TlsConstants.NamedGroup, KeyExchangeFactory> keyExchangeFactories = new HashMap<>();
 
-    @Override
+    public KeyExchangeFactoryScanner() {
+        for (KeyExchangeFactory factory : ServiceLoader.load(KeyExchangeFactory.class)) {
+            for (var group : factory.getSupportedGroups()) {
+                keyExchangeFactories.put(group, factory);
+            }
+        }
+    }
+
     public KeyExchange forGroup(TlsConstants.NamedGroup group) {
-        if (group == x25519 || group == x448) {
-            return new XDHKeyExchange(group);
+        KeyExchangeFactory factory = keyExchangeFactories.get(group);
+        if (factory != null) {
+            return factory.forGroup(group);
         }
-        if (group == secp256r1 || group == secp384r1 || group == secp521r1) {
-            return new ECKeyExchange(group);
+        else {
+            return null;
         }
-        return null;
     }
 
     @Override
     public List<TlsConstants.NamedGroup> getSupportedGroups() {
-        return List.of(secp256r1, secp384r1, secp521r1, x25519, x448);
+        return new ArrayList<>(keyExchangeFactories.keySet());
     }
 
     @Override
     public void init() {
+        keyExchangeFactories.values().forEach(KeyExchangeFactory::init);
     }
 }

@@ -20,6 +20,7 @@ package tech.kwik.agent15.engine;
 
 import tech.kwik.agent15.TlsConstants;
 import tech.kwik.agent15.compat.InputStreamCompat;
+import tech.kwik.agent15.engine.impl.KeyExchangeFactoryScanner;
 import tech.kwik.agent15.engine.impl.TlsServerEngineImpl;
 import tech.kwik.agent15.engine.impl.TlsSessionRegistryImpl;
 
@@ -139,7 +140,8 @@ public class TlsServerEngineFactory {
     }
 
     public TlsServerEngine createServerEngine(ServerMessageSender serverMessageSender, TlsStatusEventHandler tlsStatusHandler) {
-        TlsServerEngineImpl tlsServerEngine = new TlsServerEngineImpl(certificateChain, certificateKey, preferredSignatureSchemes, serverMessageSender, tlsStatusHandler, tlsSessionRegistry);
+        TlsServerEngineImpl tlsServerEngine = new TlsServerEngineImpl(certificateChain, certificateKey, preferredSignatureSchemes,
+                serverMessageSender, tlsStatusHandler, tlsSessionRegistry, new KeyExchangeFactoryScanner());
         tlsServerEngine.addSupportedCiphers(List.of(TlsConstants.CipherSuite.TLS_AES_128_GCM_SHA256));
         return tlsServerEngine;
     }

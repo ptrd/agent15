@@ -81,25 +81,11 @@ public class TlsServerEngineImpl extends TlsEngineImpl implements TlsServerEngin
      * @param serverMessageSender  the callback that is used to send messages to the client
      * @param tlsStatusHandler  the callback that is used to notify the context of status changes in the TLS engine, for example when secrets become available or when the handshake is finished
      * @param tlsSessionRegistry  the registry that is used to store and retrieve session data for session resumption; can be null if session resumption is not supported
-     */
-    public TlsServerEngineImpl(List<X509Certificate> certificates, PrivateKey certificateKey, List<SignatureScheme> preferredSignatureSchemes, ServerMessageSender serverMessageSender, TlsStatusEventHandler tlsStatusHandler, TlsSessionRegistry tlsSessionRegistry) {
-        this(certificates, certificateKey, preferredSignatureSchemes, serverMessageSender, tlsStatusHandler, tlsSessionRegistry, new KeyExchangeFactoryImpl());
-    }
-
-    /**
-     * Create new TLS server engine, with a specific key exchange factory. The key exchange factory determines which
-     * key exchange algorithms (named groups) the server supports: all groups for which the factory can create a
-     * key exchange (i.e. does not return null).
-     * Caller must ensure that the preferred signature schemes are compatible with the provided certificate (i.e. that the certificate's public key can be used with all signature schemes).
-     * @param certificates  the certificate chain for the server certificate
-     * @param certificateKey  the private key for the server certificate
-     * @param preferredSignatureSchemes   the signature schemes that the server supports (must be compatible with the provided certificate)
-     * @param serverMessageSender  the callback that is used to send messages to the client
-     * @param tlsStatusHandler  the callback that is used to notify the context of status changes in the TLS engine, for example when secrets become available or when the handshake is finished
-     * @param tlsSessionRegistry  the registry that is used to store and retrieve session data for session resumption; can be null if session resumption is not supported
      * @param keyExchangeFactory  the factory that creates the key exchange for a given named group
      */
-    public TlsServerEngineImpl(List<X509Certificate> certificates, PrivateKey certificateKey, List<SignatureScheme> preferredSignatureSchemes, ServerMessageSender serverMessageSender, TlsStatusEventHandler tlsStatusHandler, TlsSessionRegistry tlsSessionRegistry, KeyExchangeFactory keyExchangeFactory) {
+    public TlsServerEngineImpl(List<X509Certificate> certificates, PrivateKey certificateKey, List<SignatureScheme> preferredSignatureSchemes,
+                               ServerMessageSender serverMessageSender, TlsStatusEventHandler tlsStatusHandler, TlsSessionRegistry tlsSessionRegistry,
+                               KeyExchangeFactory keyExchangeFactory) {
         this.serverCertificateChain = certificates;
         this.certificatePrivateKey = certificateKey;
         this.preferredSignatureSchemes = preferredSignatureSchemes;

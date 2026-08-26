@@ -88,7 +88,7 @@ class TlsClientEngineTest {
     @BeforeEach
     void initObjectUnderTest() {
         messageSender = Mockito.mock(ClientMessageSender.class);
-        engine = new TlsClientEngineImpl(messageSender, Mockito.mock(TlsStatusEventHandler.class));
+        engine = new TlsClientEngineImpl(messageSender, Mockito.mock(TlsStatusEventHandler.class), new KeyExchangeFactoryImpl());
         engine.setServerName("server");
         engineCipher = TLS_AES_128_GCM_SHA256;
         engine.addSupportedCiphers(List.of(engineCipher));

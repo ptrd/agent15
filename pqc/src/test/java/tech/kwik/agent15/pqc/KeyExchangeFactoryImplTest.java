@@ -20,6 +20,7 @@ package tech.kwik.agent15.pqc;
 
 import org.junit.jupiter.api.Test;
 import tech.kwik.agent15.engine.KeyExchange;
+import tech.kwik.agent15.engine.KeyExchangeFactory;
 import tech.kwik.agent15.engine.impl.ECKeyExchange;
 import tech.kwik.agent15.engine.impl.KeyExchangeFactoryImpl;
 import tech.kwik.agent15.engine.impl.XDHKeyExchange;
@@ -34,7 +35,7 @@ class KeyExchangeFactoryImplTest {
 
     @Test
     void forGroupReturnsTheHybridImplementationsForTheRfc10024Groups() {
-        KeyExchangeFactoryImpl factory = new KeyExchangeFactoryImpl();
+        KeyExchangeFactory factory = new HybridKeyExchangeFactory();
 
         assertThat(factory.forGroup(X25519MLKEM768)).isInstanceOf(X25519MLKEM768KeyExchange.class);
         assertThat(factory.forGroup(SecP256r1MLKEM768)).isInstanceOf(SecP256r1MLKEM768KeyExchange.class);
@@ -54,7 +55,7 @@ class KeyExchangeFactoryImplTest {
 
     @Test
     void initDoesNotThrowAndForGroupStillWorksAfterwards() {
-        KeyExchangeFactoryImpl factory = new KeyExchangeFactoryImpl();
+        KeyExchangeFactory factory = new HybridKeyExchangeFactory();
 
         factory.init();
 

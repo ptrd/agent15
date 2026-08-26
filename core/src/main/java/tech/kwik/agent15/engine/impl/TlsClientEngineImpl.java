@@ -91,6 +91,7 @@ public class TlsClientEngineImpl extends TlsEngineImpl implements TlsClientEngin
     private List<TlsConstants.CipherSuite> supportedCiphers;
     private TlsConstants.NamedGroup ecCurve;
     private KeyExchange keyExchange;
+    private final KeyExchangeFactory keyExchangeFactory;
     private TlsConstants.CipherSuite selectedCipher;
     private List<Extension> requestedExtensions;
     private List<Extension> sentExtensions;
@@ -112,6 +113,10 @@ public class TlsClientEngineImpl extends TlsEngineImpl implements TlsClientEngin
 
 
     public TlsClientEngineImpl(ClientMessageSender clientMessageSender, TlsStatusEventHandler tlsStatusHandler) {
+        this(clientMessageSender, tlsStatusHandler, new KeyExchangeFactoryScanner());
+    }
+
+    public TlsClientEngineImpl(ClientMessageSender clientMessageSender, TlsStatusEventHandler tlsStatusHandler, KeyExchangeFactory keyExchangeFactory) {
         sender = clientMessageSender;
         statusHandler = tlsStatusHandler;
         supportedCiphers = new ArrayList<>();
@@ -119,6 +124,7 @@ public class TlsClientEngineImpl extends TlsEngineImpl implements TlsClientEngin
         hostnameVerifier = new DefaultHostnameVerifier();
         obtainedNewSessionTickets = new ArrayList<>();
         clientCertificateSelector = l -> null;
+        this.keyExchangeFactory = keyExchangeFactory;
     }
 
     @Override
@@ -164,7 +170,7 @@ public class TlsClientEngineImpl extends TlsEngineImpl implements TlsClientEngin
             throw new IllegalStateException("not all mandatory properties are set");
         }
 
-        keyExchange = new KeyExchangeFactoryImpl().forGroup(ecNamedGroup);
+        keyExchange = keyExchangeFactory.forGroup(ecNamedGroup);
         if (keyExchange == null) {
             throw new IllegalArgumentException("Named group " + ecNamedGroup + " not supported");
         }
@@ -723,7 +729,7 @@ public class TlsClientEngineImpl extends TlsEngineImpl implements TlsClientEngin
     }
 
     @Override
-    public void addSupportedCiphers(List<TlsConstants.CipherSuite> supportedCiphers) {
+    public void addSupportedCiphers(List< tech.kwik.agent15.TlsConstants.CipherSuite> supportedCiphers) {
         this.supportedCiphers.addAll(supportedCiphers);
     }
 
