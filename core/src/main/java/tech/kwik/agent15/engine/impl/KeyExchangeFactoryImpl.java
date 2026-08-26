@@ -22,6 +22,7 @@ import tech.kwik.agent15.TlsConstants;
 import tech.kwik.agent15.engine.KeyExchange;
 import tech.kwik.agent15.engine.KeyExchangeFactory;
 
+import java.util.List;
 import java.util.ServiceLoader;
 
 import static tech.kwik.agent15.TlsConstants.NamedGroup.*;
@@ -45,6 +46,11 @@ public class KeyExchangeFactoryImpl implements KeyExchangeFactory {
             }
         }
         return null;
+    }
+
+    @Override
+    public List<TlsConstants.NamedGroup> getSupportedGroups() {
+        return List.of(secp256r1, secp384r1, secp521r1, x25519, x448);
     }
 
     @Override

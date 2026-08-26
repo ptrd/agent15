@@ -20,9 +20,13 @@ package tech.kwik.agent15.engine;
 
 import tech.kwik.agent15.TlsConstants;
 
+import java.util.List;
+
 public interface KeyExchangeFactory {
 
     KeyExchange forGroup(TlsConstants.NamedGroup group);
+
+    List<TlsConstants.NamedGroup> getSupportedGroups();
 
     void init();
 }

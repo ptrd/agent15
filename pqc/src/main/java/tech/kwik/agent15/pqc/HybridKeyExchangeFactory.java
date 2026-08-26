@@ -27,6 +27,8 @@ import tech.kwik.agent15.pqc.impl.SecP256r1MLKEM768KeyExchange;
 import tech.kwik.agent15.pqc.impl.SecP384r1MLKEM1024KeyExchange;
 import tech.kwik.agent15.pqc.impl.X25519MLKEM768KeyExchange;
 
+import java.util.List;
+
 import static tech.kwik.agent15.TlsConstants.NamedGroup.SecP256r1MLKEM768;
 import static tech.kwik.agent15.TlsConstants.NamedGroup.SecP384r1MLKEM1024;
 import static tech.kwik.agent15.TlsConstants.NamedGroup.X25519MLKEM768;
@@ -49,6 +51,11 @@ public class HybridKeyExchangeFactory implements KeyExchangeFactory {
             return new SecP384r1MLKEM1024KeyExchange();
         }
         return null;
+    }
+
+    @Override
+    public List<TlsConstants.NamedGroup> getSupportedGroups() {
+        return List.of(X25519MLKEM768, SecP256r1MLKEM768, SecP384r1MLKEM1024);
     }
 
     @Override
