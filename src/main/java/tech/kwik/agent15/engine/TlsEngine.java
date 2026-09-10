@@ -19,4 +19,10 @@
 package tech.kwik.agent15.engine;
 
 public interface TlsEngine extends MessageProcessor, TrafficSecrets {
+
+    /**
+     * Derives keying material using the TLS 1.3 exporter function (RFC 8446, Section 7.5).
+     */
+    byte[] exportKeyingMaterial(String label, byte[] context, int length);
+
 }

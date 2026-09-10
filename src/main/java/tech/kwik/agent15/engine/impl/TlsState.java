@@ -68,6 +68,7 @@ public class TlsState implements BinderCalculator {
     private final TranscriptHash transcriptHash;
     private byte[] sharedSecret;
     private byte[] masterSecret;
+    private byte[] exporterSecret;
 
     public TlsState(TranscriptHash transcriptHash, byte[] psk, int keyLength, int hashLength) {
         this.psk = psk;
@@ -225,6 +226,40 @@ public class TlsState implements BinderCalculator {
         byte[] clientFinishedHash = transcriptHash.getClientHash(TlsConstants.HandshakeType.finished);
 
         resumptionMasterSecret = hkdfExpandLabel(masterSecret, "res master", clientFinishedHash, hashLength);
+    }
+
+    /**
+     * Computes the TLS 1.3 exporter secret (RFC 8446, Section 7.5).
+     * The exporter secret is derived from the server's application traffic secret:
+     *   exporter_secret = Derive-Secret(server_application_traffic_secret, "exporter", "")
+     * This ensures both client and server can derive the same key material.
+     * Must be called after computeApplicationSecrets().
+     */
+    public void computeExporterSecret() {
+        // Derive-Secret(Secret, Label, Messages) = HKDF-Expand-Label(Secret, Label, Transcript-Hash(Messages), Hash.length)
+        // For the exporter, Messages is "" (empty), so Transcript-Hash("") = emptyHash
+        if (serverApplicationTrafficSecret == null) {
+            throw new IllegalStateException("Server application traffic secret not available");
+        }
+        exporterSecret = hkdfExpandLabel(serverApplicationTrafficSecret, "exporter", emptyHash, hashLength);
+    }
+
+    /**
+     * Implements the TLS 1.3 exporter function (RFC 8446, Section 7.5):
+     *   TLS-Exporter(label, context_value, key_length) =
+     *       HKDF-Expand-Label(exporter_secret, label, context_value, key_length)
+     *
+     * @param label   the exporter label
+     * @param context the context value
+     * @param length  the desired output length in bytes
+     * @return the derived keying material
+     * @throws IllegalStateException if the exporter secret has not been computed yet
+     */
+    public byte[] exportKeyingMaterial(String label, byte[] context, int length) {
+        if (exporterSecret == null) {
+            throw new IllegalStateException("Exporter secret not available; handshake may not be complete yet");
+        }
+        return hkdfExpandLabel(exporterSecret, label, context, (short) length);
     }
 
     // https://tools.ietf.org/html/rfc8446#section-4.6.1

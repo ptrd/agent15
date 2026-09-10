@@ -499,6 +499,7 @@ public class TlsClientEngineImpl extends TlsEngineImpl implements TlsClientEngin
 
         transcriptHash.recordClient(clientFinished);
         state.computeApplicationSecrets();
+        state.computeExporterSecret();
         state.computeResumptionMasterSecret();
         status = Status.Connected;
         statusHandler.handshakeFinished();

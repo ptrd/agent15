@@ -320,6 +320,16 @@ public abstract class TlsEngineImpl implements TlsEngine {
         }
     }
 
+    @Override
+    public byte[] exportKeyingMaterial(String label, byte[] context, int length) {
+        if (state != null) {
+            return state.exportKeyingMaterial(label, context, length);
+        }
+        else {
+            throw new IllegalStateException("Exporter secret not yet available; handshake not completed yet.");
+        }
+    }
+
     protected boolean recognizedExtension(Extension extension) {
         return ! (extension instanceof UnknownExtension);
     }
