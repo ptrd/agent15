@@ -264,7 +264,7 @@ class TlsClientEngineTest {
         String hex = "0200002c03031219785ef730198b9d915575532c20dea24fa42b20b26724f988d7425740418500131300004f002b00020304003300450017004104ace3b035eba5dd75860925b2c9b206656f2d1590f8c596d96a2a91adb442b378240002c8ef8360ba6104033c02eb3ab9ebcce036c735892697dda158f91c786e";
         byte[] data = ByteUtils.hexToBytes(hex);
 
-        ServerHello serverHelloWithUnknownCipher = new ServerHello().parse(ByteBuffer.wrap(data), data.length);
+        ServerHello serverHelloWithUnknownCipher = ServerHello.parse(ByteBuffer.wrap(data), data.length);
 
         assertThatThrownBy(() ->
                 // When
@@ -410,7 +410,7 @@ class TlsClientEngineTest {
         String serverHelloHex = ("02 000097 0303 1219785ef730198b9d915575532c20dea24fa42b20b26724f988d74257404185 20 0000000000000000000000000000000000000000000000000000000000000000 1301 00").replaceAll(" ", "");
         String mandatoryExtensions = ("004f 002b00020304 003300450017004104ace3b035eba5dd75860925b2c9b206656f2d1590f8c596d96a2a91adb442b378240002c8ef8360ba6104033c02eb3ab9ebcce036c735892697dda158f91c786e").replaceAll(" ", "");
         byte[] data = ByteUtils.hexToBytes(serverHelloHex + mandatoryExtensions);
-        ServerHello serverHello = new ServerHello().parse(ByteBuffer.wrap(data), data.length);
+        ServerHello serverHello = ServerHello.parse(ByteBuffer.wrap(data), data.length);
 
         assertThatThrownBy(() ->
                 // When

@@ -31,7 +31,6 @@ import java.nio.ByteBuffer;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 
@@ -41,7 +40,7 @@ class ServerHelloTest {
     void parseServerHello() throws Exception {
         byte[] data = ByteUtils.hexToBytes("02000077030327303877f58601e5e987b1be085f509adecd10056353daf3843f5f89084a4c6100130100004f002b0002030400330045001700410456517b9551d5ce0950c8210bf1f30b3f5d2b066ac6ac7469d6490387b36d9a57385bdfe2d5d55a1e6956a6d8d771cd7f1aee418b1cf615cbd976ba509a48e9de");
 
-        ServerHello sh = new ServerHello().parse(ByteBuffer.wrap(data), data.length);
+        ServerHello sh = ServerHello.parse(ByteBuffer.wrap(data), data.length);
         assertThat(sh.getCipherSuite()).isEqualTo(TlsConstants.CipherSuite.TLS_AES_128_GCM_SHA256);
     }
 
@@ -62,7 +61,7 @@ class ServerHelloTest {
         byte[] data = ByteUtils.hexToBytes("0200002c03021219785ef730198b9d915575532c20dea24fa42b20b26724f988d74257404185001301000000");
 
         assertThatThrownBy(() ->
-                new ServerHello().parse(ByteBuffer.wrap(data), data.length)
+                ServerHello.parse(ByteBuffer.wrap(data), data.length)
         ).isInstanceOf(IllegalParameterAlert.class);
     }
 
@@ -71,7 +70,7 @@ class ServerHelloTest {
         String minimalServerHello = addMandatoryExtensions("0200002c03031219785ef730198b9d915575532c20dea24fa42b20b26724f988d7425740418500130100");
 
         byte[] data = ByteUtils.hexToBytes(minimalServerHello);
-        ServerHello sh = new ServerHello().parse(ByteBuffer.wrap(data), data.length);
+        ServerHello sh = ServerHello.parse(ByteBuffer.wrap(data), data.length);
 
         assertThat(sh.getCipherSuite()).isEqualTo(TlsConstants.CipherSuite.TLS_AES_128_GCM_SHA256);
         assertThat(sh.getExtensions())
@@ -88,7 +87,7 @@ class ServerHelloTest {
         byte[] data = ByteUtils.hexToBytes(serverHello);
 
         assertThatThrownBy(() ->
-                new ServerHello().parse(ByteBuffer.wrap(data), data.length)
+                ServerHello.parse(ByteBuffer.wrap(data), data.length)
         ).isInstanceOf(DecodeErrorException.class);
     }
 
@@ -101,7 +100,7 @@ class ServerHelloTest {
         byte[] data = ByteUtils.hexToBytes(serverHello);
 
         assertThatThrownBy(() ->
-                new ServerHello().parse(ByteBuffer.wrap(data), data.length)
+                ServerHello.parse(ByteBuffer.wrap(data), data.length)
         ).isInstanceOf(DecodeErrorException.class);
     }
 
@@ -112,10 +111,7 @@ class ServerHelloTest {
 
         byte[] data = ByteUtils.hexToBytes(serverHelloInHex);
 
-        ServerHello serverHello = new ServerHello();
-        assertThatCode(() ->
-                serverHello.parse(ByteBuffer.wrap(data), data.length))
-                .doesNotThrowAnyException();
+        ServerHello serverHello = ServerHello.parse(ByteBuffer.wrap(data), data.length);
 
         assertThat(serverHello.getCipherSuite()).isNull();
     }
@@ -128,7 +124,7 @@ class ServerHelloTest {
         byte[] data = ByteUtils.hexToBytes(serverHello);
 
         assertThatThrownBy(() ->
-                new ServerHello().parse(ByteBuffer.wrap(data), data.length)
+                ServerHello.parse(ByteBuffer.wrap(data), data.length)
         ).isInstanceOf(DecodeErrorException.class);
     }
 
@@ -140,7 +136,7 @@ class ServerHelloTest {
         byte[] data = ByteUtils.hexToBytes(serverHello);
 
         assertThatThrownBy(() ->
-                new ServerHello().parse(ByteBuffer.wrap(data), data.length)
+                ServerHello.parse(ByteBuffer.wrap(data), data.length)
         ).isInstanceOf(DecodeErrorException.class);
     }
 
@@ -152,7 +148,7 @@ class ServerHelloTest {
         byte[] data = ByteUtils.hexToBytes(serverHello);
 
         assertThatThrownBy(() ->
-                new ServerHello().parse(ByteBuffer.wrap(data), data.length)
+                ServerHello.parse(ByteBuffer.wrap(data), data.length)
         ).isInstanceOf(DecodeErrorException.class);
     }
 
@@ -167,7 +163,7 @@ class ServerHelloTest {
         byte[] data = ByteUtils.hexToBytes(serverHello);
 
         assertThatThrownBy(() ->
-                new ServerHello().parse(ByteBuffer.wrap(data), data.length)
+                ServerHello.parse(ByteBuffer.wrap(data), data.length)
         ).isInstanceOf(TlsProtocolException.class);
     }
 
@@ -182,7 +178,7 @@ class ServerHelloTest {
         buffer.put(serverHelloData);
         buffer.position(prefix.length);  // position the buffer at the start of the ServerHello message
 
-        ServerHello sh = new ServerHello().parse(buffer, serverHelloData.length);
+        ServerHello sh = ServerHello.parse(buffer, serverHelloData.length);
 
         // The raw bytes captured during parsing should be exactly the ServerHello message.
         assertThat(sh.getBytes()).isEqualTo(serverHelloData);

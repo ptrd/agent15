@@ -27,7 +27,6 @@ import tech.kwik.agent15.extension.Extension;
 import tech.kwik.agent15.log.Logger;
 
 import java.nio.ByteBuffer;
-import java.security.PublicKey;
 import java.security.SecureRandom;
 import java.util.Arrays;
 import java.util.Collections;
@@ -38,7 +37,7 @@ import java.util.List;
  */
 public class ServerHello extends HandshakeMessage {
 
-    static byte[] HelloRetryRequest_SHA256 = new byte[] {
+    static final byte[] HelloRetryRequest_SHA256 = new byte[] {
             (byte) 0xCF, (byte) 0x21, (byte) 0xAD, (byte) 0x74, (byte) 0xE5, (byte) 0x9A, (byte) 0x61, (byte) 0x11,
             (byte) 0xBE, (byte) 0x1D, (byte) 0x8C, (byte) 0x02, (byte) 0x1E, (byte) 0x65, (byte) 0xB8, (byte) 0x91,
             (byte) 0xC2, (byte) 0xA2, (byte) 0x11, (byte) 0x16, (byte) 0x7A, (byte) 0xBB, (byte) 0x8C, (byte) 0x5E,
@@ -47,18 +46,21 @@ public class ServerHello extends HandshakeMessage {
 
     private static final int MINIMAL_MESSAGE_LENGTH = 1 + 3 + 2 + 32 + 1 + 2 + 1 + 2;
 
-    private static SecureRandom secureRandom= new SecureRandom();
+    private static final SecureRandom secureRandom = new SecureRandom();
 
-    private byte[] raw;
+    private final byte[] raw;
 
-    private byte[] random;
-    private byte[] legacySessionIdEcho = new byte[0];
-    private TlsConstants.CipherSuite cipherSuite;
-    private PublicKey serverSharedKey;
-    private short tlsVersion;
-    private List<Extension> extensions = Collections.emptyList();
+    private final byte[] random;
+    private final byte[] legacySessionIdEcho;
+    private final TlsConstants.CipherSuite cipherSuite;
+    private final List<Extension> extensions;
 
-    public ServerHello() {
+    private ServerHello(byte[] raw, byte[] random, byte[] legacySessionIdEcho, TlsConstants.CipherSuite cipherSuite, List<Extension> extensions) {
+        this.raw = raw;
+        this.random = random;
+        this.legacySessionIdEcho = legacySessionIdEcho;
+        this.cipherSuite = cipherSuite;
+        this.extensions = extensions;
     }
 
     public ServerHello(TlsConstants.CipherSuite cipher) {
@@ -68,6 +70,7 @@ public class ServerHello extends HandshakeMessage {
     public ServerHello(TlsConstants.CipherSuite cipher, List<Extension> extensions) {
         random = new byte[32];
         secureRandom.nextBytes(random);
+        legacySessionIdEcho = new byte[0];
         cipherSuite = cipher;
         this.extensions = extensions;
 
@@ -91,7 +94,7 @@ public class ServerHello extends HandshakeMessage {
         return TlsConstants.HandshakeType.server_hello;
     }
 
-    public ServerHello parse(ByteBuffer buffer, int length) throws TlsProtocolException {
+    public static ServerHello parse(ByteBuffer buffer, int length) throws TlsProtocolException {
         if (buffer.remaining() < MINIMAL_MESSAGE_LENGTH) {
             throw new DecodeErrorException("Message too short");
         }
@@ -106,7 +109,7 @@ public class ServerHello extends HandshakeMessage {
         if (versionHigh != 3 || versionLow != 3)
             throw new IllegalParameterAlert("Invalid version number (should be 0x0303)");
 
-        random = new byte[32];
+        byte[] random = new byte[32];
         buffer.get(random);
         if (Arrays.equals(random, HelloRetryRequest_SHA256)) {
             Logger.debug("HelloRetryRequest!");
@@ -117,17 +120,14 @@ public class ServerHello extends HandshakeMessage {
         if (sessionIdLength > 32) {
             throw new DecodeErrorException("session id length exceeds 32");
         }
-        legacySessionIdEcho = new byte[sessionIdLength];
+        byte[] legacySessionIdEcho = new byte[sessionIdLength];
         buffer.get(legacySessionIdEcho);
 
         int cipherSuiteCode = buffer.getShort();
-        Arrays.stream(TlsConstants.CipherSuite.values())
+        TlsConstants.CipherSuite cipherSuite = Arrays.stream(TlsConstants.CipherSuite.values())
                 .filter(item -> item.value == cipherSuiteCode)
                 .findFirst()
-                // https://tools.ietf.org/html/rfc8446#section-4.1.2
-                // "If the list contains cipher suites that the server does not recognize, support, or wish to use,
-                // the server MUST ignore those cipher suites and process the remaining ones as usual."
-                .ifPresent(item -> cipherSuite = item);
+                .orElse(null);
 
         int legacyCompressionMethod = buffer.get();
         if (legacyCompressionMethod != 0) {
@@ -136,14 +136,13 @@ public class ServerHello extends HandshakeMessage {
             throw new DecodeErrorException("Legacy compression method must have the value 0");
         }
 
-        extensions = EncryptedExtensions.parseExtensions(buffer, TlsConstants.HandshakeType.server_hello);
+        List<Extension> extensions = EncryptedExtensions.parseExtensions(buffer, TlsConstants.HandshakeType.server_hello);
 
-        // Update state.
-        raw = new byte[length];
+        byte[] raw = new byte[length];
         buffer.position(startPosition);
         buffer.get(raw);
 
-        return this;
+        return new ServerHello(raw, random, legacySessionIdEcho, cipherSuite, extensions);
     }
 
     @Override
