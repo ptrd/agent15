@@ -21,7 +21,6 @@ package tech.kwik.agent15.handshake;
 import tech.kwik.agent15.TlsConstants;
 import tech.kwik.agent15.TlsProtocolException;
 import tech.kwik.agent15.alert.DecodeErrorException;
-import tech.kwik.agent15.alert.HandshakeFailureAlert;
 import tech.kwik.agent15.alert.IllegalParameterAlert;
 import tech.kwik.agent15.extension.Extension;
 import tech.kwik.agent15.log.Logger;
@@ -36,13 +35,6 @@ import java.util.List;
  * https://datatracker.ietf.org/doc/html/rfc8446#section-4.1.3
  */
 public class ServerHello extends HandshakeMessage {
-
-    static final byte[] HelloRetryRequest_SHA256 = new byte[] {
-            (byte) 0xCF, (byte) 0x21, (byte) 0xAD, (byte) 0x74, (byte) 0xE5, (byte) 0x9A, (byte) 0x61, (byte) 0x11,
-            (byte) 0xBE, (byte) 0x1D, (byte) 0x8C, (byte) 0x02, (byte) 0x1E, (byte) 0x65, (byte) 0xB8, (byte) 0x91,
-            (byte) 0xC2, (byte) 0xA2, (byte) 0x11, (byte) 0x16, (byte) 0x7A, (byte) 0xBB, (byte) 0x8C, (byte) 0x5E,
-            (byte) 0x07, (byte) 0x9E, (byte) 0x09, (byte) 0xE2, (byte) 0xC8, (byte) 0xA8, (byte) 0x33, (byte) 0x9C
-    };
 
     private static final int MINIMAL_MESSAGE_LENGTH = 1 + 3 + 2 + 32 + 1 + 2 + 1 + 2;
 
@@ -94,7 +86,11 @@ public class ServerHello extends HandshakeMessage {
         return TlsConstants.HandshakeType.server_hello;
     }
 
-    public static ServerHello parse(ByteBuffer buffer, int length) throws TlsProtocolException {
+    /**
+     * Parses a server_hello message; returns a HelloRetryRequest when the message's random field marks it as such, a
+     * ServerHello otherwise.
+     */
+    public static HandshakeMessage parse(ByteBuffer buffer, int length) throws TlsProtocolException {
         if (buffer.remaining() < MINIMAL_MESSAGE_LENGTH) {
             throw new DecodeErrorException("Message too short");
         }
@@ -111,10 +107,10 @@ public class ServerHello extends HandshakeMessage {
 
         byte[] random = new byte[32];
         buffer.get(random);
-        if (Arrays.equals(random, HelloRetryRequest_SHA256)) {
-            Logger.debug("HelloRetryRequest!");
-            throw new HandshakeFailureAlert("HelloRetryRequest is not supported");
-        }
+        // https://datatracker.ietf.org/doc/html/rfc8446#section-4.1.3
+        // "Upon receiving a message with type server_hello, implementations MUST first examine the Random value and, if
+        //  it matches this value, process it as described in Section 4.1.4)."
+        boolean isHelloRetryRequest = Arrays.equals(random, HelloRetryRequest.HelloRetryRequest_SHA256);
 
         int sessionIdLength = buffer.get() & 0xff;
         if (sessionIdLength > 32) {
@@ -136,13 +132,18 @@ public class ServerHello extends HandshakeMessage {
             throw new DecodeErrorException("Legacy compression method must have the value 0");
         }
 
-        List<Extension> extensions = EncryptedExtensions.parseExtensions(buffer, TlsConstants.HandshakeType.server_hello);
+        List<Extension> extensions = parseExtensions(buffer, TlsConstants.HandshakeType.server_hello, null, isHelloRetryRequest);
 
         byte[] raw = new byte[length];
         buffer.position(startPosition);
         buffer.get(raw);
 
-        return new ServerHello(raw, random, legacySessionIdEcho, cipherSuite, extensions);
+        if (isHelloRetryRequest) {
+            return new HelloRetryRequest(raw, legacySessionIdEcho, cipherSuite, extensions);
+        }
+        else {
+            return new ServerHello(raw, random, legacySessionIdEcho, cipherSuite, extensions);
+        }
     }
 
     @Override

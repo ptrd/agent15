@@ -255,6 +255,28 @@ class TlsClientEngineTest {
     }
 
     @Test
+    void whenServerSendsHelloRetryRequestClientShouldAbortHandshake() throws Exception {
+        // Given
+        engine.startHandshake();
+
+        // HelloRetryRequest: a ServerHello with the special random value, see https://datatracker.ietf.org/doc/html/rfc8446#section-4.1.3
+        //                type   length legacy_v  random                                                            sid cipher cmp
+        String hrrInHex = ("02 000034  0303 CF21AD74E59A6111BE1D8C021E65B891C2A211167ABB8C5E079E09E2C8A8339C  00  1301   00"
+                //  ext length  supported versions  key share (selected group: x25519)
+                + "000c         002b00020304        00330002001d").replaceAll(" ", "");
+        byte[] data = ByteUtils.hexToBytes(hrrInHex);
+        HandshakeMessage helloRetryRequest = ServerHello.parse(ByteBuffer.wrap(data), data.length);
+        assertThat(helloRetryRequest).isInstanceOf(HelloRetryRequest.class);
+
+        assertThatThrownBy(() ->
+                // When
+                engine.received(helloRetryRequest, ProtectionKeysType.None))
+                // Then
+                .isInstanceOf(HandshakeFailureAlert.class)
+                .hasMessageContaining("HelloRetryRequest");
+    }
+
+    @Test
     void whenServerHelloContainsCipherThatClientNotEvenKnows() throws Exception {
         // Given
         engine.startHandshake();
@@ -264,7 +286,7 @@ class TlsClientEngineTest {
         String hex = "0200002c03031219785ef730198b9d915575532c20dea24fa42b20b26724f988d7425740418500131300004f002b00020304003300450017004104ace3b035eba5dd75860925b2c9b206656f2d1590f8c596d96a2a91adb442b378240002c8ef8360ba6104033c02eb3ab9ebcce036c735892697dda158f91c786e";
         byte[] data = ByteUtils.hexToBytes(hex);
 
-        ServerHello serverHelloWithUnknownCipher = ServerHello.parse(ByteBuffer.wrap(data), data.length);
+        ServerHello serverHelloWithUnknownCipher = (ServerHello) ServerHello.parse(ByteBuffer.wrap(data), data.length);
 
         assertThatThrownBy(() ->
                 // When
@@ -410,7 +432,7 @@ class TlsClientEngineTest {
         String serverHelloHex = ("02 000097 0303 1219785ef730198b9d915575532c20dea24fa42b20b26724f988d74257404185 20 0000000000000000000000000000000000000000000000000000000000000000 1301 00").replaceAll(" ", "");
         String mandatoryExtensions = ("004f 002b00020304 003300450017004104ace3b035eba5dd75860925b2c9b206656f2d1590f8c596d96a2a91adb442b378240002c8ef8360ba6104033c02eb3ab9ebcce036c735892697dda158f91c786e").replaceAll(" ", "");
         byte[] data = ByteUtils.hexToBytes(serverHelloHex + mandatoryExtensions);
-        ServerHello serverHello = ServerHello.parse(ByteBuffer.wrap(data), data.length);
+        ServerHello serverHello = (ServerHello) ServerHello.parse(ByteBuffer.wrap(data), data.length);
 
         assertThatThrownBy(() ->
                 // When

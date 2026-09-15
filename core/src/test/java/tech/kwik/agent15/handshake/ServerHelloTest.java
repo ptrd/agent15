@@ -20,7 +20,6 @@ package tech.kwik.agent15.handshake;
 
 import org.junit.jupiter.api.Test;
 import tech.kwik.agent15.TlsConstants;
-import tech.kwik.agent15.TlsProtocolException;
 import tech.kwik.agent15.alert.DecodeErrorException;
 import tech.kwik.agent15.alert.IllegalParameterAlert;
 import tech.kwik.agent15.extension.KeyShareExtension;
@@ -40,7 +39,7 @@ class ServerHelloTest {
     void parseServerHello() throws Exception {
         byte[] data = ByteUtils.hexToBytes("02000077030327303877f58601e5e987b1be085f509adecd10056353daf3843f5f89084a4c6100130100004f002b0002030400330045001700410456517b9551d5ce0950c8210bf1f30b3f5d2b066ac6ac7469d6490387b36d9a57385bdfe2d5d55a1e6956a6d8d771cd7f1aee418b1cf615cbd976ba509a48e9de");
 
-        ServerHello sh = ServerHello.parse(ByteBuffer.wrap(data), data.length);
+        ServerHello sh = (ServerHello) ServerHello.parse(ByteBuffer.wrap(data), data.length);
         assertThat(sh.getCipherSuite()).isEqualTo(TlsConstants.CipherSuite.TLS_AES_128_GCM_SHA256);
     }
 
@@ -70,7 +69,7 @@ class ServerHelloTest {
         String minimalServerHello = addMandatoryExtensions("0200002c03031219785ef730198b9d915575532c20dea24fa42b20b26724f988d7425740418500130100");
 
         byte[] data = ByteUtils.hexToBytes(minimalServerHello);
-        ServerHello sh = ServerHello.parse(ByteBuffer.wrap(data), data.length);
+        ServerHello sh = (ServerHello) ServerHello.parse(ByteBuffer.wrap(data), data.length);
 
         assertThat(sh.getCipherSuite()).isEqualTo(TlsConstants.CipherSuite.TLS_AES_128_GCM_SHA256);
         assertThat(sh.getExtensions())
@@ -111,7 +110,7 @@ class ServerHelloTest {
 
         byte[] data = ByteUtils.hexToBytes(serverHelloInHex);
 
-        ServerHello serverHello = ServerHello.parse(ByteBuffer.wrap(data), data.length);
+        ServerHello serverHello = (ServerHello) ServerHello.parse(ByteBuffer.wrap(data), data.length);
 
         assertThat(serverHello.getCipherSuite()).isNull();
     }
@@ -153,18 +152,34 @@ class ServerHelloTest {
     }
 
     @Test
-    void parseServerHelloWithHelloRetryRequestRandomShouldThrow() throws Exception {
+    void parseServerHelloWithHelloRetryRequestRandomShouldReturnHelloRetryRequest() throws Exception {
         // The ServerHello "Random" with the special HRR sentinel value indicates HelloRetryRequest.
         String helloRetryRequestRandom = "CF21AD74E59A6111BE1D8C021E65B891C2A211167ABB8C5E079E09E2C8A8339C";
-        //                            type    length legacy_v  random                              sid cipher cmp
-        String serverHelloHex = "02 000077  0303 " + helloRetryRequestRandom + "  00  1301   00";
-        String serverHello = addMandatoryExtensions(serverHelloHex.replaceAll(" ", ""));
+        //                     type length legacy_v  random               session_id cipher cmp
+        String serverHelloHex = "02 000000  0303 " + helloRetryRequestRandom + "  00  1301   00";
+        String serverHello = addMandatoryHelloRetryRequestExtensions(serverHelloHex.replaceAll(" ", ""));
 
-        byte[] data = ByteUtils.hexToBytes(serverHello);
+        byte[] data = setTlsMsgLength(ByteUtils.hexToBytes(serverHello));
+
+        HandshakeMessage message = ServerHello.parse(ByteBuffer.wrap(data), data.length);
+
+        assertThat(message).isInstanceOf(HelloRetryRequest.class);
+        assertThat(((HelloRetryRequest) message).getCipherSuite()).isEqualTo(TlsConstants.CipherSuite.TLS_AES_128_GCM_SHA256);
+        assertThat(message.getBytes()).isEqualTo(data);
+    }
+
+    @Test
+    void parseServerHelloWithKeyShareContainingSelectedGroupOnlyShouldThrow() throws Exception {
+        // A (normal) ServerHello must carry a complete key share entry, not just the selected group.
+        String serverHelloInHex = addMandatoryHelloRetryRequestExtensions(
+                "02 ffffff  0303 27303877f58601e5e987b1be085f509adecd10056353daf3843f5f89084a4c61  00  1301   00"
+                ).replaceAll(" ", "");
+
+        byte[] data = setTlsMsgLength(ByteUtils.hexToBytes(serverHelloInHex));
 
         assertThatThrownBy(() ->
                 ServerHello.parse(ByteBuffer.wrap(data), data.length)
-        ).isInstanceOf(TlsProtocolException.class);
+        ).isInstanceOf(DecodeErrorException.class);
     }
 
     @Test
@@ -178,7 +193,7 @@ class ServerHelloTest {
         buffer.put(serverHelloData);
         buffer.position(prefix.length);  // position the buffer at the start of the ServerHello message
 
-        ServerHello sh = ServerHello.parse(buffer, serverHelloData.length);
+        ServerHello sh = (ServerHello) ServerHello.parse(buffer, serverHelloData.length);
 
         // The raw bytes captured during parsing should be exactly the ServerHello message.
         assertThat(sh.getBytes()).isEqualTo(serverHelloData);
@@ -198,9 +213,29 @@ class ServerHelloTest {
     }
 
 
+    /**
+     * Sets the length field of the given TLS handshake message (the 3 bytes following the 1 byte message type) to the
+     * actual length of the message body, i.e. the length of the given bytes minus the 4 header bytes.
+     * @param messageBytes  the complete handshake message, including the 4 header bytes
+     * @return  the same array, with a corrected length field
+     */
+    private byte[] setTlsMsgLength(byte[] messageBytes) {
+        int bodyLength = messageBytes.length - 4;
+        messageBytes[1] = (byte) (bodyLength >> 16);
+        messageBytes[2] = (byte) (bodyLength >> 8);
+        messageBytes[3] = (byte) bodyLength;
+        return messageBytes;
+    }
+
     private String addMandatoryExtensions(String shData) {
         //                            length supported versions  key share
         String mandatoryExtensions = "004f   002b00020304        003300450017004104ace3b035eba5dd75860925b2c9b206656f2d1590f8c596d96a2a91adb442b378240002c8ef8360ba6104033c02eb3ab9ebcce036c735892697dda158f91c786e";
         return (shData + mandatoryExtensions).replaceAll(" ", "");
+    }
+
+    private String addMandatoryHelloRetryRequestExtensions(String hrrData) {
+        //                    length supported versions  key share (selected group: x25519)
+        String extensions = ("000c   002b00020304        00330002001d").replaceAll(" ", "");
+        return (hrrData + extensions).replaceAll(" ", "");
     }
 }

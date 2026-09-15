@@ -66,6 +66,16 @@ public abstract class HandshakeMessage {
     }
 
     static List<Extension> parseExtensions(ByteBuffer buffer, TlsConstants.HandshakeType context, ExtensionParser customExtensionParser) throws TlsProtocolException {
+        return parseExtensions(buffer, context, customExtensionParser, false);
+    }
+
+    /**
+     * Parses the extensions in a handshake message.
+     * @param helloRetryRequest  whether the extensions are those of a HelloRetryRequest; in that case, the key_share
+     *                           extension carries the selected group only
+     *                           (https://datatracker.ietf.org/doc/html/rfc8446#section-4.2.8)
+     */
+    static List<Extension> parseExtensions(ByteBuffer buffer, TlsConstants.HandshakeType context, ExtensionParser customExtensionParser, boolean helloRetryRequest) throws TlsProtocolException {
         if (buffer.remaining() < 2) {
             throw new DecodeErrorException("Extension field must be at least 2 bytes long");
         }
@@ -150,7 +160,7 @@ public abstract class HandshakeMessage {
             else if (extensionType == TlsConstants.ExtensionType.key_share.value) {
                 // "| key_share (RFC 8446)                             | CH, SH, HRR |"
                 check(context, client_hello, server_hello);
-                extensions.add(new KeyShareExtension(buffer, context));
+                extensions.add(new KeyShareExtension(buffer, context, helloRetryRequest));
             }
             else {
                 Extension extension = null;

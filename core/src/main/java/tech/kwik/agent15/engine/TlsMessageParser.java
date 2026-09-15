@@ -71,7 +71,7 @@ public class TlsMessageParser {
             }
         }
         else if (messageType == server_hello.value) {
-            ServerHello sh = ServerHello.parse(buffer, length + 4);
+            HandshakeMessage sh = ServerHello.parse(buffer, length + 4);
             parsedMessage = sh;
             if (messageProcessor != null) {
                 messageProcessor.received(sh, protectedBy);

@@ -19,6 +19,7 @@
 package tech.kwik.agent15.engine;
 
 import tech.kwik.agent15.ProtectionKeysType;
+import tech.kwik.agent15.alert.HandshakeFailureAlert;
 import tech.kwik.agent15.TlsProtocolException;
 import tech.kwik.agent15.handshake.*;
 
@@ -29,6 +30,7 @@ public interface MessageProcessor {
     default void received(HandshakeMessage msg, ProtectionKeysType protectedBy) throws TlsProtocolException, IOException {
         if (msg instanceof ClientHello) received((ClientHello) msg, protectedBy);
         else if (msg instanceof ServerHello) received((ServerHello) msg, protectedBy);
+        else if (msg instanceof HelloRetryRequest) received((HelloRetryRequest) msg, protectedBy);
         else if (msg instanceof EncryptedExtensions) received((EncryptedExtensions) msg, protectedBy);
         else if (msg instanceof CertificateMessage) received((CertificateMessage) msg, protectedBy);
         else if (msg instanceof CertificateVerifyMessage) received((CertificateVerifyMessage) msg, protectedBy);
@@ -41,6 +43,10 @@ public interface MessageProcessor {
     void received(ClientHello ch, ProtectionKeysType protectedBy) throws TlsProtocolException, IOException;
 
     void received(ServerHello sh, ProtectionKeysType protectedBy) throws TlsProtocolException, IOException;
+
+    default void received(HelloRetryRequest hrr, ProtectionKeysType protectedBy) throws TlsProtocolException, IOException {
+        throw new HandshakeFailureAlert("HelloRetryRequest is not supported");
+    }
 
     void received(EncryptedExtensions ee, ProtectionKeysType protectedBy) throws TlsProtocolException, IOException;
 

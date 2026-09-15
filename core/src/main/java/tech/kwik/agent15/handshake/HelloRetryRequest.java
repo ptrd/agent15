@@ -1,0 +1,84 @@
+/*
+ * Copyright © 2026 Peter Doornbosch
+ *
+ * This file is part of Agent15, an implementation of TLS 1.3 in Java.
+ *
+ * Agent15 is free software: you can redistribute it and/or modify it under
+ * the terms of the GNU Lesser General Public License as published by the
+ * Free Software Foundation, either version 3 of the License, or (at your option)
+ * any later version.
+ *
+ * Agent15 is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE. See the GNU Lesser General Public License for
+ * more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ */
+package tech.kwik.agent15.handshake;
+
+import tech.kwik.agent15.TlsConstants;
+import tech.kwik.agent15.extension.Extension;
+
+import java.util.List;
+
+/**
+ * https://datatracker.ietf.org/doc/html/rfc8446#section-4.1.4
+ * "As discussed in Section 4.1.3, the HelloRetryRequest has the same format as a ServerHello message, and the
+ *  legacy_version, legacy_session_id_echo, cipher_suite, and legacy_compression_method fields have the same meaning.
+ *  However, for convenience we discuss "HelloRetryRequest" throughout this document as if it were a distinct message."
+ *
+ * On the wire it is a server_hello message whose random field has a fixed value (see
+ * https://datatracker.ietf.org/doc/html/rfc8446#section-4.1.3); ServerHello.parse returns an instance of this class
+ * when it encounters that value.
+ */
+public class HelloRetryRequest extends HandshakeMessage {
+
+    /**
+     * https://datatracker.ietf.org/doc/html/rfc8446#section-4.1.3
+     * "For reasons of backward compatibility with middleboxes (see Appendix D.4), the HelloRetryRequest message uses the
+     *  same structure as the ServerHello, but with Random set to the special value of the SHA-256 of "HelloRetryRequest"
+     */
+    static final byte[] HelloRetryRequest_SHA256 = new byte[] {
+            (byte) 0xCF, (byte) 0x21, (byte) 0xAD, (byte) 0x74, (byte) 0xE5, (byte) 0x9A, (byte) 0x61, (byte) 0x11,
+            (byte) 0xBE, (byte) 0x1D, (byte) 0x8C, (byte) 0x02, (byte) 0x1E, (byte) 0x65, (byte) 0xB8, (byte) 0x91,
+            (byte) 0xC2, (byte) 0xA2, (byte) 0x11, (byte) 0x16, (byte) 0x7A, (byte) 0xBB, (byte) 0x8C, (byte) 0x5E,
+            (byte) 0x07, (byte) 0x9E, (byte) 0x09, (byte) 0xE2, (byte) 0xC8, (byte) 0xA8, (byte) 0x33, (byte) 0x9C
+    };
+
+    private final byte[] raw;
+    private final byte[] legacySessionIdEcho;
+    private final TlsConstants.CipherSuite cipherSuite;
+    private final List<Extension> extensions;
+
+    HelloRetryRequest(byte[] raw, byte[] legacySessionIdEcho, TlsConstants.CipherSuite cipherSuite, List<Extension> extensions) {
+        this.raw = raw;
+        this.legacySessionIdEcho = legacySessionIdEcho;
+        this.cipherSuite = cipherSuite;
+        this.extensions = extensions;
+    }
+
+    @Override
+    public TlsConstants.HandshakeType getType() {
+        // A HelloRetryRequest is sent as a server_hello message, see https://datatracker.ietf.org/doc/html/rfc8446#section-4.1.4.
+        return TlsConstants.HandshakeType.server_hello;
+    }
+
+    @Override
+    public byte[] getBytes() {
+        return raw;
+    }
+
+    public byte[] getLegacySessionIdEcho() {
+        return legacySessionIdEcho;
+    }
+
+    public TlsConstants.CipherSuite getCipherSuite() {
+        return cipherSuite;
+    }
+
+    public List<Extension> getExtensions() {
+        return extensions;
+    }
+}
