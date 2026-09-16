@@ -31,6 +31,10 @@ public interface ServerMessageProcessor extends MessageProcessor {
         throw new UnexpectedMessageAlert("no server hello expected");
     }
 
+    default void received(HelloRetryRequest hrr, ProtectionKeysType protectedBy) throws TlsProtocolException, IOException {
+        throw new UnexpectedMessageAlert("no hello retry request expected");
+    }
+
     default void received(EncryptedExtensions ee, ProtectionKeysType protectedBy) throws TlsProtocolException, IOException {
         throw new UnexpectedMessageAlert("no encrypted extensions expected");
     }

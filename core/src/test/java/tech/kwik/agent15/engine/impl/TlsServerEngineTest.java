@@ -29,6 +29,7 @@ import tech.kwik.agent15.alert.DecryptErrorAlert;
 import tech.kwik.agent15.alert.HandshakeFailureAlert;
 import tech.kwik.agent15.alert.IllegalParameterAlert;
 import tech.kwik.agent15.alert.MissingExtensionAlert;
+import tech.kwik.agent15.alert.UnexpectedMessageAlert;
 import tech.kwik.agent15.alert.ProtocolVersionAlert;
 import tech.kwik.agent15.engine.KeyExchange;
 import tech.kwik.agent15.engine.KeyExchangeFactory;
@@ -38,6 +39,7 @@ import tech.kwik.agent15.extension.*;
 import tech.kwik.agent15.handshake.ClientHello;
 import tech.kwik.agent15.handshake.EncryptedExtensions;
 import tech.kwik.agent15.handshake.FinishedMessage;
+import tech.kwik.agent15.handshake.HelloRetryRequest;
 import tech.kwik.agent15.handshake.NewSessionTicketMessage;
 import tech.kwik.agent15.handshake.ServerHello;
 import tech.kwik.agent15.util.ByteUtils;
@@ -98,6 +100,16 @@ public class TlsServerEngineTest {
         engine.addSupportedCiphers(List.of(TLS_AES_128_GCM_SHA256));
 
         publicKey = KeyUtils.generatePublicKey();
+    }
+
+    @Test
+    void helloRetryRequestReceivedByServerShouldLeadToUnexpectedMessageAlert() throws Exception {
+        HelloRetryRequest hrr = new HelloRetryRequest(TLS_AES_128_GCM_SHA256,
+                List.of(new SupportedVersionsExtension(HandshakeType.server_hello)));
+
+        assertThatThrownBy(() ->
+                engine.received(hrr, ProtectionKeysType.None))
+                .isInstanceOf(UnexpectedMessageAlert.class);
     }
 
     @Test

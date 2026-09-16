@@ -21,6 +21,7 @@ package tech.kwik.agent15.handshake;
 import tech.kwik.agent15.TlsConstants;
 import tech.kwik.agent15.extension.Extension;
 
+import java.nio.ByteBuffer;
 import java.util.List;
 
 /**
@@ -57,6 +58,32 @@ public class HelloRetryRequest extends HandshakeMessage {
         this.legacySessionIdEcho = legacySessionIdEcho;
         this.cipherSuite = cipherSuite;
         this.extensions = extensions;
+    }
+
+    public HelloRetryRequest(TlsConstants.CipherSuite cipherSuite, List<Extension> extensions) {
+        this(cipherSuite, new byte[0], extensions);
+    }
+
+    public HelloRetryRequest(TlsConstants.CipherSuite cipherSuite, byte[] legacySessionIdEcho, List<Extension> extensions) {
+        this.legacySessionIdEcho = legacySessionIdEcho;
+        this.cipherSuite = cipherSuite;
+        this.extensions = extensions;
+
+        int extensionsSize = extensions.stream().mapToInt(extension -> extension.getBytes().length).sum();
+        raw = new byte[1 + 3 + 2 + 32 + 1 + legacySessionIdEcho.length + 2 + 1 + 2 + extensionsSize];
+        ByteBuffer buffer = ByteBuffer.wrap(raw);
+        // https://tools.ietf.org/html/rfc8446#section-4
+        // "uint24 length;             /* remaining bytes in message */"
+        // A HelloRetryRequest is sent as a server_hello message (type 2).
+        buffer.putInt((raw.length - 4) | 0x02000000);
+        buffer.putShort((short) 0x0303);
+        buffer.put(HelloRetryRequest_SHA256);
+        buffer.put((byte) legacySessionIdEcho.length);
+        buffer.put(legacySessionIdEcho);
+        buffer.putShort(cipherSuite.value);
+        buffer.put((byte) 0);
+        buffer.putShort((short) extensionsSize);
+        extensions.forEach(extension -> buffer.put(extension.getBytes()));
     }
 
     @Override
