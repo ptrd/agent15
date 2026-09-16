@@ -28,12 +28,20 @@ import tech.kwik.agent15.handshake.FinishedMessage;
 import tech.kwik.agent15.handshake.ServerHello;
 
 import java.security.MessageDigest;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 class TranscriptHashTest {
+
+    // Message types that occur both as a client and as a server message, and thus have two positions in the transcript.
+    private static final List<TlsConstants.HandshakeType> AMBIGUOUS_TYPES = List.of(
+            TlsConstants.HandshakeType.certificate,
+            TlsConstants.HandshakeType.certificate_verify,
+            TlsConstants.HandshakeType.finished);
 
     private TranscriptHash transcriptHash;
 
@@ -111,18 +119,53 @@ class TranscriptHashTest {
     }
 
     @Test
-    void correspondingHandshakeTypesHaveSameOrdinal() {
-        for (TranscriptHash.ExtendedHandshakeType extendedType : TranscriptHash.ExtendedHandshakeType.values()) {
-            TlsConstants.HandshakeType handshakeType;
-            try {
-                handshakeType = TlsConstants.HandshakeType.valueOf(extendedType.name());
-            } catch (IllegalArgumentException noCorrespondingValue) {
+    void unambiguousHandshakeTypesMapOnExtendedTypeWithSameValue() {
+        for (TlsConstants.HandshakeType handshakeType : TlsConstants.HandshakeType.values()) {
+            if (AMBIGUOUS_TYPES.contains(handshakeType) || handshakeType == TlsConstants.HandshakeType.message_hash) {
                 continue;
             }
-            assertThat(extendedType.ordinal())
-                    .as("ordinal of %s", extendedType.name())
-                    .isEqualTo(handshakeType.ordinal());
+            assertThat(TranscriptHash.convert(handshakeType).value)
+                    .as("mapping of %s", handshakeType)
+                    .isEqualTo(handshakeType.value);
         }
+    }
+
+    @Test
+    void ambiguousHandshakeTypesCannotBeMappedWithoutClientOrServerIndication() {
+        for (TlsConstants.HandshakeType handshakeType : AMBIGUOUS_TYPES) {
+            assertThatThrownBy(() -> TranscriptHash.convert(handshakeType))
+                    .as("mapping of %s", handshakeType)
+                    .isInstanceOf(IllegalArgumentException.class);
+        }
+    }
+
+    @Test
+    void ambiguousHandshakeTypesMapOnClientOrServerVariant() {
+        for (TlsConstants.HandshakeType handshakeType : AMBIGUOUS_TYPES) {
+            assertThat(TranscriptHash.convert(handshakeType, true).name())
+                    .as("client variant of %s", handshakeType)
+                    .isEqualTo("client_" + handshakeType.name());
+            assertThat(TranscriptHash.convert(handshakeType, false).name())
+                    .as("server variant of %s", handshakeType)
+                    .isEqualTo("server_" + handshakeType.name());
+        }
+    }
+
+    @Test
+    void messageHashTypeHasNoPositionOfItsOwnInTheTranscript() {
+        // The synthetic message_hash message replaces the first client hello, see
+        // https://datatracker.ietf.org/doc/html/rfc8446#section-4.4.1; it is not a message that can be recorded as such.
+        assertThatThrownBy(() -> TranscriptHash.convert(TlsConstants.HandshakeType.message_hash))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void recordingAnAmbiguousMessageTypeIsNotAllowed() {
+        CertificateMessage cm = mock(CertificateMessage.class);
+        when(cm.getType()).thenReturn(TlsConstants.HandshakeType.certificate);
+
+        assertThatThrownBy(() -> transcriptHash.record(cm))
+                .isInstanceOf(IllegalArgumentException.class);
     }
 
     private byte[] computeHash(byte[]... elements) throws Exception {

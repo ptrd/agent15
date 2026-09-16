@@ -23,7 +23,6 @@ import tech.kwik.agent15.handshake.HandshakeMessage;
 
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -134,11 +133,8 @@ public class TranscriptHash {
      * @param msg
      */
     public void record(HandshakeMessage msg) {
-        List<TlsConstants.HandshakeType> ambigousTypes = List.of(TlsConstants.HandshakeType.certificate,
-                TlsConstants.HandshakeType.certificate_verify, TlsConstants.HandshakeType.finished);
-        if (ambigousTypes.contains(msg.getType())) {
-            throw new IllegalArgumentException();
-        }
+        // Note that convert() rejects the message types that occur both as client and as server message; for those,
+        // recordClient or recordServer must be used.
         msgData.put(convert(msg.getType()), msg.getBytes());
     }
 
@@ -187,25 +183,50 @@ public class TranscriptHash {
         hashes.put(requestedType, hashFunction.digest());
     }
 
-    private ExtendedHandshakeType convert(TlsConstants.HandshakeType type) {
-        List<TlsConstants.HandshakeType> ambigousTypes = List.of(TlsConstants.HandshakeType.certificate,
-                TlsConstants.HandshakeType.certificate_verify, TlsConstants.HandshakeType.finished);
-        if (ambigousTypes.contains(type)) {
-            throw new IllegalArgumentException("cannot convert ambiguous type " + type);
+    /**
+     * Maps a handshake message type on its position in the transcript hash computation. Message types that occur both
+     * as a client and as a server message cannot be mapped by this method, as these variants have a different position
+     * in the transcript hash computation; use <code>convert(type, boolean)</code> for those.
+     */
+    static ExtendedHandshakeType convert(TlsConstants.HandshakeType type) {
+        switch (type) {
+            case client_hello:
+                return ExtendedHandshakeType.client_hello;
+            case server_hello:
+                return ExtendedHandshakeType.server_hello;
+            case new_session_ticket:
+                return ExtendedHandshakeType.new_session_ticket;
+            case end_of_early_data:
+                return ExtendedHandshakeType.end_of_early_data;
+            case encrypted_extensions:
+                return ExtendedHandshakeType.encrypted_extensions;
+            case certificate_request:
+                return ExtendedHandshakeType.certificate_request;
+            case key_update:
+                return ExtendedHandshakeType.key_update;
+            case certificate:
+            case certificate_verify:
+            case finished:
+                throw new IllegalArgumentException("cannot convert ambiguous type " + type);
+            default:
+                throw new IllegalArgumentException("no transcript hash position defined for type " + type);
         }
-        return ExtendedHandshakeType.values()[type.ordinal()];
     }
 
-    private ExtendedHandshakeType convert(TlsConstants.HandshakeType type, boolean client) {
-        if (type == TlsConstants.HandshakeType.finished) {
-            return client? ExtendedHandshakeType.client_finished: ExtendedHandshakeType.server_finished;
+    /**
+     * Maps a handshake message type on its position in the transcript hash computation, where the <code>client</code>
+     * parameter indicates whether it concerns the client or the server variant of the message type.
+     */
+    static ExtendedHandshakeType convert(TlsConstants.HandshakeType type, boolean client) {
+        switch (type) {
+            case certificate:
+                return client? ExtendedHandshakeType.client_certificate: ExtendedHandshakeType.server_certificate;
+            case certificate_verify:
+                return client? ExtendedHandshakeType.client_certificate_verify: ExtendedHandshakeType.server_certificate_verify;
+            case finished:
+                return client? ExtendedHandshakeType.client_finished: ExtendedHandshakeType.server_finished;
+            default:
+                return convert(type);
         }
-        else if (type == TlsConstants.HandshakeType.certificate) {
-            return client? ExtendedHandshakeType.client_certificate: ExtendedHandshakeType.server_certificate;
-        }
-        else if (type == TlsConstants.HandshakeType.certificate_verify) {
-            return client? ExtendedHandshakeType.client_certificate_verify: ExtendedHandshakeType.server_certificate_verify;
-        }
-        return ExtendedHandshakeType.values()[type.ordinal()];
     }
 }
