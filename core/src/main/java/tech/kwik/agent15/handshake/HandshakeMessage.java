@@ -71,9 +71,13 @@ public abstract class HandshakeMessage {
 
     /**
      * Parses the extensions in a handshake message.
-     * @param helloRetryRequest  whether the extensions are those of a HelloRetryRequest; in that case, the key_share
-     *                           extension carries the selected group only
-     *                           (https://datatracker.ietf.org/doc/html/rfc8446#section-4.2.8)
+     *
+     * @param buffer
+     * @param context  indicates in which handshake message the extensions occur
+     * @param customExtensionParser   parser for custom extensions
+     * @param helloRetryRequest  whether the extensions are those of a HelloRetryRequest
+     * @return
+     * @throws TlsProtocolException
      */
     static List<Extension> parseExtensions(ByteBuffer buffer, TlsConstants.HandshakeType context, ExtensionParser customExtensionParser, boolean helloRetryRequest) throws TlsProtocolException {
         if (buffer.remaining() < 2) {
@@ -146,6 +150,15 @@ public abstract class HandshakeMessage {
                 // "| supported_versions (RFC 8446)                    | CH, SH, HRR |"
                 check(context, client_hello, server_hello);
                 extensions.add(new SupportedVersionsExtension(buffer, context));
+            }
+            else if (extensionType == TlsConstants.ExtensionType.cookie.value) {
+                // "| cookie (RFC 8446)                                |     CH, HRR |"
+                check(context, client_hello, server_hello);
+                if (context == server_hello && !helloRetryRequest) {
+                    // A cookie is allowed in a HelloRetryRequest, but not in an ordinary ServerHello.
+                    throw new IllegalParameterAlert("Extension not allowed in " + context);
+                }
+                extensions.add(new CookieExtension(buffer));
             }
             else if (extensionType == TlsConstants.ExtensionType.psk_key_exchange_modes.value) {
                 // " | psk_key_exchange_modes (RFC 8446)                |          CH |"

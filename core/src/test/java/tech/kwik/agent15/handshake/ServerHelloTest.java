@@ -22,6 +22,7 @@ import org.junit.jupiter.api.Test;
 import tech.kwik.agent15.TlsConstants;
 import tech.kwik.agent15.alert.DecodeErrorException;
 import tech.kwik.agent15.alert.IllegalParameterAlert;
+import tech.kwik.agent15.extension.CookieExtension;
 import tech.kwik.agent15.extension.KeyShareExtension;
 import tech.kwik.agent15.extension.SupportedVersionsExtension;
 import tech.kwik.agent15.util.ByteUtils;
@@ -166,6 +167,42 @@ class ServerHelloTest {
         assertThat(message).isInstanceOf(HelloRetryRequest.class);
         assertThat(((HelloRetryRequest) message).getCipherSuite()).isEqualTo(TlsConstants.CipherSuite.TLS_AES_128_GCM_SHA256);
         assertThat(message.getBytes()).isEqualTo(data);
+    }
+
+    @Test
+    void parseHelloRetryRequestWithCookieExtension() throws Exception {
+        // https://datatracker.ietf.org/doc/html/rfc8446#section-4.2.2
+        // "When sending a HelloRetryRequest, the server MAY provide a "cookie" extension to the client"
+        String helloRetryRequestRandom = "CF21AD74E59A6111BE1D8C021E65B891C2A211167ABB8C5E079E09E2C8A8339C";
+        //                     type length legacy_v  random               session_id cipher cmp
+        String helloRetryRequest = ("02 000000  0303 " + helloRetryRequestRandom + "  00  1301   00"
+                //  extensions: length supported versions  key share        cookie
+                + "                    0016   002b00020304        00330002001d     002c0006 0004cafebabe").replaceAll(" ", "");
+
+        byte[] data = setTlsMsgLength(ByteUtils.hexToBytes(helloRetryRequest));
+
+        HandshakeMessage message = ServerHello.parse(ByteBuffer.wrap(data), data.length);
+
+        assertThat(message).isInstanceOf(HelloRetryRequest.class);
+        assertThat(((HelloRetryRequest) message).getExtensions())
+                .filteredOn(CookieExtension.class::isInstance)
+                .singleElement()
+                .satisfies(extension -> assertThat(((CookieExtension) extension).getCookie())
+                        .isEqualTo(ByteUtils.hexToBytes("cafebabe")));
+    }
+
+    @Test
+    void parseServerHelloWithCookieExtensionShouldThrow() throws Exception {
+        // A cookie is allowed in a HelloRetryRequest only, not in an ordinary ServerHello.
+        String serverHello = ("02 000000  0303 27303877f58601e5e987b1be085f509adecd10056353daf3843f5f89084a4c61  00  1301   00"
+                //  extensions: length supported versions  cookie
+                + "                    0010   002b00020304        002c0006 0004cafebabe").replaceAll(" ", "");
+
+        byte[] data = setTlsMsgLength(ByteUtils.hexToBytes(serverHello));
+
+        assertThatThrownBy(() ->
+                ServerHello.parse(ByteBuffer.wrap(data), data.length)
+        ).isInstanceOf(IllegalParameterAlert.class);
     }
 
     @Test
