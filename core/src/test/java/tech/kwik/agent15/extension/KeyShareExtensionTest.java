@@ -108,6 +108,28 @@ class KeyShareExtensionTest {
     }
 
     @Test
+    void serializeHelloRetryRequestKeyShareExtension() {
+        byte[] serialized = new KeyShareExtension(TlsConstants.NamedGroup.secp256r1).getBytes();
+
+        // In a HelloRetryRequest, the extension carries the selected group only, see
+        // https://datatracker.ietf.org/doc/html/rfc8446#section-4.2.8.
+        assertThat(serialized).isEqualTo(ByteUtils.hexToBytes("003300020017"));
+    }
+
+    @Test
+    void serializedHelloRetryRequestKeyShareExtensionCanBeParsedBack() throws Exception {
+        byte[] serialized = new KeyShareExtension(TlsConstants.NamedGroup.x25519).getBytes();
+
+        KeyShareExtension parsed = new KeyShareExtension(ByteBuffer.wrap(serialized),
+                TlsConstants.HandshakeType.server_hello, true);
+
+        assertThat(parsed.getKeyShareEntries()).hasSize(1);
+        assertThat(parsed.getKeyShareEntries().get(0).getNamedGroup()).isEqualTo(TlsConstants.NamedGroup.x25519);
+        assertThat(parsed.getKeyShareEntries().get(0).getKeyExchangeData()).isNull();
+        assertThat(parsed.getBytes()).isEqualTo(serialized);
+    }
+
+    @Test
     void parsingDataMissingExtensionLengthThrows() {
         ByteBuffer buffer = ByteBuffer.wrap(ByteUtils.hexToBytes("003300"));
 

@@ -40,6 +40,7 @@ public class KeyShareExtension extends Extension {
     public static final List<TlsConstants.NamedGroup> supportedCurves = List.of(secp256r1, x25519);
 
     private TlsConstants.HandshakeType handshakeType;
+    private boolean helloRetryRequestType;
     private List<KeyShareEntry> keyShareEntries = new ArrayList<>();
 
 
@@ -48,11 +49,25 @@ public class KeyShareExtension extends Extension {
         this.handshakeType = handshakeType;
     }
 
+    /**
+     * Creates the key share extension as it occurs in a HelloRetryRequest, which carries the selected group only.
+     * https://datatracker.ietf.org/doc/html/rfc8446#section-4.2.8
+     * "struct {
+     *      NamedGroup selected_group;
+     *  } KeyShareHelloRetryRequest;"
+     */
+    public KeyShareExtension(TlsConstants.NamedGroup selectedGroup) {
+        keyShareEntries.add(new KeyShareEntry(selectedGroup, null));
+        this.handshakeType = TlsConstants.HandshakeType.server_hello;
+        this.helloRetryRequestType = true;
+    }
+
     public KeyShareExtension(ByteBuffer buffer, TlsConstants.HandshakeType handshakeType) throws TlsProtocolException {
         this(buffer, handshakeType, false);
     }
 
     public KeyShareExtension(ByteBuffer buffer, TlsConstants.HandshakeType handshakeType, boolean helloRetryRequestType) throws TlsProtocolException {
+        this.helloRetryRequestType = helloRetryRequestType;
         int extensionDataLength = parseExtensionHeader(buffer, TlsConstants.ExtensionType.key_share, 1);
         if (extensionDataLength < 2) {
             throw new DecodeErrorException("extension underflow");
@@ -114,6 +129,15 @@ public class KeyShareExtension extends Extension {
 
     @Override
     public byte[] getBytes() {
+        if (helloRetryRequestType) {
+            // In a HelloRetryRequest, the extension contains the selected group only.
+            ByteBuffer buffer = ByteBuffer.allocate(4 + 2);
+            buffer.putShort(TlsConstants.ExtensionType.key_share.value);
+            buffer.putShort((short) 2);  // Extension data length (in bytes)
+            buffer.putShort(keyShareEntries.get(0).getNamedGroup().value);
+            return buffer.array();
+        }
+
         int keyShareEntryLength = keyShareEntries.stream()
                 .mapToInt(ks -> 2 + 2 + ks.getKeyExchangeData().length)  // Named Group: 2 bytes, key length: 2 bytes
                 .sum();
@@ -159,11 +183,6 @@ public class KeyShareExtension extends Extension {
 
         public byte[] getKeyExchangeData() {
             return rawKey;
-        }
-
-        public PublicKey getKey() {
-            // TODO: remove
-            return null;
         }
     }
 
