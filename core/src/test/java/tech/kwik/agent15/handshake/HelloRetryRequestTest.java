@@ -66,9 +66,50 @@ class HelloRetryRequestTest {
         assertThat(hrr.getLegacySessionIdEcho()).isEqualTo(sessionId);
     }
 
+    @Test
+    void withoutKeyShareExtensionThereIsNoSelectedGroup() {
+        HelloRetryRequest hrr = new HelloRetryRequest(TLS_AES_128_GCM_SHA256, mandatoryExtensions());
+
+        assertThat(hrr.hasKeyShareExtension()).isFalse();
+        assertThat(hrr.getSelectedGroup()).isEmpty();
+    }
+
+    @Test
+    void whenSelectedGroupIsUnknownKeyShareExtensionIsPresentButGroupIsNot() throws Exception {
+        // Given: a key share extension selecting group 0x6666, which is not a group this implementation knows.
+        String helloRetryRequestRandom = "CF21AD74E59A6111BE1D8C021E65B891C2A211167ABB8C5E079E09E2C8A8339C";
+        String hrrInHex = ("02 000000  0303 " + helloRetryRequestRandom + "  00  1301   00"
+                //  extensions: length supported versions  key share (selected group: 6666)
+                + "                    000c   002b00020304        00330002 6666").replaceAll(" ", "");
+        byte[] data = setTlsMsgLength(ByteUtils.hexToBytes(hrrInHex));
+
+        // When
+        HelloRetryRequest hrr = (HelloRetryRequest) ServerHello.parse(ByteBuffer.wrap(data), data.length);
+
+        // Then: the extension is there, but the group cannot be determined; the client must treat this as a group it
+        // did not offer.
+        assertThat(hrr.hasKeyShareExtension()).isTrue();
+        assertThat(hrr.getSelectedGroup()).isEmpty();
+    }
+
+    @Test
+    void withoutCookieExtensionThereIsNoCookie() {
+        HelloRetryRequest hrr = new HelloRetryRequest(TLS_AES_128_GCM_SHA256, mandatoryExtensions());
+
+        assertThat(hrr.getCookie()).isEmpty();
+    }
+
     private List<Extension> mandatoryExtensions() {
         // https://datatracker.ietf.org/doc/html/rfc8446#section-4.1.4
         // "The server's extensions MUST contain "supported_versions"."
         return List.of(new SupportedVersionsExtension(TlsConstants.HandshakeType.server_hello));
+    }
+
+    private byte[] setTlsMsgLength(byte[] messageBytes) {
+        int bodyLength = messageBytes.length - 4;
+        messageBytes[1] = (byte) (bodyLength >> 16);
+        messageBytes[2] = (byte) (bodyLength >> 8);
+        messageBytes[3] = (byte) bodyLength;
+        return messageBytes;
     }
 }

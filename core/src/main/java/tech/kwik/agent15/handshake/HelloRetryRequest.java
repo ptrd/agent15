@@ -19,10 +19,15 @@
 package tech.kwik.agent15.handshake;
 
 import tech.kwik.agent15.TlsConstants;
+import tech.kwik.agent15.extension.CookieExtension;
 import tech.kwik.agent15.extension.Extension;
+import tech.kwik.agent15.extension.KeyShareExtension;
+import tech.kwik.agent15.extension.SupportedVersionsExtension;
 
 import java.nio.ByteBuffer;
 import java.util.List;
+import java.util.Optional;
+import java.util.stream.Collectors;
 
 /**
  * https://datatracker.ietf.org/doc/html/rfc8446#section-4.1.4
@@ -107,5 +112,58 @@ public class HelloRetryRequest extends HandshakeMessage {
 
     public List<Extension> getExtensions() {
         return extensions;
+    }
+
+    /**
+     * Returns whether this message carries a key share extension.
+     * Note that the extension can be present whilst <code>getSelectedGroup</code> returns an empty optional; that is
+     * the case when the server selected a group that is not known to this implementation.
+     */
+    public boolean hasKeyShareExtension() {
+        return extensions.stream().anyMatch(extension -> extension instanceof KeyShareExtension);
+    }
+
+    /**
+     * Returns the group the server selected for the key exchange, as indicated by the key share extension.
+     * @return  the selected group, or empty when there is no key share extension or the selected group is unknown to
+     *          this implementation.
+     */
+    public Optional<TlsConstants.NamedGroup> getSelectedGroup() {
+        return extensions.stream()
+                .filter(extension -> extension instanceof KeyShareExtension)
+                .map(extension -> ((KeyShareExtension) extension).getKeyShareEntries())
+                .flatMap(List::stream)
+                .map(KeyShareExtension.KeyShareEntry::getNamedGroup)
+                .findFirst();
+    }
+
+    /**
+     * Returns the contents of the cookie extension.
+     */
+    public Optional<byte[]> getCookie() {
+        return extensions.stream()
+                .filter(extension -> extension instanceof CookieExtension)
+                .map(extension -> ((CookieExtension) extension).getCookie())
+                .findFirst();
+    }
+
+    /**
+     * Returns the TLS version the server selected, as indicated by the supported versions extension. This extension is
+     * mandatory in a HelloRetryRequest (https://datatracker.ietf.org/doc/html/rfc8446#section-4.1.4), so an empty
+     * optional means the message is not conformant.
+     */
+    public Optional<Short> getSelectedVersion() {
+        return extensions.stream()
+                .filter(extension -> extension instanceof SupportedVersionsExtension)
+                .map(extension -> ((SupportedVersionsExtension) extension).getTlsVersion())
+                .findFirst();
+    }
+
+    @Override
+    public String toString() {
+        return "HelloRetryRequest["
+                + cipherSuite + "|"
+                + extensions.stream().map(extension -> extension.toString()).collect(Collectors.joining(","))
+                + "]";
     }
 }
