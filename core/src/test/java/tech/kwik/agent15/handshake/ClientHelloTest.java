@@ -29,9 +29,11 @@ import tech.kwik.agent15.extension.PskKeyExchangeModesExtension;
 import tech.kwik.agent15.extension.ServerNameExtension;
 import tech.kwik.agent15.extension.SignatureAlgorithmsExtension;
 import tech.kwik.agent15.extension.SupportedGroupsExtension;
+import tech.kwik.agent15.extension.SupportedVersionsExtension;
 import tech.kwik.agent15.util.ByteUtils;
 
 import java.nio.ByteBuffer;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
@@ -284,6 +286,49 @@ class ClientHelloTest {
                 // When
                 createClientHello(secp256r1, Collections.emptyList())
         ).isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void clientHelloCreatedFromPartsUsesGivenRandomSessionIdAndExtensions() throws Exception {
+        // Given
+        byte[] clientRandom = new byte[32];
+        Arrays.fill(clientRandom, (byte) 0x5a);
+        byte[] sessionId = new byte[32];
+        Arrays.fill(sessionId, (byte) 0xa5);
+        List<Extension> extensions = List.of(
+                new ServerNameExtension("localhost"),
+                new SupportedVersionsExtension(TlsConstants.HandshakeType.client_hello));
+
+        // When
+        ClientHello clientHello = new ClientHello(clientRandom, sessionId, List.of(TLS_AES_128_GCM_SHA256), extensions, null);
+
+        // Then
+        assertThat(clientHello.getClientRandom()).isEqualTo(clientRandom);
+        assertThat(clientHello.getSessionId()).isEqualTo(sessionId);
+        assertThat(clientHello.getCipherSuites()).containsExactly(TLS_AES_128_GCM_SHA256);
+        // No extension is added on top of the ones given.
+        assertThat(clientHello.getExtensions()).isEqualTo(extensions);
+
+        // And the serialized message can be parsed back into an equivalent message.
+        ClientHello parsed = new ClientHello(ByteBuffer.wrap(clientHello.getBytes()), null);
+        assertThat(parsed.getClientRandom()).isEqualTo(clientRandom);
+        assertThat(parsed.getCipherSuites()).containsExactly(TLS_AES_128_GCM_SHA256);
+        assertThat(parsed.getExtensions()).hasSize(2);
+        assertThat(parsed.getBytes()).isEqualTo(clientHello.getBytes());
+    }
+
+    @Test
+    void clientHelloCreatedFromPartsCanRepeatTheExtensionsOfAnotherClientHello() {
+        // Given
+        ClientHello first = createClientHello(secp256r1);
+
+        // When: build a second client hello the way it must be done after a hello retry request: same random, same
+        // session id, same cipher suites, and the extensions of the first one.
+        ClientHello second = new ClientHello(first.getClientRandom(), first.getSessionId(), first.getCipherSuites(),
+                first.getExtensions(), null);
+
+        // Then
+        assertThat(second.getBytes()).isEqualTo(first.getBytes());
     }
 
     private ClientHello createClientHello(TlsConstants.NamedGroup keyShareGroup) {
