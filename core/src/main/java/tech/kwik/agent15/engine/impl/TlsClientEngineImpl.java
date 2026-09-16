@@ -90,6 +90,7 @@ public class TlsClientEngineImpl extends TlsEngineImpl implements TlsClientEngin
     private boolean compatibilityMode;
     private List<TlsConstants.CipherSuite> supportedCiphers;
     private TlsConstants.NamedGroup ecCurve;
+    private List<TlsConstants.NamedGroup> offeredGroups;
     private KeyExchange keyExchange;
     private final KeyExchangeFactory keyExchangeFactory;
     private TlsConstants.CipherSuite selectedCipher;
@@ -201,6 +202,7 @@ public class TlsClientEngineImpl extends TlsEngineImpl implements TlsClientEngin
 
         supportedSignatures = signatureSchemes;
         this.ecCurve = ecNamedGroup;
+        this.offeredGroups = supportedGroups;
         keyExchange.generateClientKeyPair();
 
         List<Extension> extensions;
@@ -209,9 +211,7 @@ public class TlsClientEngineImpl extends TlsEngineImpl implements TlsClientEngin
             extensions.addAll(requestedExtensions);
             extensions.add(new ClientHelloPreSharedKeyExtension(newSessionTicket));
 
-            TlsConstants.CipherSuite cipher = newSessionTicket.getCipher();
-            transcriptHash = new TranscriptHash(hashLength(cipher));
-            state = new TlsState(transcriptHash, newSessionTicket.getPSK(), keyLength(cipher), hashLength(cipher));
+            createTlsState(newSessionTicket.getCipher(), newSessionTicket.getPSK());
         }
         else {
             extensions = requestedExtensions;
@@ -229,6 +229,18 @@ public class TlsClientEngineImpl extends TlsEngineImpl implements TlsClientEngin
         }
         sender.send(clientHello);
         status = Status.WaitServerHello;
+    }
+
+    /**
+     * Creates the transcript hash and TLS state for the given cipher suite. Can only be called when the cipher suite
+     * is known: either because a session is resumed (the cipher of the session-to-resume is used), or because the
+     * server has selected one.
+     * @param cipher  the cipher suite that determines the hash and key length
+     * @param psk     the pre-shared key, or null when none is used
+     */
+    private void createTlsState(TlsConstants.CipherSuite cipher, byte[] psk) {
+        transcriptHash = new TranscriptHash(hashLength(cipher));
+        state = new TlsState(transcriptHash, psk, keyLength(cipher), hashLength(cipher));
     }
 
     /**
@@ -344,8 +356,7 @@ public class TlsClientEngineImpl extends TlsEngineImpl implements TlsClientEngin
         selectedCipher = serverHello.getCipherSuite();
 
         if (state == null) {
-            transcriptHash = new TranscriptHash(hashLength(selectedCipher));
-            state = new TlsState(transcriptHash, keyLength(selectedCipher), hashLength(selectedCipher));
+            createTlsState(selectedCipher, null);
             transcriptHash.record(clientHello);
             state.computeEarlyTrafficSecret();
             statusHandler.earlySecretsKnown();
