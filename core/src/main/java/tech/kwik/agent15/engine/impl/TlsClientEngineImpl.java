@@ -97,7 +97,8 @@ public class TlsClientEngineImpl extends TlsEngineImpl implements TlsClientEngin
     private List<Extension> requestedExtensions;
     private List<Extension> sentExtensions;
     private Status status = Status.Start;
-    private ClientHello clientHello;
+    private ClientHello clientHello1;
+    private HelloRetryRequest helloRetryRequest;
     private TranscriptHash transcriptHash;
     private List<TlsConstants.SignatureScheme> supportedSignatures;
     private X509Certificate serverCertificate;
@@ -218,16 +219,16 @@ public class TlsClientEngineImpl extends TlsEngineImpl implements TlsClientEngin
             // Defer initialization of TlsState until selected cipher is known.
         }
 
-        clientHello = new ClientHello(serverName, ecNamedGroup, keyExchange.getClientKeyShare(), compatibilityMode,
+        clientHello1 = new ClientHello(serverName, ecNamedGroup, keyExchange.getClientKeyShare(), compatibilityMode,
                 supportedCiphers, supportedSignatures, supportedGroups, extensions, state, ClientHello.PskKeyEstablishmentMode.PSKwithDHE);
-        sentExtensions = clientHello.getExtensions();
+        sentExtensions = clientHello1.getExtensions();
 
         if (state != null) {
-            transcriptHash.record(clientHello);
+            transcriptHash.record(clientHello1);
             state.computeEarlyTrafficSecret();
             statusHandler.earlySecretsKnown();
         }
-        sender.send(clientHello);
+        sender.send(clientHello1);
         status = Status.WaitServerHello;
     }
 
@@ -241,6 +242,189 @@ public class TlsClientEngineImpl extends TlsEngineImpl implements TlsClientEngin
     private void createTlsState(TlsConstants.CipherSuite cipher, byte[] psk) {
         transcriptHash = new TranscriptHash(hashLength(cipher));
         state = new TlsState(transcriptHash, psk, keyLength(cipher), hashLength(cipher));
+    }
+
+    /**
+     * Processes a received HelloRetryRequest message: validates it and sends a second client hello.
+     * https://datatracker.ietf.org/doc/html/rfc8446#section-4.1.4
+     * "Otherwise, the client MUST process all extensions in the HelloRetryRequest and send a second updated
+     *  ClientHello."
+     * @param helloRetryRequest
+     * @param protectedBy
+     */
+    @Override
+    public void received(HelloRetryRequest helloRetryRequest, ProtectionKeysType protectedBy) throws TlsProtocolException, IOException {
+        if (protectedBy != ProtectionKeysType.None) {
+            throw new UnexpectedMessageAlert("incorrect protection level");
+        }
+        if (status != Status.WaitServerHello) {
+            throw new UnexpectedMessageAlert("unexpected hello retry request message");
+        }
+        // https://datatracker.ietf.org/doc/html/rfc8446#section-4.1.4
+        // "If a client receives a second HelloRetryRequest in the same connection (i.e., where the ClientHello was
+        //  itself in response to a HelloRetryRequest), it MUST abort the handshake with an "unexpected_message" alert."
+        if (this.helloRetryRequest != null) {
+            throw new UnexpectedMessageAlert("second hello retry request");
+        }
+
+        // https://datatracker.ietf.org/doc/html/rfc8446#section-4.1.4
+        // "Upon receipt of a HelloRetryRequest, the client MUST check the legacy_version, legacy_session_id_echo,
+        //  cipher_suite, and legacy_compression_method as specified in Section 4.1.3 (...)"
+        // (note that legacy_version and legacy_compression_method are already checked when the message is parsed.)
+        // https://www.rfc-editor.org/rfc/rfc8446.html#section-4.1.3
+        // "A client which receives a legacy_session_id_echo field that does not match what it sent in the ClientHello
+        //  MUST abort the handshake with an "illegal_parameter" alert."
+        if (!Arrays.equals(helloRetryRequest.getLegacySessionIdEcho(), clientHello1.getSessionId())) {
+            throw new IllegalParameterAlert("legacy_session_id_echo does not match");
+        }
+
+        // https://www.rfc-editor.org/rfc/rfc8446.html#section-4.2
+        // "There MUST NOT be more than one extension of the same type in a given extension block."
+        HandshakeMessage.checkForDuplicateExtensions(helloRetryRequest.getExtensions());
+
+        // https://datatracker.ietf.org/doc/html/rfc8446#section-4.1.4
+        // "(...) and then process the extensions, starting with determining the version using "supported_versions"."
+        // https://datatracker.ietf.org/doc/html/rfc8446#section-9.2
+        // ""supported_versions" is REQUIRED for all ClientHello, ServerHello, and HelloRetryRequest messages."
+        short tlsVersion = helloRetryRequest.getSelectedVersion().orElseThrow(() -> new MissingExtensionAlert());
+        if (tlsVersion != 0x0304) {
+            throw new IllegalParameterAlert("invalid tls version");
+        }
+
+        // https://datatracker.ietf.org/doc/html/rfc8446#section-4.1.4
+        // "The HelloRetryRequest extensions defined in this specification are: supported_versions, cookie, key_share"
+        // https://tools.ietf.org/html/rfc8446#section-4.2
+        // "If an implementation receives an extension which it recognizes and which is not specified for the message in
+        //  which it appears, it MUST abort the handshake with an "illegal_parameter" alert."
+        if (helloRetryRequest.getExtensions().stream()
+                .filter(this::recognizedExtension)
+                .anyMatch(ext ->
+                        ! (ext instanceof SupportedVersionsExtension) &&
+                        ! (ext instanceof CookieExtension) &&
+                        ! (ext instanceof KeyShareExtension)
+                )) {
+            throw new IllegalParameterAlert("illegal extension in hello retry request");
+        }
+        // https://datatracker.ietf.org/doc/html/rfc8446#section-4.1.4
+        // "As with the ServerHello, a HelloRetryRequest MUST NOT contain any extensions that were not first offered by
+        //  the client in its ClientHello, with the exception of optionally the "cookie" extension."
+        List<Integer> offeredExtensionTypes = sentExtensions.stream().map(Extension::getType).collect(Collectors.toList());
+        if (helloRetryRequest.getExtensions().stream()
+                .filter(ext -> ! (ext instanceof CookieExtension))
+                .anyMatch(ext -> ! offeredExtensionTypes.contains(ext.getType()))) {
+            throw new UnsupportedExtensionAlert("extension response to missing request");
+        }
+
+        // https://datatracker.ietf.org/doc/html/rfc8446#section-4.1.4
+        // "A client which receives a cipher suite that was not offered MUST abort the handshake."
+        if (! supportedCiphers.contains(helloRetryRequest.getCipherSuite())) {
+            throw new IllegalParameterAlert("cipher suite does not match");
+        }
+        selectedCipher = helloRetryRequest.getCipherSuite();
+
+        Optional<TlsConstants.NamedGroup> selectedGroup = Optional.empty();
+        if (helloRetryRequest.hasKeyShareExtension()) {
+            selectedGroup = helloRetryRequest.getSelectedGroup();
+            // https://datatracker.ietf.org/doc/html/rfc8446#section-4.2.8
+            // "Upon receipt of this extension in a HelloRetryRequest, the client MUST verify that (1) the
+            //  selected_group field corresponds to a group which was provided in the "supported_groups" extension in
+            //  the original ClientHello and (2) the selected_group field does not correspond to a group which was
+            //  provided in the "key_share" extension in the original ClientHello. If either of these checks fails,
+            //  then the client MUST abort the handshake with an "illegal_parameter" alert."
+            // A group that is not recognized cannot have been offered, so it fails check (1) too.
+            if (selectedGroup.isEmpty() || ! offeredGroups.contains(selectedGroup.get())) {
+                throw new IllegalParameterAlert("server selected a group that was not offered in the supported groups extension");
+            }
+            if (selectedGroup.get() == ecCurve) {
+                throw new IllegalParameterAlert("server selected the group that was already used for the key share");
+            }
+        }
+
+        // https://datatracker.ietf.org/doc/html/rfc8446#section-4.1.4
+        // "Clients MUST abort the handshake with an "illegal_parameter" alert if the HelloRetryRequest would not
+        //  result in any change in the ClientHello."
+        // The only changes a HelloRetryRequest can bring about are a different key share and a cookie.
+        if (! helloRetryRequest.hasKeyShareExtension() && helloRetryRequest.getCookie().isEmpty()) {
+            throw new IllegalParameterAlert("hello retry request would not result in any change in the client hello");
+        }
+
+        // The selected cipher suite is known now, so the transcript hash (and with it the TLS state) can be created.
+        if (state == null) {
+            createTlsState(selectedCipher, null);
+            transcriptHash.record(clientHello1);
+            // The early traffic secret is derived from the transcript up to and including the first client hello, so
+            // it must be computed before that client hello is replaced by the synthetic message (below).
+            state.computeEarlyTrafficSecret();
+            statusHandler.earlySecretsKnown();
+        }
+        // https://datatracker.ietf.org/doc/html/rfc8446#section-4.4.1
+        // "(...) the value of ClientHello1 is replaced with a special synthetic handshake message of handshake type
+        //  "message_hash" containing Hash(ClientHello1)."
+        transcriptHash.recordHelloRetryRequest(clientHello1, helloRetryRequest);
+
+        this.helloRetryRequest = helloRetryRequest;
+        ClientHello clientHello2 = createRetryClientHello(helloRetryRequest, selectedGroup);
+        sentExtensions = clientHello2.getExtensions();
+        transcriptHash.record(clientHello2);
+        sender.send(clientHello2);
+        // Status remains WaitServerHello: the client now waits for a server hello (and a second hello retry request
+        // is not acceptable), see https://www.rfc-editor.org/rfc/rfc8446.html#appendix-A.1.
+    }
+
+    /**
+     * Creates the second client hello, the one sent in response to a HelloRetryRequest.
+     * https://datatracker.ietf.org/doc/html/rfc8446#section-4.1.2
+     * "The client will also send a ClientHello when the server has responded to its ClientHello with a
+     *  HelloRetryRequest. In that case, the client MUST send the same ClientHello without modification, except as
+     *  follows: (...)"
+     */
+    private ClientHello createRetryClientHello(HelloRetryRequest helloRetryRequest, Optional<TlsConstants.NamedGroup> selectedGroup) throws TlsProtocolException {
+        KeyShareExtension newKeyShare = null;
+        if (selectedGroup.isPresent()) {
+            ecCurve = selectedGroup.get();
+            keyExchange = keyExchangeFactory.forGroup(ecCurve);
+            if (keyExchange == null) {
+                // Cannot happen: the selected group was offered, and only groups that can be used for key exchange are offered.
+                throw new IllegalParameterAlert("server selected a group that is not supported: " + ecCurve);
+            }
+            keyExchange.generateClientKeyPair();
+            newKeyShare = new KeyShareExtension(keyExchange.getClientKeyShare(), ecCurve, TlsConstants.HandshakeType.client_hello);
+        }
+
+        List<Extension> clientHello2Extensions = new ArrayList<>();
+        for (Extension extension : clientHello1.getExtensions()) {
+            if (extension instanceof EarlyDataExtension) {
+                // "Removing the "early_data" extension (Section 4.2.10) if one was present. Early data is not
+                //  permitted after a HelloRetryRequest."
+                continue;
+            }
+            else if (extension instanceof KeyShareExtension && newKeyShare != null) {
+                // "If a "key_share" extension was supplied in the HelloRetryRequest, replacing the list of shares with
+                //  a list containing a single KeyShareEntry from the indicated group."
+                clientHello2Extensions.add(newKeyShare);
+            }
+            else {
+                clientHello2Extensions.add(extension);
+            }
+        }
+        // "Including a "cookie" extension if one was provided in the HelloRetryRequest."
+        // https://datatracker.ietf.org/doc/html/rfc8446#section-4.2.2
+        // "When sending the new ClientHello, the client MUST copy the contents of the extension received in the
+        //  HelloRetryRequest into a "cookie" extension in the new ClientHello."
+        helloRetryRequest.getCookie().ifPresent(cookie -> clientHello2Extensions.add(new CookieExtension(cookie)));
+
+        // https://datatracker.ietf.org/doc/html/rfc8446#section-4.2.11
+        // "The "pre_shared_key" extension MUST be the last extension in the ClientHello"
+        clientHello2Extensions.stream()
+                .filter(extension -> extension instanceof ClientHelloPreSharedKeyExtension)
+                .findFirst()
+                .ifPresent(pskExtension -> {
+                    clientHello2Extensions.remove(pskExtension);
+                    clientHello2Extensions.add(pskExtension);
+                });
+
+        return new ClientHello(clientHello1.getClientRandom(), clientHello1.getSessionId(), clientHello1.getCipherSuites(),
+                clientHello2Extensions, state);
     }
 
     /**
@@ -261,7 +445,7 @@ public class TlsClientEngineImpl extends TlsEngineImpl implements TlsClientEngin
         // https://www.rfc-editor.org/rfc/rfc8446.html#section-4.1.3
         // "A client which receives a legacy_session_id_echo field that does not match whatit sent in the ClientHello
         //  MUST abort the handshake with an "illegal_parameter" alert."
-        if (!Arrays.equals(serverHello.getLegacySessionIdEcho(), clientHello.getSessionId())) {
+        if (!Arrays.equals(serverHello.getLegacySessionIdEcho(), clientHello1.getSessionId())) {
             throw new IllegalParameterAlert("legacy_session_id_echo does not match");
         }
 
@@ -357,7 +541,7 @@ public class TlsClientEngineImpl extends TlsEngineImpl implements TlsClientEngin
 
         if (state == null) {
             createTlsState(selectedCipher, null);
-            transcriptHash.record(clientHello);
+            transcriptHash.record(clientHello1);
             state.computeEarlyTrafficSecret();
             statusHandler.earlySecretsKnown();
         }

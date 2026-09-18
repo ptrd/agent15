@@ -158,6 +158,8 @@ public interface TlsClientEngine extends TlsEngine {
 
     void received(ServerHello serverHello, ProtectionKeysType protectedBy) throws TlsProtocolException;
 
+    void received(HelloRetryRequest helloRetryRequest, ProtectionKeysType protectedBy) throws TlsProtocolException, IOException;
+
     void received(EncryptedExtensions encryptedExtensions, ProtectionKeysType protectedBy) throws TlsProtocolException;
 
     void received(CertificateMessage certificateMessage, ProtectionKeysType protectedBy) throws TlsProtocolException;

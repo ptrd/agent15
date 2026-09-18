@@ -60,6 +60,7 @@ import java.util.Base64;
 import java.util.Collections;
 import java.util.Date;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import static java.util.Collections.emptyList;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -77,6 +78,9 @@ import static tech.kwik.agent15.util.CertificateUtils.*;
 import static tech.kwik.agent15.util.TestUtils.regardless;
 
 class TlsClientEngineTest {
+
+    // The legacy_session_id_echo a server sends back when the client does not use compatibility mode.
+    private static final byte[] EMPTY_SESSION_ID = new byte[0];
 
     public static final byte[] KEY_EXCHANGE_DATA = ByteUtils.hexToBytes("045d58e52e3deee2e8b78ec51e2d0cedb5080c8244bd3f651219cc48f3d3d404399d6748ab3eaaca0e32b927fc5e8107628e636b614cab332d8637c1d61caccdda");
 
@@ -254,27 +258,259 @@ class TlsClientEngineTest {
                 .hasMessageContaining("cipher");
     }
 
+    // region hello retry request
     @Test
-    void whenServerSendsHelloRetryRequestClientShouldAbortHandshake() throws Exception {
+    void helloRetryRequestShouldLeadToSecondClientHello() throws Exception {
         // Given
-        engine.startHandshake();
+        engine.startHandshake(secp256r1, List.of(secp256r1, x25519), List.of(rsa_pss_rsae_sha256));
+        ClientHello firstClientHello = capturedClientHello();
 
-        // HelloRetryRequest: a ServerHello with the special random value, see https://datatracker.ietf.org/doc/html/rfc8446#section-4.1.3
-        //                type   length legacy_v  random                                                            sid cipher cmp
-        String hrrInHex = ("02 000034  0303 CF21AD74E59A6111BE1D8C021E65B891C2A211167ABB8C5E079E09E2C8A8339C  00  1301   00"
-                //  ext length  supported versions  key share (selected group: x25519)
-                + "000c         002b00020304        00330002001d").replaceAll(" ", "");
-        byte[] data = ByteUtils.hexToBytes(hrrInHex);
-        HandshakeMessage helloRetryRequest = ServerHello.parse(ByteBuffer.wrap(data), data.length);
-        assertThat(helloRetryRequest).isInstanceOf(HelloRetryRequest.class);
+        // When
+        engine.received(createHelloRetryRequest(x25519), ProtectionKeysType.None);
+
+        // Then
+        ClientHello secondClientHello = capturedClientHello();
+        assertThat(secondClientHello).isNotSameAs(firstClientHello);
+        // https://datatracker.ietf.org/doc/html/rfc8446#section-4.1.2
+        // "the client MUST send the same ClientHello without modification, except as follows: (...)"
+        assertThat(secondClientHello.getClientRandom()).isEqualTo(firstClientHello.getClientRandom());
+        assertThat(secondClientHello.getSessionId()).isEqualTo(firstClientHello.getSessionId());
+        assertThat(secondClientHello.getCipherSuites()).isEqualTo(firstClientHello.getCipherSuites());
+    }
+
+    @Test
+    void secondClientHelloShouldContainKeyShareForSelectedGroup() throws Exception {
+        // Given
+        engine.startHandshake(secp256r1, List.of(secp256r1, x25519), List.of(rsa_pss_rsae_sha256));
+        assertThat(keyShareGroupsOf(capturedClientHello())).containsExactly(secp256r1);
+
+        // When
+        engine.received(createHelloRetryRequest(x25519), ProtectionKeysType.None);
+
+        // Then
+        // https://datatracker.ietf.org/doc/html/rfc8446#section-4.2.8
+        // "the client MUST replace the original "key_share" extension with one containing only a new KeyShareEntry for
+        //  the group indicated in the selected_group field of the triggering HelloRetryRequest."
+        assertThat(keyShareGroupsOf(capturedClientHello())).containsExactly(x25519);
+    }
+
+    @Test
+    void secondClientHelloShouldEchoCookieFromHelloRetryRequest() throws Exception {
+        // Given
+        engine.startHandshake(secp256r1, List.of(secp256r1, x25519), List.of(rsa_pss_rsae_sha256));
+
+        // When
+        engine.received(createHelloRetryRequest(x25519, ByteUtils.hexToBytes("cafebabe")), ProtectionKeysType.None);
+
+        // Then
+        // https://datatracker.ietf.org/doc/html/rfc8446#section-4.2.2
+        // "the client MUST copy the contents of the extension received in the HelloRetryRequest into a "cookie"
+        //  extension in the new ClientHello."
+        CookieExtension cookie = (CookieExtension) extensionOfType(capturedClientHello(), CookieExtension.class);
+        assertThat(cookie.getCookie()).isEqualTo(ByteUtils.hexToBytes("cafebabe"));
+    }
+
+    @Test
+    void whenHelloRetryRequestHasNoKeyShareTheOriginalKeyShareIsRetained() throws Exception {
+        // Given
+        engine.startHandshake(secp256r1, List.of(secp256r1, x25519), List.of(rsa_pss_rsae_sha256));
+
+        // When: a hello retry request with a cookie only (e.g. to have the client prove reachability)
+        engine.received(new HelloRetryRequest(engineCipher, EMPTY_SESSION_ID,
+                List.of(mandatorySupportedVersionExtension, new CookieExtension(ByteUtils.hexToBytes("cafebabe")))),
+                ProtectionKeysType.None);
+
+        // Then
+        assertThat(keyShareGroupsOf(capturedClientHello())).containsExactly(secp256r1);
+    }
+
+    @Test
+    void earlyDataExtensionShouldBeRemovedFromSecondClientHello() throws Exception {
+        // Given
+        engine.add(new EarlyDataExtension());
+        engine.startHandshake(secp256r1, List.of(secp256r1, x25519), List.of(rsa_pss_rsae_sha256));
+        assertThat(capturedClientHello().getExtensions()).anyMatch(ext -> ext instanceof EarlyDataExtension);
+
+        // When
+        engine.received(createHelloRetryRequest(x25519), ProtectionKeysType.None);
+
+        // Then
+        // https://datatracker.ietf.org/doc/html/rfc8446#section-4.1.2
+        // "Removing the "early_data" extension (Section 4.2.10) if one was present."
+        assertThat(capturedClientHello().getExtensions()).noneMatch(ext -> ext instanceof EarlyDataExtension);
+    }
+
+    @Test
+    void secondHelloRetryRequestShouldLeadToUnexpectedMessageAlert() throws Exception {
+        // Given
+        engine.startHandshake(secp256r1, List.of(secp256r1, x25519), List.of(rsa_pss_rsae_sha256));
+        engine.received(createHelloRetryRequest(x25519), ProtectionKeysType.None);
 
         assertThatThrownBy(() ->
                 // When
-                engine.received(helloRetryRequest, ProtectionKeysType.None))
+                engine.received(createHelloRetryRequest(secp256r1), ProtectionKeysType.None))
                 // Then
-                .isInstanceOf(HandshakeFailureAlert.class)
-                .hasMessageContaining("HelloRetryRequest");
+                .isInstanceOf(UnexpectedMessageAlert.class);
     }
+
+    @Test
+    void helloRetryRequestSelectingGroupThatWasNotOfferedShouldLeadToIllegalParameterAlert() throws Exception {
+        // Given
+        engine.startHandshake(secp256r1, List.of(secp256r1, x25519), List.of(rsa_pss_rsae_sha256));
+
+        assertThatThrownBy(() ->
+                // When: x448 is supported by this implementation, but was not offered
+                engine.received(createHelloRetryRequest(x448), ProtectionKeysType.None))
+                // Then
+                .isInstanceOf(IllegalParameterAlert.class)
+                .hasMessageContaining("not offered");
+    }
+
+    @Test
+    void helloRetryRequestSelectingUnknownGroupShouldLeadToIllegalParameterAlert() throws Exception {
+        // Given
+        engine.startHandshake(secp256r1, List.of(secp256r1, x25519), List.of(rsa_pss_rsae_sha256));
+
+        // A key share extension selecting group 0x6666, which is not a group this implementation knows.
+        String hrrInHex = ("02 000000  0303 CF21AD74E59A6111BE1D8C021E65B891C2A211167ABB8C5E079E09E2C8A8339C  00  1301   00"
+                + "000c   002b00020304        00330002 6666").replaceAll(" ", "");
+        byte[] data = setTlsMsgLength(ByteUtils.hexToBytes(hrrInHex));
+        HandshakeMessage hrr = ServerHello.parse(ByteBuffer.wrap(data), data.length);
+
+        assertThatThrownBy(() ->
+                // When
+                engine.received(hrr, ProtectionKeysType.None))
+                // Then
+                .isInstanceOf(IllegalParameterAlert.class);
+    }
+
+    @Test
+    void helloRetryRequestSelectingGroupAlreadyUsedForKeyShareShouldLeadToIllegalParameterAlert() throws Exception {
+        // Given
+        engine.startHandshake(secp256r1, List.of(secp256r1, x25519), List.of(rsa_pss_rsae_sha256));
+
+        assertThatThrownBy(() ->
+                // When
+                engine.received(createHelloRetryRequest(secp256r1), ProtectionKeysType.None))
+                // Then
+                .isInstanceOf(IllegalParameterAlert.class)
+                .hasMessageContaining("already used");
+    }
+
+    @Test
+    void helloRetryRequestThatChangesNothingShouldLeadToIllegalParameterAlert() throws Exception {
+        // Given
+        engine.startHandshake(secp256r1, List.of(secp256r1, x25519), List.of(rsa_pss_rsae_sha256));
+
+        assertThatThrownBy(() ->
+                // When: neither a key share nor a cookie, so the client hello would not change
+                engine.received(new HelloRetryRequest(engineCipher, EMPTY_SESSION_ID,
+                        List.of(mandatorySupportedVersionExtension)), ProtectionKeysType.None))
+                // Then
+                .isInstanceOf(IllegalParameterAlert.class)
+                .hasMessageContaining("not result in any change");
+    }
+
+    @Test
+    void helloRetryRequestWithCipherThatWasNotOfferedShouldLeadToIllegalParameterAlert() throws Exception {
+        // Given
+        engine.startHandshake(secp256r1, List.of(secp256r1, x25519), List.of(rsa_pss_rsae_sha256));
+
+        assertThatThrownBy(() ->
+                // When
+                engine.received(new HelloRetryRequest(TLS_CHACHA20_POLY1305_SHA256, EMPTY_SESSION_ID,
+                        List.of(mandatorySupportedVersionExtension, new KeyShareExtension(x25519))),
+                        ProtectionKeysType.None))
+                // Then
+                .isInstanceOf(IllegalParameterAlert.class)
+                .hasMessageContaining("cipher");
+    }
+
+    @Test
+    void helloRetryRequestWithIncorrectSessionIdEchoShouldLeadToIllegalParameterAlert() throws Exception {
+        // Given
+        engine.setCompatibilityMode(true);
+        engine.startHandshake(secp256r1, List.of(secp256r1, x25519), List.of(rsa_pss_rsae_sha256));
+
+        assertThatThrownBy(() ->
+                // When
+                engine.received(new HelloRetryRequest(engineCipher, new byte[32],
+                        List.of(mandatorySupportedVersionExtension, new KeyShareExtension(x25519))),
+                        ProtectionKeysType.None))
+                // Then
+                .isInstanceOf(IllegalParameterAlert.class)
+                .hasMessageContaining("legacy_session_id_echo");
+    }
+
+    @Test
+    void helloRetryRequestWithoutSupportedVersionsExtensionShouldLeadToMissingExtensionAlert() throws Exception {
+        // Given
+        engine.startHandshake(secp256r1, List.of(secp256r1, x25519), List.of(rsa_pss_rsae_sha256));
+
+        assertThatThrownBy(() ->
+                // When
+                engine.received(new HelloRetryRequest(engineCipher, EMPTY_SESSION_ID,
+                        List.of(new KeyShareExtension(x25519))), ProtectionKeysType.None))
+                // Then
+                .isInstanceOf(MissingExtensionAlert.class);
+    }
+
+    @Test
+    void helloRetryRequestWithExtensionThatIsNotAllowedShouldLeadToIllegalParameterAlert() throws Exception {
+        // Given
+        engine.startHandshake(secp256r1, List.of(secp256r1, x25519), List.of(rsa_pss_rsae_sha256));
+
+        assertThatThrownBy(() ->
+                // When: a pre_shared_key extension is allowed in CH and SH, but not in a HelloRetryRequest
+                engine.received(new HelloRetryRequest(engineCipher, EMPTY_SESSION_ID,
+                        List.of(mandatorySupportedVersionExtension, new KeyShareExtension(x25519),
+                                new ServerPreSharedKeyExtension(0))),
+                        ProtectionKeysType.None))
+                // Then
+                .isInstanceOf(IllegalParameterAlert.class)
+                .hasMessageContaining("illegal extension");
+    }
+
+    @Test
+    void helloRetryRequestWithUnrequestedExtensionShouldLeadToUnsupportedExtensionAlert() throws Exception {
+        // Given
+        engine.startHandshake(secp256r1, List.of(secp256r1, x25519), List.of(rsa_pss_rsae_sha256));
+
+        assertThatThrownBy(() ->
+                // When: an extension the client did not offer (and that is not the cookie extension)
+                engine.received(new HelloRetryRequest(engineCipher, EMPTY_SESSION_ID,
+                        List.of(mandatorySupportedVersionExtension, new KeyShareExtension(x25519),
+                                new UnknownExtension().parse(ByteBuffer.wrap(ByteUtils.hexToBytes("f0f000020000"))))),
+                        ProtectionKeysType.None))
+                // Then
+                .isInstanceOf(UnsupportedExtensionAlert.class);
+    }
+
+    @Test
+    void helloRetryRequestShouldNotBeAcceptedAfterServerHello() throws Exception {
+        // Given
+        handshakeUpToEncryptedExtensions();
+
+        assertThatThrownBy(() ->
+                // When
+                engine.received(createHelloRetryRequest(x25519), ProtectionKeysType.None))
+                // Then
+                .isInstanceOf(UnexpectedMessageAlert.class);
+    }
+
+    @Test
+    void helloRetryRequestWithIncorrectProtectionLevelShouldLeadToUnexpectedMessageAlert() throws Exception {
+        // Given
+        engine.startHandshake(secp256r1, List.of(secp256r1, x25519), List.of(rsa_pss_rsae_sha256));
+
+        assertThatThrownBy(() ->
+                // When
+                engine.received(createHelloRetryRequest(x25519), ProtectionKeysType.Handshake))
+                // Then
+                .isInstanceOf(UnexpectedMessageAlert.class);
+    }
+
+    // endregion
 
     @Test
     void whenServerHelloContainsCipherThatClientNotEvenKnows() throws Exception {
@@ -1136,6 +1372,46 @@ class TlsClientEngineTest {
 
         // When/Then
         assertThat(engine.keyMatchesSignatureAlgorithm(cert.getPublicKey(), ecdsa_secp521r1_sha512)).isTrue();
+    }
+
+    private HelloRetryRequest createHelloRetryRequest(TlsConstants.NamedGroup selectedGroup) {
+        return new HelloRetryRequest(engineCipher, EMPTY_SESSION_ID,
+                List.of(mandatorySupportedVersionExtension, new KeyShareExtension(selectedGroup)));
+    }
+
+    private HelloRetryRequest createHelloRetryRequest(TlsConstants.NamedGroup selectedGroup, byte[] cookie) {
+        return new HelloRetryRequest(engineCipher, EMPTY_SESSION_ID,
+                List.of(mandatorySupportedVersionExtension, new KeyShareExtension(selectedGroup), new CookieExtension(cookie)));
+    }
+
+    /**
+     * Returns the last client hello that the engine passed to the message sender.
+     */
+    private ClientHello capturedClientHello() throws Exception {
+        ArgumentCaptor<ClientHello> captor = ArgumentCaptor.forClass(ClientHello.class);
+        verify(messageSender, atLeastOnce()).send(captor.capture());
+        return captor.getValue();
+    }
+
+    private List<TlsConstants.NamedGroup> keyShareGroupsOf(ClientHello clientHello) {
+        return ((KeyShareExtension) extensionOfType(clientHello, KeyShareExtension.class)).getKeyShareEntries().stream()
+                .map(KeyShareExtension.KeyShareEntry::getNamedGroup)
+                .collect(Collectors.toList());
+    }
+
+    private Extension extensionOfType(ClientHello clientHello, Class<? extends Extension> type) {
+        return clientHello.getExtensions().stream()
+                .filter(type::isInstance)
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("ClientHello does not contain a " + type.getSimpleName()));
+    }
+
+    private byte[] setTlsMsgLength(byte[] messageBytes) {
+        int bodyLength = messageBytes.length - 4;
+        messageBytes[1] = (byte) (bodyLength >> 16);
+        messageBytes[2] = (byte) (bodyLength >> 8);
+        messageBytes[3] = (byte) bodyLength;
+        return messageBytes;
     }
 
     private ServerHello createDefaultServerHello() {
