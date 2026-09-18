@@ -499,6 +499,43 @@ class TlsClientEngineTest {
     }
 
     @Test
+    void serverHelloWithOtherCipherThanHelloRetryRequestShouldLeadToIllegalParameterAlert() throws Exception {
+        // Given
+        engine.addSupportedCiphers(List.of(TLS_CHACHA20_POLY1305_SHA256));
+        engine.startHandshake(x25519, List.of(x25519, secp256r1), List.of(rsa_pss_rsae_sha256));
+        engine.received(createHelloRetryRequest(secp256r1), ProtectionKeysType.None);
+
+        assertThatThrownBy(() ->
+                // When: another cipher than the one in the hello retry request (but one that was offered)
+                engine.received(createDefaultServerHello(TLS_CHACHA20_POLY1305_SHA256), ProtectionKeysType.None))
+                // Then
+                .isInstanceOf(IllegalParameterAlert.class)
+                .hasMessageContaining("hello retry request");
+    }
+
+    @Test
+    void serverHelloWithOtherGroupThanHelloRetryRequestShouldLeadToIllegalParameterAlert() throws Exception {
+        // Given
+        engine.startHandshake(x25519, List.of(x25519, secp256r1), List.of(rsa_pss_rsae_sha256));
+        engine.received(createHelloRetryRequest(secp256r1), ProtectionKeysType.None);
+
+        // A server hello with a key share for x25519, the group used in the first client hello, instead of for
+        // secp256r1, the group the hello retry request selected.
+        ServerHello serverHello = new ServerHello(engineCipher, List.of(mandatorySupportedVersionExtension,
+                new KeyShareExtension(new byte[32], x25519, TlsConstants.HandshakeType.server_hello)));
+
+        assertThatThrownBy(() ->
+                // When
+                engine.received(serverHello, ProtectionKeysType.None))
+                // Then
+                // https://datatracker.ietf.org/doc/html/rfc8446#section-4.1.4
+                // "Upon receiving the ServerHello, clients MUST check that the cipher suite supplied in the ServerHello is the
+                //  same as that in the HelloRetryRequest and otherwise abort the handshake with an "illegal_parameter" alert."
+                .isInstanceOf(IllegalParameterAlert.class)
+                .hasMessageContaining("named group");
+    }
+
+    @Test
     void helloRetryRequestWithIncorrectProtectionLevelShouldLeadToUnexpectedMessageAlert() throws Exception {
         // Given
         engine.startHandshake(secp256r1, List.of(secp256r1, x25519), List.of(rsa_pss_rsae_sha256));

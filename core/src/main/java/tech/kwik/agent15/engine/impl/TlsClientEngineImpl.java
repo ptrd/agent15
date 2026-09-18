@@ -506,6 +506,12 @@ public class TlsClientEngineImpl extends TlsEngineImpl implements TlsClientEngin
                     .map(extension -> ((KeyShareExtension) extension).getKeyShareEntries().get(0))
                     .orElseThrow(() -> new IllegalParameterAlert("")));
             // In the context of a server hello, the key share extension contains exactly one key share entry
+            // Note that when a hello retry request selected a group, ecCurve holds that group, so this check also
+            // implements https://datatracker.ietf.org/doc/html/rfc8446#section-4.2.8:
+            // "If using (EC)DHE key establishment and a HelloRetryRequest containing a "key_share" extension was
+            //  received by the client, the client MUST verify that the selected NamedGroup in the ServerHello is the
+            //  same as that in the HelloRetryRequest. If this check fails, the client MUST abort the handshake with an
+            //  "illegal_parameter" alert."
             if (keyShare.get().getNamedGroup() != ecCurve) {
                 throw new IllegalParameterAlert("server supplied key share does not match client supported named group");
             }
@@ -537,8 +543,25 @@ public class TlsClientEngineImpl extends TlsEngineImpl implements TlsClientEngin
             // "A client which receives a cipher suite that was not offered MUST abort the handshake with an "illegal_parameter" alert."
             throw new IllegalParameterAlert("cipher suite does not match");
         }
+        if (helloRetryRequest != null && serverHello.getCipherSuite() != helloRetryRequest.getCipherSuite()) {
+            // https://datatracker.ietf.org/doc/html/rfc8446#section-4.1.4
+            // "Upon receiving the ServerHello, clients MUST check that the cipher suite supplied in the ServerHello is
+            //  the same as that in the HelloRetryRequest and otherwise abort the handshake with an "illegal_parameter"
+            //  alert."
+            throw new IllegalParameterAlert("cipher suite does not match the one in the hello retry request");
+        }
         selectedCipher = serverHello.getCipherSuite();
 
+        // https://datatracker.ietf.org/doc/html/rfc8446#section-4.1.4
+        // "The value of selected_version in the HelloRetryRequest "supported_versions" extension MUST be retained in
+        //  the ServerHello, and a client MUST abort the handshake with an "illegal_parameter" alert if the value
+        //  changes."
+        // No explicit check is needed: this implementation accepts 0x0304 only, in both messages (see above), so the
+        // value cannot have changed.
+
+        // When a hello retry request was received, the TLS state was already created (the hello retry request carries
+        // the cipher suite), and the transcript hash already holds the first client hello (as a synthetic message),
+        // the hello retry request and the second client hello.
         if (state == null) {
             createTlsState(selectedCipher, null);
             transcriptHash.record(clientHello1);
