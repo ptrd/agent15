@@ -9,9 +9,10 @@
  * <a href="https://datatracker.ietf.org/doc/html/rfc8446#section-2.2">session resumption</a> and
  * <a href="https://datatracker.ietf.org/doc/html/rfc8446#section-2.3">0-RTT</a>.
  * Because it targets QUIC, it implements only the handshake layer, not the TLS record layer. A few handshake messages
- * are intentionally not implemented, as they are not used with QUIC: {@code HelloRetryRequest}, {@code EndOfEarlyData}
- * and {@code KeyUpdate}. Unsupported extensions do not cause parsing to fail; the parser represents them with an
- * {@code UnknownExtension} object.
+ * are intentionally not implemented, as they are not used with QUIC: {@code EndOfEarlyData} and {@code KeyUpdate}.
+ * {@code HelloRetryRequest} is supported on the client side (the client validates it and sends a second
+ * {@code ClientHello}); the server never sends one. Unsupported extensions do not cause parsing to fail; the parser
+ * represents them with an {@code UnknownExtension} object.
  *
  * <h2>Supported cryptography</h2>
  * Cipher suites: {@code TLS_AES_128_GCM_SHA256}, {@code TLS_AES_256_GCM_SHA384}, {@code TLS_CHACHA20_POLY1305_SHA256}.

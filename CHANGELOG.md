@@ -1,5 +1,16 @@
 # Releases
 
+## Unreleased
+
+- Client support for HelloRetryRequest (RFC 8446, section 4.1.4): the client validates the message and sends a second
+  ClientHello with a key share for the group the server selected. The cookie extension is echoed, the early_data
+  extension is removed, and the pre_shared_key extension is updated with a recomputed obfuscated ticket age and binder.
+  The server never sends a HelloRetryRequest.
+- Added `CookieExtension` (RFC 8446, section 4.2.2); it was parsed as an `UnknownExtension` before. Note that a cookie
+  in a ServerHello (as opposed to a HelloRetryRequest) is now rejected with an `illegal_parameter` alert.
+- `BinderCalculator.computePskBinder` takes the preceding transcript as an extra parameter, which is needed for
+  computing the binder of a second ClientHello. The single-argument method remains available as a default method.
+
 ## 3.3 (2026-06-19)
 
 Security hardening and protocol correctness fixes.

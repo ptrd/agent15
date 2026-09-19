@@ -18,10 +18,13 @@ Agent15 implements all of the handshake protocol that is needed to setup and mai
 and
 [0-RTT](https://datatracker.ietf.org/doc/html/rfc8446#section-2.3).
 
+HelloRetryRequest is supported on the client side: when a server responds to the client's ClientHello with a
+HelloRetryRequest, the client validates it and sends a second ClientHello with a key share for the group the server
+selected (and the cookie, if the server provided one). The server side never sends a HelloRetryRequest.
+
 Not all TLS 1.3 handshake messages are implemented (yet); some because they are not used at all in QUIC and others 
 because the Kwik project does not use them. The messages that are not implemented are:
 
-- HelloRetryRequest
 - EndOfEarlyData: not used by QUIC, see https://www.rfc-editor.org/rfc/rfc9001.html#name-removing-the-endofearlydata
 - KeyUpdateRequest: not used by QUIC, see https://www.rfc-editor.org/rfc/rfc9001.html#name-key-update
 
