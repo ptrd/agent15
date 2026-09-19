@@ -533,22 +533,74 @@ public class TlsServerEngineTest {
     }
 
     @Test
-    void whenKeyShareGroupIsNotConfiguredButAnotherOfferedGroupIsHandshakeIsAborted() throws Exception {
+    void whenKeyShareGroupIsNotConfiguredButAnotherOfferedGroupIsHelloRetryRequestIsSent() throws Exception {
         // Given: a server that could do x25519, but is configured to offer secp256r1 only
         TlsServerEngineImpl engine = createEngine(keyExchangeFactorySupporting(NamedGroup.x25519, NamedGroup.secp256r1));
         engine.addSupportedGroups(List.of(NamedGroup.secp256r1));
         // and a client that offers both groups, but sent a key share for x25519 only
-        ClientHello clientHello = createDefaultClientHello();
-        clientHello.getExtensions().removeIf(ext -> ext instanceof SupportedGroupsExtension || ext instanceof KeyShareExtension);
-        clientHello.getExtensions().add(createSupportedGroupsExtension(NamedGroup.x25519, NamedGroup.secp256r1));
-        clientHello.getExtensions().add(createKeyShareExtension(NamedGroup.x25519));
+        ClientHello clientHello = createClientHelloWithKeyShares(List.of(NamedGroup.x25519, NamedGroup.secp256r1), List.of(NamedGroup.x25519));
+
+        // When
+        engine.received(clientHello, ProtectionKeysType.None);
+
+        // Then
+        assertThat(sentHelloRetryRequest().getSelectedGroup()).hasValue(NamedGroup.secp256r1);
+        verify(messageSender, never()).send(any(ServerHello.class));
+    }
+
+    @Test
+    void helloRetryRequestShouldCarryTheNegotiatedCipherAndEchoTheSessionId() throws Exception {
+        // Given
+        TlsServerEngineImpl engine = createEngine(keyExchangeFactorySupporting(NamedGroup.x25519, NamedGroup.secp256r1));
+        engine.addSupportedGroups(List.of(NamedGroup.secp256r1));
+        // A client hello that is parsed from bytes, so that it has a (compatibility mode) session id
+        ClientHello clientHello = parsedClientHello(
+                createClientHelloWithKeyShares(List.of(NamedGroup.x25519, NamedGroup.secp256r1), List.of(NamedGroup.x25519), true));
+
+        // When
+        engine.received(clientHello, ProtectionKeysType.None);
+
+        // Then
+        HelloRetryRequest helloRetryRequest = sentHelloRetryRequest();
+        assertThat(helloRetryRequest.getCipherSuite()).isEqualTo(TLS_AES_128_GCM_SHA256);
+        assertThat(helloRetryRequest.getSelectedVersion()).hasValue((short) 0x0304);
+        // https://datatracker.ietf.org/doc/html/rfc8446#section-4.1.3
+        // "legacy_session_id_echo: The contents of the client's legacy_session_id field."
+        assertThat(helloRetryRequest.getLegacySessionIdEcho()).isEqualTo(clientHello.getSessionId());
+        assertThat(clientHello.getSessionId()).hasSize(32);
+        // This server does not operate statelessly, so it never sends a cookie.
+        assertThat(helloRetryRequest.getCookie()).isEmpty();
+    }
+
+    @Test
+    void whenSignatureSchemeCannotBeNegotiatedNoHelloRetryRequestIsSent() throws Exception {
+        // Given: a server that would have to send a hello retry request for the key share
+        TlsServerEngineImpl engine = createEngine(keyExchangeFactorySupporting(NamedGroup.x25519, NamedGroup.secp256r1));
+        engine.addSupportedGroups(List.of(NamedGroup.secp256r1));
+        // but a client that offers a signature scheme the server does not support
+        ClientHello clientHello = createClientHelloWithKeyShares(List.of(NamedGroup.x25519, NamedGroup.secp256r1),
+                List.of(NamedGroup.x25519), false, ecdsa_secp256r1_sha256);
 
         assertThatThrownBy(() ->
                 // When
                 engine.received(clientHello, ProtectionKeysType.None))
-                // Then: this is exactly the case RFC 8446, section 4.1.1 requires a HelloRetryRequest for; until that
-                // is implemented, the handshake is aborted.
-                .isInstanceOf(IllegalParameterAlert.class);
+                // Then: the handshake fails right away, rather than after an extra round trip
+                .isInstanceOf(HandshakeFailureAlert.class);
+        verify(messageSender, never()).send(any(HelloRetryRequest.class));
+    }
+
+    @Test
+    void whenClientProvidesAUsableKeyShareNoHelloRetryRequestIsSent() throws Exception {
+        // Given
+        TlsServerEngineImpl engine = createEngine(keyExchangeFactorySupporting(NamedGroup.x25519, NamedGroup.secp256r1));
+        ClientHello clientHello = createClientHelloWithKeyShares(NamedGroup.x25519);
+
+        // When
+        engine.received(clientHello, ProtectionKeysType.None);
+
+        // Then
+        verify(messageSender, never()).send(any(HelloRetryRequest.class));
+        verify(messageSender).send(any(ServerHello.class));
     }
 
     @Test
@@ -563,6 +615,22 @@ public class TlsServerEngineTest {
                 engine.received(clientHello, ProtectionKeysType.None))
                 // Then
                 .isInstanceOf(HandshakeFailureAlert.class);
+    }
+
+    /**
+     * Returns the HelloRetryRequest that the engine has sent.
+     */
+    private HelloRetryRequest sentHelloRetryRequest() throws Exception {
+        ArgumentCaptor<HelloRetryRequest> captor = ArgumentCaptor.forClass(HelloRetryRequest.class);
+        verify(messageSender).send(captor.capture());
+        return captor.getValue();
+    }
+
+    /**
+     * Serializes and parses the given client hello, so the result is a client hello as a server would see it.
+     */
+    private ClientHello parsedClientHello(ClientHello clientHello) throws Exception {
+        return new ClientHello(ByteBuffer.wrap(clientHello.getBytes()), null);
     }
 
     /**
@@ -615,6 +683,36 @@ public class TlsServerEngineTest {
         clientHello.getExtensions().add(createSupportedGroupsExtension(groups));
         clientHello.getExtensions().add(createKeyShareExtension(groups));
         return clientHello;
+    }
+
+    private ClientHello createClientHelloWithKeyShares(List<NamedGroup> supportedGroups, List<NamedGroup> keyShareGroups) throws Exception {
+        return createClientHelloWithKeyShares(supportedGroups, keyShareGroups, false);
+    }
+
+    private ClientHello createClientHelloWithKeyShares(List<NamedGroup> supportedGroups, List<NamedGroup> keyShareGroups,
+                                                       boolean compatibilityMode) throws Exception {
+        return createClientHelloWithKeyShares(supportedGroups, keyShareGroups, compatibilityMode, rsa_pss_rsae_sha256);
+    }
+
+    /**
+     * Creates a ClientHello that offers the given groups and provides key shares for the given (sub)set of them.
+     * In contrast to <code>createClientHelloWithKeyShares(NamedGroup...)</code>, which patches the extension list of
+     * an already serialized message, this one assembles the extensions before serializing, so the message bytes match
+     * the extensions.
+     */
+    private ClientHello createClientHelloWithKeyShares(List<NamedGroup> supportedGroups, List<NamedGroup> keyShareGroups,
+                                                       boolean compatibilityMode, SignatureScheme signatureScheme) throws Exception {
+        List<Extension> extensions = List.of(
+                new ServerNameExtension("localhost"),
+                new SupportedVersionsExtension(HandshakeType.client_hello),
+                createSupportedGroupsExtension(supportedGroups.toArray(new NamedGroup[0])),
+                new SignatureAlgorithmsExtension(signatureScheme),
+                createKeyShareExtension(keyShareGroups.toArray(new NamedGroup[0])));
+        // https://datatracker.ietf.org/doc/html/rfc8446#section-4.1.2
+        // "In compatibility mode (...) this field MUST be non-empty, so a client not offering a pre-TLS 1.3 session
+        //  MUST generate a new 32-byte value."
+        byte[] sessionId = compatibilityMode? new byte[32]: new byte[0];
+        return new ClientHello(new byte[32], sessionId, List.of(TLS_AES_128_GCM_SHA256), extensions, null);
     }
 
     private SupportedGroupsExtension createSupportedGroupsExtension(NamedGroup... groups) throws Exception {

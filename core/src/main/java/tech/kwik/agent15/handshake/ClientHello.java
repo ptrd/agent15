@@ -99,7 +99,8 @@ public class ClientHello extends HandshakeMessage {
             throw new DecodeErrorException("legacy session id length out of bounds: " + sessionIdLength);
         }
         if (sessionIdLength > 0) {
-            buffer.get(new byte[sessionIdLength]);
+            sessionId = new byte[sessionIdLength];
+            buffer.get(sessionId);
         }
 
         int cipherSuitesLength = buffer.getShort() & 0xffff;

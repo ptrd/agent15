@@ -45,6 +45,7 @@ public class TlsServerEngineImpl extends TlsEngineImpl implements TlsServerEngin
     enum Status {
         Start,
         ReceivedClientHello,
+        SentHelloRetryRequest,
         Negotiated,
         WaitFinished,
         Connected
@@ -62,6 +63,7 @@ public class TlsServerEngineImpl extends TlsEngineImpl implements TlsServerEngin
     private List<X509Certificate> serverCertificateChain;
     private PrivateKey certificatePrivateKey;
     private TranscriptHash transcriptHash;
+    private HelloRetryRequest helloRetryRequest;
     private KeyExchange keyExchange;
     private TlsConstants.CipherSuite selectedCipher;
     private SignatureScheme signatureScheme;
@@ -120,13 +122,22 @@ public class TlsServerEngineImpl extends TlsEngineImpl implements TlsServerEngin
 
         selectedCipher = negotiateCipherSuite(clientHello);
 
-        checkMutuallySupportedGroup(clientHello);
+        TlsConstants.NamedGroup negotiatedGroup = negotiateNamedGroup(clientHello);
 
-        KeyShareExtension.KeyShareEntry selectedKeyShareEntry = selectKeyShareEntry(clientHello)
-                .orElseThrow(() -> new IllegalParameterAlert("key share named group not supported (and no HelloRetryRequest support)"));
-        keyExchange = keyExchangeFactory.forGroup(selectedKeyShareEntry.getNamedGroup());
-
+        // Negotiate the signature scheme before deciding on a hello retry request: when negotiation fails the
+        // handshake cannot succeed, so there is no point in asking the client to retry first.
         signatureScheme = negotiateSignatureScheme(clientHello);
+
+        Optional<KeyShareExtension.KeyShareEntry> keyShareEntry = selectKeyShareEntry(clientHello);
+        if (keyShareEntry.isEmpty()) {
+            // https://datatracker.ietf.org/doc/html/rfc8446#section-4.1.1
+            // "If the server selects an (EC)DHE group and the client did not offer a compatible "key_share" extension
+            //  in the initial ClientHello, the server MUST respond with a HelloRetryRequest (Section 4.1.4) message."
+            sendHelloRetryRequest(clientHello, negotiatedGroup);
+            return;
+        }
+        KeyShareExtension.KeyShareEntry selectedKeyShareEntry = keyShareEntry.get();
+        keyExchange = keyExchangeFactory.forGroup(selectedKeyShareEntry.getNamedGroup());
 
         collectClientSupportedKeyExchangeModes(clientHello);
 
@@ -176,17 +187,15 @@ public class TlsServerEngineImpl extends TlsEngineImpl implements TlsServerEngin
     }
 
     /**
-     * Checks that the client offers at least one group that this server is willing to use for key exchange. Note that
-     * this says nothing about the key shares the client provided; the client may have offered a group without a key
-     * share for it.
+     * Returns the first group offered by the client that this server is willing to use for key exchange. Note that this
+     * says nothing about the key shares the client provided: the client may have offered a group without providing a
+     * key share for it, which is exactly the case that calls for a hello retry request.
      */
-    private void checkMutuallySupportedGroup(ClientHello clientHello) throws TlsProtocolException {
-        if (clientSupportedGroups(clientHello).stream()
+    private TlsConstants.NamedGroup negotiateNamedGroup(ClientHello clientHello) throws TlsProtocolException {
+        return clientSupportedGroups(clientHello).stream()
                 .filter(this::isSupportedGroup)
                 .findFirst()
-                .isEmpty()) {
-            throw new HandshakeFailureAlert("Failed to negotiate supported group");
-        }
+                .orElseThrow(() -> new HandshakeFailureAlert("Failed to negotiate supported group"));
     }
 
     private List<TlsConstants.NamedGroup> clientSupportedGroups(ClientHello clientHello) throws MissingExtensionAlert {
@@ -211,6 +220,35 @@ public class TlsServerEngineImpl extends TlsEngineImpl implements TlsServerEngin
         return keyShareExtension.getKeyShareEntries().stream()
                 .filter(entry -> isSupportedGroup(entry.getNamedGroup()))
                 .findFirst();
+    }
+
+    /**
+     * Sends a hello retry request, asking the client to retry with a key share for the given group.
+     * https://datatracker.ietf.org/doc/html/rfc8446#section-4.1.4
+     * "The server will send this message in response to a ClientHello message if it is able to find an acceptable set
+     *  of parameters but the ClientHello does not contain sufficient information to proceed with the handshake."
+     */
+    private void sendHelloRetryRequest(ClientHello clientHello, TlsConstants.NamedGroup selectedGroup) throws IOException {
+        // https://datatracker.ietf.org/doc/html/rfc8446#section-4.1.4
+        // "The server's extensions MUST contain "supported_versions". Additionally, it SHOULD contain the minimal set
+        //  of extensions necessary for the client to generate a correct ClientHello pair."
+        // No cookie is sent: this server keeps its state between the two client hellos.
+        helloRetryRequest = new HelloRetryRequest(selectedCipher, clientHello.getSessionId(),
+                List.of(new SupportedVersionsExtension(TlsConstants.HandshakeType.server_hello),
+                        new KeyShareExtension(selectedGroup)));
+
+        // The cipher suite is negotiated at this point, so the transcript hash can be created. The TLS state cannot:
+        // whether a pre-shared key is used is only determined when the second client hello arrives.
+        transcriptHash = new TranscriptHash(hashLength(selectedCipher));
+        transcriptHash.record(clientHello);
+        // https://datatracker.ietf.org/doc/html/rfc8446#section-4.4.1
+        // "when the server responds to a ClientHello with a HelloRetryRequest, the value of ClientHello1 is replaced
+        //  with a special synthetic handshake message of handshake type "message_hash" containing Hash(ClientHello1)"
+        transcriptHash.recordHelloRetryRequest(clientHello, helloRetryRequest);
+
+        serverMessageSender.send(helloRetryRequest);
+
+        status = Status.SentHelloRetryRequest;
     }
 
     private SignatureScheme negotiateSignatureScheme(ClientHello clientHello) throws TlsProtocolException {

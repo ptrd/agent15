@@ -67,6 +67,7 @@ public class KeyShareExtension extends Extension {
     }
 
     public KeyShareExtension(ByteBuffer buffer, TlsConstants.HandshakeType handshakeType, boolean helloRetryRequestType) throws TlsProtocolException {
+        this.handshakeType = handshakeType;
         this.helloRetryRequestType = helloRetryRequestType;
         int extensionDataLength = parseExtensionHeader(buffer, TlsConstants.ExtensionType.key_share, 1);
         if (extensionDataLength < 2) {
