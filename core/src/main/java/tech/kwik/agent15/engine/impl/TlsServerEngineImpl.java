@@ -116,73 +116,19 @@ public class TlsServerEngineImpl extends TlsEngineImpl implements TlsServerEngin
         // "There MUST NOT be more than one extension of the same type in a given extension block."
         HandshakeMessage.checkForDuplicateExtensions(clientHello.getExtensions());
 
-        // https://www.rfc-editor.org/rfc/rfc8446.html#section-4.2.1
-        // "Implementations of this specification MUST send this extension in the ClientHello containing all versions of
-        //  TLS which they are prepared to negotiate (for this specification, that means minimally 0x0304 (...))."
-        SupportedVersionsExtension supportedVersionsExt = (SupportedVersionsExtension) clientHello.getExtensions().stream()
-                .filter(ext -> ext instanceof SupportedVersionsExtension)
-                .findFirst()
-                .orElseThrow(() -> new ProtocolVersionAlert("supported versions extension is required in Client Hello"));
-        if (!supportedVersionsExt.containsTls13()) {
-            throw new ProtocolVersionAlert("client does not support TLS 1.3");
-        }
+        checkSupportedVersions(clientHello);
 
-        // Find first cipher that server supports
-        selectedCipher = clientHello.getCipherSuites().stream()
-                .filter(it -> supportedCiphers.contains(it))
-                .findFirst()
-                // https://tools.ietf.org/html/rfc8446#section-4.1.1
-                // "If the server is unable to negotiate a supported set of parameters (...) it MUST abort the handshake
-                // with either a "handshake_failure" or "insufficient_security" fatal alert "
-                .orElseThrow(() -> new HandshakeFailureAlert("Failed to negotiate a cipher (server only supports " + supportedCiphers.stream().map(c -> c.toString()).collect(Collectors.joining(", ")) + ")"));
+        selectedCipher = negotiateCipherSuite(clientHello);
 
-        SupportedGroupsExtension clientSupportedGroups = (SupportedGroupsExtension) clientHello.getExtensions().stream()
-                .filter(ext -> ext instanceof SupportedGroupsExtension)
-                .findFirst()
-                .orElseThrow(() -> new MissingExtensionAlert("supported groups extension is required in Client Hello"));
+        checkMutuallySupportedGroup(clientHello);
 
-        // Which groups the server supports is determined by the key exchange factory: it supports a group when it can
-        // create a key exchange for it.
-        if (clientSupportedGroups.getNamedGroups().stream()
-                .filter(this::isSupportedGroup)
-                .findFirst()
-                .isEmpty()) {
-            throw new HandshakeFailureAlert("Failed to negotiate supported group");
-        }
+        KeyShareExtension.KeyShareEntry selectedKeyShareEntry = selectKeyShareEntry(clientHello)
+                .orElseThrow(() -> new IllegalParameterAlert("key share named group not supported (and no HelloRetryRequest support)"));
+        keyExchange = keyExchangeFactory.forGroup(selectedKeyShareEntry.getNamedGroup());
 
-        KeyShareExtension keyShareExtension = (KeyShareExtension) clientHello.getExtensions().stream()
-                .filter(ext -> ext instanceof KeyShareExtension)
-                .findFirst()
-                .orElseThrow(() -> new MissingExtensionAlert("key share extension is required in Client Hello"));
+        signatureScheme = negotiateSignatureScheme(clientHello);
 
-        // Key share entries are in client's order of preference, so use the first one the server supports.
-        KeyShareExtension.KeyShareEntry selectedKeyShareEntry = null;
-        for (KeyShareExtension.KeyShareEntry entry: keyShareExtension.getKeyShareEntries()) {
-            if (isSupportedGroup(entry.getNamedGroup())) {
-                keyExchange = keyExchangeFactory.forGroup(entry.getNamedGroup());
-                selectedKeyShareEntry = entry;
-                break;
-            }
-        }
-        if (selectedKeyShareEntry == null) {
-            throw new IllegalParameterAlert("key share named group not supported (and no HelloRetryRequest support)");
-        }
-
-        SignatureAlgorithmsExtension signatureAlgorithmsExtension = (SignatureAlgorithmsExtension) clientHello.getExtensions().stream()
-                .filter(ext -> ext instanceof SignatureAlgorithmsExtension)
-                .findFirst()
-                .orElseThrow(() -> new MissingExtensionAlert("signature algorithms extension is required in Client Hello"));
-
-        clientHello.getExtensions().stream()
-                .filter(ext -> ext instanceof PskKeyExchangeModesExtension)
-                .findFirst()
-                .ifPresent(extension -> {
-                    clientSupportedKeyExchangeModes.addAll(((PskKeyExchangeModesExtension) extension).getKeyExchangeModes());
-                });
-
-        signatureScheme = determineSignatureAlgorithm(signatureAlgorithmsExtension.getSignatureAlgorithms(), preferredSignatureSchemes);
-
-        Optional<Extension> pskExtension = clientHello.getExtensions().stream().filter(ext -> ext instanceof ClientHelloPreSharedKeyExtension).findFirst();
+        collectClientSupportedKeyExchangeModes(clientHello);
 
         // So: ClientHello is valid and negotiation was successful, as far as this engine is concerned.
         // Use callback to let context check other prerequisites, for example appropriate ALPN extension
@@ -191,6 +137,107 @@ public class TlsServerEngineImpl extends TlsEngineImpl implements TlsServerEngin
         status = Status.Negotiated;
 
         // Start building TLS state and prepare response. First check whether client wants to use PSK (resumption)
+        PskSelection pskSelection = processPreSharedKey(clientHello);
+
+        transcriptHash.record(clientHello);
+
+        state.computeEarlyTrafficSecret();
+        statusHandler.earlySecretsKnown();
+
+        sendServerFlight(selectedKeyShareEntry, pskSelection);
+    }
+
+    /**
+     * https://www.rfc-editor.org/rfc/rfc8446.html#section-4.2.1
+     * "Implementations of this specification MUST send this extension in the ClientHello containing all versions of
+     *  TLS which they are prepared to negotiate (for this specification, that means minimally 0x0304 (...))."
+     */
+    private void checkSupportedVersions(ClientHello clientHello) throws ProtocolVersionAlert {
+        SupportedVersionsExtension supportedVersionsExt = (SupportedVersionsExtension) clientHello.getExtensions().stream()
+                .filter(ext -> ext instanceof SupportedVersionsExtension)
+                .findFirst()
+                .orElseThrow(() -> new ProtocolVersionAlert("supported versions extension is required in Client Hello"));
+        if (!supportedVersionsExt.containsTls13()) {
+            throw new ProtocolVersionAlert("client does not support TLS 1.3");
+        }
+    }
+
+    /**
+     * Returns the first cipher suite offered by the client that this server supports.
+     */
+    private TlsConstants.CipherSuite negotiateCipherSuite(ClientHello clientHello) throws HandshakeFailureAlert {
+        return clientHello.getCipherSuites().stream()
+                .filter(it -> supportedCiphers.contains(it))
+                .findFirst()
+                // https://tools.ietf.org/html/rfc8446#section-4.1.1
+                // "If the server is unable to negotiate a supported set of parameters (...) it MUST abort the handshake
+                // with either a "handshake_failure" or "insufficient_security" fatal alert "
+                .orElseThrow(() -> new HandshakeFailureAlert("Failed to negotiate a cipher (server only supports " + supportedCiphers.stream().map(c -> c.toString()).collect(Collectors.joining(", ")) + ")"));
+    }
+
+    /**
+     * Checks that the client offers at least one group that this server is willing to use for key exchange. Note that
+     * this says nothing about the key shares the client provided; the client may have offered a group without a key
+     * share for it.
+     */
+    private void checkMutuallySupportedGroup(ClientHello clientHello) throws TlsProtocolException {
+        if (clientSupportedGroups(clientHello).stream()
+                .filter(this::isSupportedGroup)
+                .findFirst()
+                .isEmpty()) {
+            throw new HandshakeFailureAlert("Failed to negotiate supported group");
+        }
+    }
+
+    private List<TlsConstants.NamedGroup> clientSupportedGroups(ClientHello clientHello) throws MissingExtensionAlert {
+        SupportedGroupsExtension clientSupportedGroups = (SupportedGroupsExtension) clientHello.getExtensions().stream()
+                .filter(ext -> ext instanceof SupportedGroupsExtension)
+                .findFirst()
+                .orElseThrow(() -> new MissingExtensionAlert("supported groups extension is required in Client Hello"));
+        return clientSupportedGroups.getNamedGroups();
+    }
+
+    /**
+     * Returns the key share entry this server will use for the key exchange, or empty when the client did not provide
+     * a key share for any group this server is willing to use. Key share entries are in the client's order of
+     * preference, so the first one this server supports is selected.
+     */
+    private Optional<KeyShareExtension.KeyShareEntry> selectKeyShareEntry(ClientHello clientHello) throws MissingExtensionAlert {
+        KeyShareExtension keyShareExtension = (KeyShareExtension) clientHello.getExtensions().stream()
+                .filter(ext -> ext instanceof KeyShareExtension)
+                .findFirst()
+                .orElseThrow(() -> new MissingExtensionAlert("key share extension is required in Client Hello"));
+
+        return keyShareExtension.getKeyShareEntries().stream()
+                .filter(entry -> isSupportedGroup(entry.getNamedGroup()))
+                .findFirst();
+    }
+
+    private SignatureScheme negotiateSignatureScheme(ClientHello clientHello) throws TlsProtocolException {
+        SignatureAlgorithmsExtension signatureAlgorithmsExtension = (SignatureAlgorithmsExtension) clientHello.getExtensions().stream()
+                .filter(ext -> ext instanceof SignatureAlgorithmsExtension)
+                .findFirst()
+                .orElseThrow(() -> new MissingExtensionAlert("signature algorithms extension is required in Client Hello"));
+
+        return determineSignatureAlgorithm(signatureAlgorithmsExtension.getSignatureAlgorithms(), preferredSignatureSchemes);
+    }
+
+    private void collectClientSupportedKeyExchangeModes(ClientHello clientHello) {
+        clientHello.getExtensions().stream()
+                .filter(ext -> ext instanceof PskKeyExchangeModesExtension)
+                .findFirst()
+                .ifPresent(extension -> {
+                    clientSupportedKeyExchangeModes.addAll(((PskKeyExchangeModesExtension) extension).getKeyExchangeModes());
+                });
+    }
+
+    /**
+     * Determines whether the session the client wants to resume (if any) is accepted, and creates the transcript hash
+     * and the TLS state (with the pre-shared key of the resumed session when resumption is accepted).
+     */
+    private PskSelection processPreSharedKey(ClientHello clientHello) throws TlsProtocolException {
+        Optional<Extension> pskExtension = clientHello.getExtensions().stream().filter(ext -> ext instanceof ClientHelloPreSharedKeyExtension).findFirst();
+
         boolean earlyDataAccepted = false;
         Integer selectedIdentity = null;
         if (pskExtension.isPresent()) {
@@ -245,10 +292,15 @@ public class TlsServerEngineImpl extends TlsEngineImpl implements TlsServerEngin
             // The selectedIdentity indicates which PSK was used to resume the session; it must be null when session is not resumed.
             selectedIdentity = null;
         }
-        transcriptHash.record(clientHello);
+        return new PskSelection(selectedIdentity, earlyDataAccepted);
+    }
 
-        state.computeEarlyTrafficSecret();
-        statusHandler.earlySecretsKnown();
+    /**
+     * Sends the complete server flight: ServerHello, EncryptedExtensions, (Certificate, CertificateVerify) and
+     * Finished.
+     */
+    private void sendServerFlight(KeyShareExtension.KeyShareEntry selectedKeyShareEntry, PskSelection pskSelection) throws TlsProtocolException, IOException {
+        Integer selectedIdentity = pskSelection.selectedIdentity;
 
         byte[] sharedSecret = keyExchange.serverProcessClientKeyShare(selectedKeyShareEntry.getKeyExchangeData());
         List<Extension> extensions = List.of(
@@ -270,7 +322,7 @@ public class TlsServerEngineImpl extends TlsEngineImpl implements TlsServerEngin
         state.computeHandshakeSecrets();
         statusHandler.handshakeSecretsKnown();
 
-        if (earlyDataAccepted) {
+        if (pskSelection.earlyDataAccepted) {
             serverExtensions.add(new EarlyDataExtension());
         }
         EncryptedExtensions encryptedExtensions = new EncryptedExtensions(serverExtensions);
@@ -300,6 +352,21 @@ public class TlsServerEngineImpl extends TlsEngineImpl implements TlsServerEngin
         state.computeApplicationSecrets();
 
         status = Status.WaitFinished;
+    }
+
+    /**
+     * The outcome of processing the pre-shared key extension: the identity of the session that is resumed (null when
+     * no session is resumed) and whether early data is accepted.
+     */
+    private static class PskSelection {
+
+        final Integer selectedIdentity;
+        final boolean earlyDataAccepted;
+
+        PskSelection(Integer selectedIdentity, boolean earlyDataAccepted) {
+            this.selectedIdentity = selectedIdentity;
+            this.earlyDataAccepted = earlyDataAccepted;
+        }
     }
 
     /**
