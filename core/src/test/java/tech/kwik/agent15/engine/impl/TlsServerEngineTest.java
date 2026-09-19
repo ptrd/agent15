@@ -295,7 +295,7 @@ public class TlsServerEngineTest {
     void clientProvidingPreSharedKeyShouldAlsoProvidePskKeyExchangeMode() throws Exception {
         // Given
         TlsState tlsState = mock(TlsState.class);
-        when(tlsState.computePskBinder(any())).thenReturn(new byte[32]);
+        when(tlsState.computePskBinder(any(), any())).thenReturn(new byte[32]);
         NewSessionTicket ticket = new NewSessionTicket(new byte[32],
                 new NewSessionTicketMessage(3600, 0xffffffff, new byte[]{ 0x00 }, new byte[]{ 0x00, 0x01, 0x02, 0x03 }), CipherSuite.TLS_AES_128_GCM_SHA256);
         ClientHello clientHello = createDefaultClientHello(List.of(new ClientHelloPreSharedKeyExtension(ticket)), tlsState);
@@ -311,7 +311,7 @@ public class TlsServerEngineTest {
     void whenALPNsMatchEarlyDataShouldBeEnabled() throws Exception {
         // Given
         TlsState tlsState = mock(TlsState.class);
-        when(tlsState.computePskBinder(any())).thenReturn(new byte[32]);
+        when(tlsState.computePskBinder(any(), any())).thenReturn(new byte[32]);
         NewSessionTicketMessage ticketMessage = tlsSessionRegistry.createNewSessionTicketMessage((byte) 0, TLS_AES_128_GCM_SHA256, tlsState, "h3");
         // And given a server that implements application protocol layer negotiation and sets the selected protocol....
         simulateAlpnNegotation();
@@ -333,7 +333,7 @@ public class TlsServerEngineTest {
     void whenSelectedALPNnotSetEarlyDataShouldBeEnabled() throws Exception {
         // Given
         TlsState tlsState = mock(TlsState.class);
-        when(tlsState.computePskBinder(any())).thenReturn(new byte[32]);
+        when(tlsState.computePskBinder(any(), any())).thenReturn(new byte[32]);
         NewSessionTicketMessage ticketMessage = tlsSessionRegistry.createNewSessionTicketMessage((byte) 0, TLS_AES_128_GCM_SHA256, tlsState, "h3");
         // And given a server that implements application protocol layer negotiation and sets the selected protocol....
         simulateAlpnNegotation();
@@ -354,7 +354,7 @@ public class TlsServerEngineTest {
     void whenALPNdontMatchEarlyDataShouldNotBeEnabled() throws Exception {
         // Given
         TlsState tlsState = mock(TlsState.class);
-        when(tlsState.computePskBinder(any())).thenReturn(new byte[32]);
+        when(tlsState.computePskBinder(any(), any())).thenReturn(new byte[32]);
         NewSessionTicketMessage ticketMessage = tlsSessionRegistry.createNewSessionTicketMessage((byte) 0, TLS_AES_128_GCM_SHA256, tlsState, "h3");
         // And given a server that implements application protocol layer negotiation and sets the selected protocol....
         simulateAlpnNegotation();

@@ -20,5 +20,25 @@ package tech.kwik.agent15;
 
 public interface BinderCalculator {
 
-    byte[] computePskBinder(byte[] partialClientHello);
+    /**
+     * Computes the binder for a client hello that is the first message of the handshake.
+     * https://datatracker.ietf.org/doc/html/rfc8446#section-4.2.11.2
+     * "if the client sends ClientHello1, its binder will be computed over: Transcript-Hash(Truncate(ClientHello1))"
+     * @param partialClientHello  the client hello up to (not including) the binders list
+     */
+    default byte[] computePskBinder(byte[] partialClientHello) {
+        return computePskBinder(new byte[0], partialClientHello);
+    }
+
+    /**
+     * Computes the binder for a client hello that is preceded by other handshake messages.
+     * https://datatracker.ietf.org/doc/html/rfc8446#section-4.2.11.2
+     * "If the server responds with a HelloRetryRequest and the client then sends ClientHello2, its binder will be
+     *  computed over: Transcript-Hash(ClientHello1, HelloRetryRequest, Truncate(ClientHello2))"
+     * @param transcriptPrefix    the transcript that precedes the client hello (empty for a first client hello); for a
+     *                            second client hello, this is the synthetic message that replaces the first client
+     *                            hello followed by the hello retry request
+     * @param partialClientHello  the client hello up to (not including) the binders list
+     */
+    byte[] computePskBinder(byte[] transcriptPrefix, byte[] partialClientHello);
 }

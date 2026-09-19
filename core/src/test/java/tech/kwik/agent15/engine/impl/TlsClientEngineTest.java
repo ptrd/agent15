@@ -46,6 +46,7 @@ import javax.security.auth.x500.X500Principal;
 import java.nio.ByteBuffer;
 import java.security.KeyFactory;
 import java.security.KeyStore;
+import java.security.MessageDigest;
 import java.security.PrivateKey;
 import java.security.Signature;
 import java.security.cert.Certificate;
@@ -533,6 +534,90 @@ class TlsClientEngineTest {
                 //  same as that in the HelloRetryRequest and otherwise abort the handshake with an "illegal_parameter" alert."
                 .isInstanceOf(IllegalParameterAlert.class)
                 .hasMessageContaining("named group");
+    }
+
+    @Test
+    void secondClientHelloShouldOfferPreSharedKeyAsLastExtensionWithNewBinder() throws Exception {
+        // Given
+        engine.setNewSessionTicket(createNewSessionTicket());
+        engine.startHandshake(x25519, List.of(x25519, secp256r1), List.of(rsa_pss_rsae_sha256));
+        byte[] binderInFirstClientHello = binderOf(capturedClientHello());
+
+        // When
+        engine.received(createHelloRetryRequest(secp256r1), ProtectionKeysType.None);
+
+        // Then
+        ClientHello clientHello2 = capturedClientHello();
+        // https://datatracker.ietf.org/doc/html/rfc8446#section-4.2.11
+        // "The "pre_shared_key" extension MUST be the last extension in the ClientHello"
+        assertThat(clientHello2.getExtensions().get(clientHello2.getExtensions().size() - 1))
+                .isInstanceOf(ClientHelloPreSharedKeyExtension.class);
+        // https://datatracker.ietf.org/doc/html/rfc8446#section-4.1.2
+        // "Updating the "pre_shared_key" extension if present by recomputing the "obfuscated_ticket_age" and binder
+        //  values"
+        assertThat(binderOf(clientHello2)).isNotEqualTo(binderInFirstClientHello);
+    }
+
+    @Test
+    void binderOfSecondClientHelloShouldBeComputedOverTranscriptIncludingHelloRetryRequest() throws Exception {
+        // Given
+        engine.setNewSessionTicket(createNewSessionTicket());
+        engine.startHandshake(x25519, List.of(x25519, secp256r1), List.of(rsa_pss_rsae_sha256));
+        ClientHello clientHello1 = capturedClientHello();
+        HelloRetryRequest helloRetryRequest = createHelloRetryRequest(secp256r1);
+
+        // When
+        engine.received(helloRetryRequest, ProtectionKeysType.None);
+
+        // Then
+        // https://datatracker.ietf.org/doc/html/rfc8446#section-4.2.11.2
+        // "If the server responds with a HelloRetryRequest and the client then sends ClientHello2, its binder will be
+        //  computed over: Transcript-Hash(ClientHello1, HelloRetryRequest, Truncate(ClientHello2))"
+        // where ClientHello1 is represented by the synthetic message_hash message.
+        ClientHello clientHello2 = capturedClientHello();
+        byte[] transcriptPrefix = concat(syntheticMessageHash(clientHello1.getBytes()), helloRetryRequest.getBytes());
+        byte[] truncatedClientHello2 = truncateForBinder(clientHello2);
+        TlsState state = tlsStateOf(engine);
+
+        assertThat(binderOf(clientHello2)).isEqualTo(state.computePskBinder(transcriptPrefix, truncatedClientHello2));
+        // And, to show the transcript prefix really is taken into account: without it the binder would be different.
+        assertThat(binderOf(clientHello2)).isNotEqualTo(state.computePskBinder(new byte[0], truncatedClientHello2));
+    }
+
+    @Test
+    void whenPskHashDoesNotMatchSelectedCipherPskShouldNotBeOfferedAgain() throws Exception {
+        // Given: a ticket for a cipher with a SHA-256 hash
+        engine.addSupportedCiphers(List.of(TLS_AES_256_GCM_SHA384));
+        engine.setNewSessionTicket(createNewSessionTicket());
+        engine.startHandshake(x25519, List.of(x25519, secp256r1), List.of(rsa_pss_rsae_sha256));
+        assertThat(capturedClientHello().getExtensions()).anyMatch(ext -> ext instanceof ClientHelloPreSharedKeyExtension);
+
+        // When: the server selects a cipher with a SHA-384 hash
+        engine.received(new HelloRetryRequest(TLS_AES_256_GCM_SHA384, EMPTY_SESSION_ID,
+                List.of(mandatorySupportedVersionExtension, new KeyShareExtension(secp256r1))), ProtectionKeysType.None);
+
+        // Then
+        // https://datatracker.ietf.org/doc/html/rfc8446#section-4.1.4
+        // "the client SHOULD NOT offer any pre-shared keys associated with a hash other than that of the selected
+        //  cipher suite."
+        assertThat(capturedClientHello().getExtensions()).noneMatch(ext -> ext instanceof ClientHelloPreSharedKeyExtension);
+    }
+
+    @Test
+    void whenPskIsNotOfferedAgainServerAcceptingItShouldLeadToUnsupportedExtensionAlert() throws Exception {
+        // Given
+        engine.addSupportedCiphers(List.of(TLS_AES_256_GCM_SHA384));
+        engine.setNewSessionTicket(createNewSessionTicket());
+        engine.startHandshake(x25519, List.of(x25519, secp256r1), List.of(rsa_pss_rsae_sha256));
+        engine.received(new HelloRetryRequest(TLS_AES_256_GCM_SHA384, EMPTY_SESSION_ID,
+                List.of(mandatorySupportedVersionExtension, new KeyShareExtension(secp256r1))), ProtectionKeysType.None);
+
+        assertThatThrownBy(() ->
+                // When
+                engine.received(createDefaultServerHello(TLS_AES_256_GCM_SHA384, List.of(new ServerPreSharedKeyExtension(0))),
+                        ProtectionKeysType.None))
+                // Then
+                .isInstanceOf(UnsupportedExtensionAlert.class);
     }
 
     @Test
@@ -1441,6 +1526,43 @@ class TlsClientEngineTest {
                 .filter(type::isInstance)
                 .findFirst()
                 .orElseThrow(() -> new AssertionError("ClientHello does not contain a " + type.getSimpleName()));
+    }
+
+    private byte[] binderOf(ClientHello clientHello) {
+        ClientHelloPreSharedKeyExtension pskExtension =
+                (ClientHelloPreSharedKeyExtension) extensionOfType(clientHello, ClientHelloPreSharedKeyExtension.class);
+        return pskExtension.getBinders().get(0).getHmac();
+    }
+
+    /**
+     * Returns the client hello up to (not including) the binders list, which is what the binder is computed over, see
+     * https://datatracker.ietf.org/doc/html/rfc8446#section-4.2.11.2.
+     */
+    private byte[] truncateForBinder(ClientHello clientHello) {
+        ClientHelloPreSharedKeyExtension pskExtension =
+                (ClientHelloPreSharedKeyExtension) extensionOfType(clientHello, ClientHelloPreSharedKeyExtension.class);
+        return Arrays.copyOfRange(clientHello.getBytes(), 0,
+                clientHello.getPskExtensionStartPosition() + pskExtension.getBinderPosition());
+    }
+
+    /**
+     * Creates the synthetic message that replaces the first client hello in the transcript when a hello retry request
+     * was received, see https://datatracker.ietf.org/doc/html/rfc8446#section-4.4.1.
+     */
+    private byte[] syntheticMessageHash(byte[] clientHello1Bytes) throws Exception {
+        byte[] hash = MessageDigest.getInstance("SHA-256").digest(clientHello1Bytes);
+        return ByteBuffer.allocate(4 + hash.length)
+                .put(new byte[] { (byte) 0xfe, 0x00, 0x00, (byte) hash.length })
+                .put(hash)
+                .array();
+    }
+
+    private byte[] concat(byte[] first, byte[] second) {
+        return ByteBuffer.allocate(first.length + second.length).put(first).put(second).array();
+    }
+
+    private TlsState tlsStateOf(TlsClientEngineImpl engine) throws Exception {
+        return (TlsState) new FieldReader(engine, TlsEngineImpl.class.getDeclaredField("state")).read();
     }
 
     private byte[] setTlsMsgLength(byte[] messageBytes) {

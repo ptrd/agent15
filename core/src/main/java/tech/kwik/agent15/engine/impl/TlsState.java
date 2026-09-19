@@ -102,10 +102,11 @@ public class TlsState implements BinderCalculator {
     }
 
     @Override
-    public byte[] computePskBinder(byte[] partialClientHello) {
+    public byte[] computePskBinder(byte[] transcriptPrefix, byte[] partialClientHello) {
         String macAlgorithmName = "HmacSHA" + (hashLength * 8);
         try {
             hashFunction.reset();
+            hashFunction.update(transcriptPrefix);
             hashFunction.update(partialClientHello);
             byte[] hash = hashFunction.digest();
 

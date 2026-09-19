@@ -203,6 +203,23 @@ public class ClientHello extends HandshakeMessage {
      */
     public ClientHello(byte[] clientRandom, byte[] sessionId, List<TlsConstants.CipherSuite> cipherSuites,
                        List<Extension> extensions, BinderCalculator binderCalculator) {
+        this(clientRandom, sessionId, cipherSuites, extensions, new byte[0], binderCalculator);
+    }
+
+    /**
+     * Creates a ClientHello message from its constituent parts, with a transcript prefix for computing the binder of a
+     * pre-shared key extension. This is what the second ClientHello (the one sent in response to a HelloRetryRequest)
+     * needs, see https://datatracker.ietf.org/doc/html/rfc8446#section-4.2.11.2.
+     *
+     * @param clientRandom      the client random; 32 bytes
+     * @param sessionId         the legacy session id; empty when not using compatibility mode
+     * @param cipherSuites      the symmetric cipher options supported, in descending order of preference
+     * @param extensions        the extensions, in the order in which they must be serialized
+     * @param transcriptPrefix  the transcript that precedes this client hello; empty for a first client hello
+     * @param binderCalculator  can be null when no ClientHelloPreSharedKeyExtension is present, must be non-null when ClientHelloPreSharedKeyExtension is present.
+     */
+    public ClientHello(byte[] clientRandom, byte[] sessionId, List<TlsConstants.CipherSuite> cipherSuites,
+                       List<Extension> extensions, byte[] transcriptPrefix, BinderCalculator binderCalculator) {
         this.clientRandom = clientRandom;
         this.sessionId = sessionId;
         this.cipherSuites = cipherSuites;
@@ -265,7 +282,7 @@ public class ClientHello extends HandshakeMessage {
             if (binderCalculator == null) {
                 throw new IllegalArgumentException("BinderCalculator cannot be null when ClientHelloPreSharedKeyExtension is present");
             }
-            pskExtension.calculateBinder(data, pskExtensionStartPosition, binderCalculator);
+            pskExtension.calculateBinder(data, pskExtensionStartPosition, transcriptPrefix, binderCalculator);
             buffer.position(pskExtensionStartPosition);
             buffer.put(pskExtension.getBytes());
             buffer.rewind();

@@ -348,8 +348,21 @@ public class TlsClientEngineImpl extends TlsEngineImpl implements TlsClientEngin
             throw new IllegalParameterAlert("hello retry request would not result in any change in the client hello");
         }
 
+        if (newSessionTicket != null && hashLength(selectedCipher) != hashLength(newSessionTicket.getCipher())) {
+            // https://datatracker.ietf.org/doc/html/rfc8446#section-4.1.4
+            // "In addition, in its updated ClientHello, the client SHOULD NOT offer any pre-shared keys associated
+            //  with a hash other than that of the selected cipher suite."
+            // Dropping the pre-shared key means the transcript hash and the TLS state, which were created for the hash
+            // of the session-to-resume, must be recreated for the hash of the cipher suite the server selected.
+            // The early traffic secret is not recomputed: early data is not permitted after a hello retry request, and
+            // the status handler was already notified when the first client hello was sent.
+            Logger.debug("Not offering the pre-shared key again: its hash does not match the selected cipher suite");
+            newSessionTicket = null;
+            createTlsState(selectedCipher, null);
+            transcriptHash.record(clientHello1);
+        }
         // The selected cipher suite is known now, so the transcript hash (and with it the TLS state) can be created.
-        if (state == null) {
+        else if (state == null) {
             createTlsState(selectedCipher, null);
             transcriptHash.record(clientHello1);
             // The early traffic secret is derived from the transcript up to and including the first client hello, so
@@ -403,6 +416,18 @@ public class TlsClientEngineImpl extends TlsEngineImpl implements TlsClientEngin
                 //  a list containing a single KeyShareEntry from the indicated group."
                 clientHello2Extensions.add(newKeyShare);
             }
+            else if (extension instanceof ClientHelloPreSharedKeyExtension) {
+                if (newSessionTicket != null) {
+                    // https://datatracker.ietf.org/doc/html/rfc8446#section-4.1.2
+                    // "Updating the "pre_shared_key" extension if present by recomputing the "obfuscated_ticket_age"
+                    //  and binder values (...)"
+                    // A new extension object computes the obfuscated ticket age anew; the binder is computed when the
+                    // client hello is serialized (with the transcript prefix passed below).
+                    clientHello2Extensions.add(new ClientHelloPreSharedKeyExtension(newSessionTicket));
+                }
+                // Else the pre-shared key is not offered again, because its hash does not match the selected cipher
+                // suite (see above).
+            }
             else {
                 clientHello2Extensions.add(extension);
             }
@@ -423,8 +448,11 @@ public class TlsClientEngineImpl extends TlsEngineImpl implements TlsClientEngin
                     clientHello2Extensions.add(pskExtension);
                 });
 
+        // https://datatracker.ietf.org/doc/html/rfc8446#section-4.2.11.2
+        // "If the server responds with a HelloRetryRequest and the client then sends ClientHello2, its binder will be
+        //  computed over: Transcript-Hash(ClientHello1, HelloRetryRequest, Truncate(ClientHello2))"
         return new ClientHello(clientHello1.getClientRandom(), clientHello1.getSessionId(), clientHello1.getCipherSuites(),
-                clientHello2Extensions, state);
+                clientHello2Extensions, transcriptHash.getHelloRetryRequestPrefix(), state);
     }
 
     /**
