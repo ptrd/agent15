@@ -26,6 +26,8 @@ public interface ServerMessageSender {
 
     void send(ServerHello sh) throws IOException;
 
+    void send(HelloRetryRequest hrr) throws IOException;
+
     void send(EncryptedExtensions ee) throws IOException;
 
     void send(CertificateMessage cm) throws IOException;
