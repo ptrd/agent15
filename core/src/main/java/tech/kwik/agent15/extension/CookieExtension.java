@@ -25,12 +25,19 @@ import java.nio.ByteBuffer;
 
 /**
  * The TLS cookie extension.
- * See https://datatracker.ietf.org/doc/html/rfc8446#section-4.2.2
- * "struct {
- *      opaque cookie<1..2^16-1>;
- *  } Cookie;"
- * A server can send a cookie in a HelloRetryRequest; the client must copy its contents into a cookie extension in the
- * new ClientHello.
+ *
+ * <p>A server can send a cookie in a HelloRetryRequest; the client must copy its contents into a cookie extension
+ * in the new ClientHello.</p>
+ *
+ * <p>Structure (RFC 8446 §4.2.2):
+ * <pre>
+ * struct {
+ *     opaque cookie&lt;1..2^16-1&gt;;
+ * } Cookie;
+ * </pre>
+ * </p>
+ *
+ * @see <a href="https://datatracker.ietf.org/doc/html/rfc8446#section-4.2.2">RFC 8446 §4.2.2</a>
  */
 public class CookieExtension extends Extension {
 
