@@ -51,6 +51,9 @@ public class TlsServerEngineImpl extends TlsEngineImpl implements TlsServerEngin
     }
 
     private final Set<TlsConstants.CipherSuite> supportedCiphers;
+    // The named groups this server is willing to use for key exchange; when empty, all groups the key exchange
+    // factory supports are accepted.
+    private final Set<TlsConstants.NamedGroup> supportedGroups;
     private final ArrayList<Extension> extensions;
     private final KeyExchangeFactory keyExchangeFactory;
     private ServerMessageSender serverMessageSender;
@@ -95,6 +98,7 @@ public class TlsServerEngineImpl extends TlsEngineImpl implements TlsServerEngin
 
         supportedCiphers = new HashSet<>();
         supportedCiphers.add(TLS_AES_128_GCM_SHA256);
+        supportedGroups = new HashSet<>();
         extensions = new ArrayList<>();
         serverExtensions = new ArrayList<>();
         clientSupportedKeyExchangeModes = new ArrayList<>();
@@ -154,8 +158,8 @@ public class TlsServerEngineImpl extends TlsEngineImpl implements TlsServerEngin
         // Key share entries are in client's order of preference, so use the first one the server supports.
         KeyShareExtension.KeyShareEntry selectedKeyShareEntry = null;
         for (KeyShareExtension.KeyShareEntry entry: keyShareExtension.getKeyShareEntries()) {
-            keyExchange = keyExchangeFactory.forGroup(entry.getNamedGroup());
-            if (keyExchange != null) {
+            if (isSupportedGroup(entry.getNamedGroup())) {
+                keyExchange = keyExchangeFactory.forGroup(entry.getNamedGroup());
                 selectedKeyShareEntry = entry;
                 break;
             }
@@ -298,8 +302,12 @@ public class TlsServerEngineImpl extends TlsEngineImpl implements TlsServerEngin
         status = Status.WaitFinished;
     }
 
+    /**
+     * Returns whether this server is willing to use the given group for key exchange: it must not be excluded by
+     * configuration, and the key exchange factory must be able to provide a key exchange for it.
+     */
     private boolean isSupportedGroup(TlsConstants.NamedGroup group) {
-        return keyExchangeFactory.forGroup(group) != null;
+        return (supportedGroups.isEmpty() || supportedGroups.contains(group)) && keyExchangeFactory.forGroup(group) != null;
     }
 
     protected static SignatureScheme determineSignatureAlgorithm(List<SignatureScheme> clientAlgorithms,
@@ -372,6 +380,11 @@ public class TlsServerEngineImpl extends TlsEngineImpl implements TlsServerEngin
     @Override
     public void addSupportedCiphers(List<TlsConstants.CipherSuite> cipherSuites) {
         supportedCiphers.addAll(cipherSuites);
+    }
+
+    @Override
+    public void addSupportedGroups(List<TlsConstants.NamedGroup> namedGroups) {
+        supportedGroups.addAll(namedGroups);
     }
 
     @Override

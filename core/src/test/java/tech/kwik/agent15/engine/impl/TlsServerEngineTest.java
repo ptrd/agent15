@@ -489,6 +489,69 @@ public class TlsServerEngineTest {
     }
 
     @Test
+    void whenNoSupportedGroupsAreConfiguredAllGroupsOfTheKeyExchangeFactoryAreUsed() throws Exception {
+        // Given: a server whose key exchange factory can do both x25519 and secp256r1, and no configured groups
+        TlsServerEngineImpl engine = createEngine(keyExchangeFactorySupporting(NamedGroup.x25519, NamedGroup.secp256r1));
+        ClientHello clientHello = createClientHelloWithKeyShares(NamedGroup.x25519, NamedGroup.secp256r1);
+
+        // When
+        engine.received(clientHello, ProtectionKeysType.None);
+
+        // Then: the client's first choice is selected
+        assertThat(selectedGroup()).isEqualTo(NamedGroup.x25519);
+    }
+
+    @Test
+    void configuredSupportedGroupsRestrictTheGroupsUsedForKeyExchange() throws Exception {
+        // Given: a server whose key exchange factory can do both x25519 and secp256r1, but that is configured to
+        // offer secp256r1 only
+        TlsServerEngineImpl engine = createEngine(keyExchangeFactorySupporting(NamedGroup.x25519, NamedGroup.secp256r1));
+        engine.addSupportedGroups(List.of(NamedGroup.secp256r1));
+        // and a client that prefers x25519
+        ClientHello clientHello = createClientHelloWithKeyShares(NamedGroup.x25519, NamedGroup.secp256r1);
+
+        // When
+        engine.received(clientHello, ProtectionKeysType.None);
+
+        // Then: the group the server does not offer is passed over
+        assertThat(selectedGroup()).isEqualTo(NamedGroup.secp256r1);
+    }
+
+    @Test
+    void whenClientOffersNoConfiguredSupportedGroupHandshakeFailureIsThrown() throws Exception {
+        // Given: a server that could do x25519, but is configured to offer secp256r1 only
+        TlsServerEngineImpl engine = createEngine(keyExchangeFactorySupporting(NamedGroup.x25519, NamedGroup.secp256r1));
+        engine.addSupportedGroups(List.of(NamedGroup.secp256r1));
+        // and a client that offers x25519 only
+        ClientHello clientHello = createClientHelloWithKeyShares(NamedGroup.x25519);
+
+        assertThatThrownBy(() ->
+                // When
+                engine.received(clientHello, ProtectionKeysType.None))
+                // Then
+                .isInstanceOf(HandshakeFailureAlert.class);
+    }
+
+    @Test
+    void whenKeyShareGroupIsNotConfiguredButAnotherOfferedGroupIsHandshakeIsAborted() throws Exception {
+        // Given: a server that could do x25519, but is configured to offer secp256r1 only
+        TlsServerEngineImpl engine = createEngine(keyExchangeFactorySupporting(NamedGroup.x25519, NamedGroup.secp256r1));
+        engine.addSupportedGroups(List.of(NamedGroup.secp256r1));
+        // and a client that offers both groups, but sent a key share for x25519 only
+        ClientHello clientHello = createDefaultClientHello();
+        clientHello.getExtensions().removeIf(ext -> ext instanceof SupportedGroupsExtension || ext instanceof KeyShareExtension);
+        clientHello.getExtensions().add(createSupportedGroupsExtension(NamedGroup.x25519, NamedGroup.secp256r1));
+        clientHello.getExtensions().add(createKeyShareExtension(NamedGroup.x25519));
+
+        assertThatThrownBy(() ->
+                // When
+                engine.received(clientHello, ProtectionKeysType.None))
+                // Then: this is exactly the case RFC 8446, section 4.1.1 requires a HelloRetryRequest for; until that
+                // is implemented, the handshake is aborted.
+                .isInstanceOf(IllegalParameterAlert.class);
+    }
+
+    @Test
     void whenServerSupportsNoneOfTheClientsGroupsHandshakeFailureIsThrown() throws Exception {
         // Given: a server that (only) supports x25519
         TlsServerEngineImpl engine = createEngine(keyExchangeFactorySupporting(NamedGroup.x25519));

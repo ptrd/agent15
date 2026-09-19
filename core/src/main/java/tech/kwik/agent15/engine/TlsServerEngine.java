@@ -42,6 +42,15 @@ public interface TlsServerEngine extends TlsEngine {
     void addSupportedCiphers(List<TlsConstants.CipherSuite> cipherSuites);
 
     /**
+     * Adds named groups to the set of groups this server is willing to use for key exchange.
+     * When no groups are added, the server supports all groups that its key exchange factory can provide a key
+     * exchange for; adding groups restricts the server to (the union of) the groups added.
+     * Note that the client's order of preference determines which of the mutually supported groups is selected.
+     * @param namedGroups
+     */
+    void addSupportedGroups(List<TlsConstants.NamedGroup> namedGroups);
+
+    /**
      * Sets the negotiated application layer protocol.
      * @param applicationProtocol
      */
