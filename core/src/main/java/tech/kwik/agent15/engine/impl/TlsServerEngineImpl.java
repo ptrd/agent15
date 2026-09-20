@@ -518,9 +518,11 @@ public class TlsServerEngineImpl extends TlsEngineImpl implements TlsServerEngin
     }
 
     protected boolean validateBinder(ClientHelloPreSharedKeyExtension.PskBinderEntry pskBinderEntry, int binderPosition, ClientHello clientHello) {
-        // https://datatracker.ietf.org/doc/html/rfc8446#section-4.2.11, section 4.2.11.2
         byte[] partialCH = Arrays.copyOfRange(clientHello.getBytes(), 0, clientHello.getPskExtensionStartPosition() + binderPosition);
-        byte[] binder = state.computePskBinder(partialCH);
+        // https://datatracker.ietf.org/doc/html/rfc8446#section-4.2.11.2
+        // "If the server responds with a HelloRetryRequest and the client then sends ClientHello2, its binder will be
+        //  computed over: Transcript-Hash(ClientHello1, HelloRetryRequest, Truncate(ClientHello2))"
+        byte[] binder = state.computePskBinder(transcriptHash.getHelloRetryRequestPrefix(), partialCH);
         boolean valid = MessageDigest.isEqual(pskBinderEntry.getHmac(), binder);
         return valid;
     }

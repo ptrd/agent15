@@ -34,6 +34,8 @@ import tech.kwik.agent15.alert.ProtocolVersionAlert;
 import tech.kwik.agent15.engine.KeyExchange;
 import tech.kwik.agent15.engine.KeyExchangeFactory;
 import tech.kwik.agent15.engine.ServerMessageSender;
+import tech.kwik.agent15.engine.TlsSession;
+import tech.kwik.agent15.engine.TlsSessionRegistry;
 import tech.kwik.agent15.engine.TlsStatusEventHandler;
 import tech.kwik.agent15.extension.*;
 import tech.kwik.agent15.handshake.ClientHello;
@@ -48,16 +50,19 @@ import tech.kwik.agent15.util.KeyUtils;
 
 import java.nio.ByteBuffer;
 import java.security.KeyFactory;
+import java.security.MessageDigest;
 import java.security.PrivateKey;
 import java.security.cert.X509Certificate;
 import java.security.interfaces.ECPublicKey;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.util.Base64;
 import java.util.Collections;
+import java.util.Date;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.*;
 import static tech.kwik.agent15.TlsConstants.*;
@@ -722,6 +727,44 @@ public class TlsServerEngineTest {
     }
 
     @Test
+    void afterHelloRetryRequestBinderComputedOverTheRetryTranscriptShouldBeAccepted() throws Exception {
+        // Given
+        byte[] psk = new byte[32];
+        TlsServerEngineImpl engine = createEngineRequiringHelloRetryRequest(sessionRegistryResuming(psk));
+        ClientHello clientHello1 = createClientHelloWithKeyShares(List.of(NamedGroup.x25519, NamedGroup.secp256r1), List.of(NamedGroup.x25519));
+        engine.received(clientHello1, ProtectionKeysType.None);
+        HelloRetryRequest helloRetryRequest = sentHelloRetryRequest();
+
+        // When: a second client hello whose binder is computed over the transcript that includes the first client
+        // hello (as synthetic message) and the hello retry request
+        byte[] transcriptPrefix = concat(syntheticMessageHash(clientHello1.getBytes()), helloRetryRequest.getBytes());
+        ClientHello clientHello2 = createResumingClientHello(transcriptPrefix, psk);
+        engine.received(clientHello2, ProtectionKeysType.None);
+
+        // Then: the binder is accepted and the handshake proceeds
+        verify(messageSender).send(any(ServerHello.class));
+        verify(messageSender).send(any(FinishedMessage.class));
+    }
+
+    @Test
+    void afterHelloRetryRequestBinderComputedWithoutTheRetryTranscriptShouldBeRejected() throws Exception {
+        // Given
+        byte[] psk = new byte[32];
+        TlsServerEngineImpl engine = createEngineRequiringHelloRetryRequest(sessionRegistryResuming(psk));
+        engine.received(createClientHelloWithKeyShares(List.of(NamedGroup.x25519, NamedGroup.secp256r1), List.of(NamedGroup.x25519)),
+                ProtectionKeysType.None);
+
+        // When: a second client hello whose binder is computed over the truncated client hello only, as it would be
+        // for a first client hello
+        ClientHello clientHello2 = createResumingClientHello(new byte[0], psk);
+
+        assertThatThrownBy(() ->
+                engine.received(clientHello2, ProtectionKeysType.None))
+                // Then
+                .isInstanceOf(DecryptErrorAlert.class);
+    }
+
+    @Test
     void whenClientProvidesAUsableKeyShareNoHelloRetryRequestIsSent() throws Exception {
         // Given
         TlsServerEngineImpl engine = createEngine(keyExchangeFactorySupporting(NamedGroup.x25519, NamedGroup.secp256r1));
@@ -754,9 +797,65 @@ public class TlsServerEngineTest {
      * that provides a key share for x25519 only gets a hello retry request.
      */
     private TlsServerEngineImpl createEngineRequiringHelloRetryRequest() throws Exception {
-        TlsServerEngineImpl engine = createEngine(keyExchangeFactorySupporting(NamedGroup.x25519, NamedGroup.secp256r1));
+        return createEngineRequiringHelloRetryRequest(tlsSessionRegistry);
+    }
+
+    private TlsServerEngineImpl createEngineRequiringHelloRetryRequest(TlsSessionRegistry sessionRegistry) throws Exception {
+        TlsServerEngineImpl engine = createEngine(keyExchangeFactorySupporting(NamedGroup.x25519, NamedGroup.secp256r1), sessionRegistry);
         engine.addSupportedGroups(List.of(NamedGroup.secp256r1));
         return engine;
+    }
+
+    /**
+     * Returns a session registry that resumes any session that is offered, with the given pre-shared key.
+     */
+    private TlsSessionRegistry sessionRegistryResuming(byte[] psk) {
+        TlsSession session = mock(TlsSession.class);
+        when(session.getPsk()).thenReturn(psk);
+        TlsSessionRegistry sessionRegistry = mock(TlsSessionRegistry.class);
+        when(sessionRegistry.selectIdentity(anyList(), any(CipherSuite.class))).thenReturn(0);
+        when(sessionRegistry.useSession(any())).thenReturn(session);
+        return sessionRegistry;
+    }
+
+    /**
+     * Creates a client hello that resumes a session with the given pre-shared key, with a key share for secp256r1
+     * (the group the server asks for in its hello retry request). The binder is computed over the given transcript
+     * prefix followed by the truncated client hello, see
+     * https://datatracker.ietf.org/doc/html/rfc8446#section-4.2.11.2.
+     */
+    private ClientHello createResumingClientHello(byte[] transcriptPrefix, byte[] psk) throws Exception {
+        NewSessionTicket ticket = mock(NewSessionTicket.class);
+        when(ticket.getCipher()).thenReturn(TLS_AES_128_GCM_SHA256);
+        when(ticket.getTicketCreationDate()).thenReturn(new Date());
+        when(ticket.getSessionTicketIdentity()).thenReturn(new byte[32]);
+
+        List<Extension> extensions = List.of(
+                new ServerNameExtension("localhost"),
+                new SupportedVersionsExtension(HandshakeType.client_hello),
+                createSupportedGroupsExtension(NamedGroup.x25519, NamedGroup.secp256r1),
+                new SignatureAlgorithmsExtension(rsa_pss_rsae_sha256),
+                createKeyShareExtension(NamedGroup.secp256r1),
+                new PskKeyExchangeModesExtension(PskKeyExchangeMode.psk_dhe_ke),
+                // https://datatracker.ietf.org/doc/html/rfc8446#section-4.2.11
+                // "The "pre_shared_key" extension MUST be the last extension in the ClientHello"
+                new ClientHelloPreSharedKeyExtension(ticket));
+
+        // The client hello computes the binder while it serializes itself, using the given state as calculator.
+        TlsState clientState = new TlsState(new TranscriptHash(32), psk, 16, 32);
+        return new ClientHello(new byte[32], new byte[0], List.of(TLS_AES_128_GCM_SHA256), extensions, transcriptPrefix, clientState);
+    }
+
+    private byte[] syntheticMessageHash(byte[] clientHello1Bytes) throws Exception {
+        byte[] hash = MessageDigest.getInstance("SHA-256").digest(clientHello1Bytes);
+        return ByteBuffer.allocate(4 + hash.length)
+                .put(new byte[] { (byte) 0xfe, 0x00, 0x00, (byte) hash.length })
+                .put(hash)
+                .array();
+    }
+
+    private byte[] concat(byte[] first, byte[] second) {
+        return ByteBuffer.allocate(first.length + second.length).put(first).put(second).array();
     }
 
     /**
@@ -791,12 +890,16 @@ public class TlsServerEngineTest {
     }
 
     private TlsServerEngineImpl createEngine(KeyExchangeFactory keyExchangeFactory) throws Exception {
+        return createEngine(keyExchangeFactory, tlsSessionRegistry);
+    }
+
+    private TlsServerEngineImpl createEngine(KeyExchangeFactory keyExchangeFactory, TlsSessionRegistry sessionRegistry) throws Exception {
         KeyFactory keyFactory = KeyFactory.getInstance("RSA");
         PKCS8EncodedKeySpec keySpecPKCS8 = new PKCS8EncodedKeySpec(Base64.getDecoder().decode(encodedKwikDotTechRsaCertificatePrivateKey));
         PrivateKey privateKey = keyFactory.generatePrivate(keySpecPKCS8);
 
         TlsServerEngineImpl engine = new TlsServerEngineImpl(List.of(serverCertificate), privateKey, List.of(rsa_pss_rsae_sha256),
-                messageSender, tlsStatusHandler, tlsSessionRegistry, keyExchangeFactory);
+                messageSender, tlsStatusHandler, sessionRegistry, keyExchangeFactory);
         engine.addSupportedCiphers(List.of(TLS_AES_128_GCM_SHA256));
         return engine;
     }
