@@ -37,8 +37,6 @@ import static tech.kwik.agent15.TlsConstants.NamedGroup.x25519;
  */
 public class KeyShareExtension extends Extension {
 
-    public static final List<TlsConstants.NamedGroup> supportedCurves = List.of(secp256r1, x25519);
-
     private TlsConstants.HandshakeType handshakeType;
     private boolean helloRetryRequestType;
     private List<KeyShareEntry> keyShareEntries = new ArrayList<>();
