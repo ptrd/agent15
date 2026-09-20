@@ -590,6 +590,138 @@ public class TlsServerEngineTest {
     }
 
     @Test
+    void afterHelloRetryRequestSecondClientHelloShouldCompleteTheServerFlight() throws Exception {
+        // Given
+        TlsServerEngineImpl engine = createEngineRequiringHelloRetryRequest();
+        engine.received(createClientHelloWithKeyShares(List.of(NamedGroup.x25519, NamedGroup.secp256r1), List.of(NamedGroup.x25519)),
+                ProtectionKeysType.None);
+
+        // When: a conformant second client hello, with a key share for the group the server selected
+        engine.received(createClientHelloWithKeyShares(List.of(NamedGroup.x25519, NamedGroup.secp256r1), List.of(NamedGroup.secp256r1)),
+                ProtectionKeysType.None);
+
+        // Then: the complete server flight is sent
+        ArgumentCaptor<ServerHello> captor = ArgumentCaptor.forClass(ServerHello.class);
+        verify(messageSender).send(captor.capture());
+        assertThat(captor.getValue().getExtensions())
+                .filteredOn(KeyShareExtension.class::isInstance)
+                .singleElement()
+                .satisfies(ext -> assertThat(((KeyShareExtension) ext).getKeyShareEntries().get(0).getNamedGroup())
+                        .isEqualTo(NamedGroup.secp256r1));
+        verify(messageSender).send(any(EncryptedExtensions.class));
+        verify(messageSender).send(any(FinishedMessage.class));
+    }
+
+    @Test
+    void secondClientHelloWithKeyShareForOtherGroupShouldLeadToIllegalParameterAlert() throws Exception {
+        // Given: a server that supports both secp256r1 and x25519
+        TlsServerEngineImpl engine = createEngine(keyExchangeFactorySupporting(NamedGroup.secp256r1, NamedGroup.x25519));
+        // and a client that offers both, but provides a key share for neither of them, so it gets a hello retry
+        // request for secp256r1 (the first group it offered that the server supports)
+        engine.received(createClientHelloWithKeyShares(List.of(NamedGroup.secp256r1, NamedGroup.x25519, NamedGroup.x448), List.of(NamedGroup.x448)),
+                ProtectionKeysType.None);
+        assertThat(sentHelloRetryRequest().getSelectedGroup()).hasValue(NamedGroup.secp256r1);
+
+        assertThatThrownBy(() ->
+                // When: a second client hello with a key share for a group the server supports, but not the one it asked for
+                engine.received(createClientHelloWithKeyShares(List.of(NamedGroup.secp256r1, NamedGroup.x25519), List.of(NamedGroup.x25519)),
+                        ProtectionKeysType.None))
+                // Then
+                .isInstanceOf(IllegalParameterAlert.class);
+    }
+
+    @Test
+    void secondClientHelloWithMoreThanOneKeyShareShouldLeadToIllegalParameterAlert() throws Exception {
+        // Given
+        TlsServerEngineImpl engine = createEngineRequiringHelloRetryRequest();
+        engine.received(createClientHelloWithKeyShares(List.of(NamedGroup.x25519, NamedGroup.secp256r1), List.of(NamedGroup.x25519)),
+                ProtectionKeysType.None);
+
+        assertThatThrownBy(() ->
+                // When: a second client hello that adds the requested key share instead of replacing the original one
+                engine.received(createClientHelloWithKeyShares(List.of(NamedGroup.x25519, NamedGroup.secp256r1),
+                                List.of(NamedGroup.secp256r1, NamedGroup.x25519)),
+                        ProtectionKeysType.None))
+                // Then
+                // https://datatracker.ietf.org/doc/html/rfc8446#section-4.2.8
+                // "the client MUST replace the original "key_share" extension with one containing only a new
+                //  KeyShareEntry for the group indicated in the selected_group field"
+                .isInstanceOf(IllegalParameterAlert.class);
+    }
+
+    @Test
+    void secondClientHelloWithoutUsableKeyShareShouldNotLeadToSecondHelloRetryRequest() throws Exception {
+        // Given
+        TlsServerEngineImpl engine = createEngineRequiringHelloRetryRequest();
+        engine.received(createClientHelloWithKeyShares(List.of(NamedGroup.x25519, NamedGroup.secp256r1), List.of(NamedGroup.x25519)),
+                ProtectionKeysType.None);
+        clearInvocations(messageSender);
+
+        assertThatThrownBy(() ->
+                // When: the client stubbornly repeats its original client hello
+                engine.received(createClientHelloWithKeyShares(List.of(NamedGroup.x25519, NamedGroup.secp256r1), List.of(NamedGroup.x25519)),
+                        ProtectionKeysType.None))
+                // Then
+                .isInstanceOf(IllegalParameterAlert.class);
+        verify(messageSender, never()).send(any(HelloRetryRequest.class));
+    }
+
+    @Test
+    void secondClientHelloWithOtherCipherShouldLeadToIllegalParameterAlert() throws Exception {
+        // Given
+        TlsServerEngineImpl engine = createEngineRequiringHelloRetryRequest();
+        engine.addSupportedCiphers(List.of(TLS_CHACHA20_POLY1305_SHA256));
+        engine.received(createClientHelloWithKeyShares(List.of(NamedGroup.x25519, NamedGroup.secp256r1), List.of(NamedGroup.x25519)),
+                ProtectionKeysType.None);
+
+        // When: a second client hello that offers another cipher suite than the first one did
+        ClientHello clientHello2 = createClientHelloWithKeyShares(List.of(NamedGroup.x25519, NamedGroup.secp256r1),
+                List.of(NamedGroup.secp256r1), false, rsa_pss_rsae_sha256, List.of(TLS_CHACHA20_POLY1305_SHA256));
+
+        assertThatThrownBy(() ->
+                engine.received(clientHello2, ProtectionKeysType.None))
+                // Then
+                // https://datatracker.ietf.org/doc/html/rfc8446#section-4.1.4
+                // "Servers MUST ensure that they negotiate the same cipher suite when receiving a conformant updated
+                //  ClientHello"
+                .isInstanceOf(IllegalParameterAlert.class);
+    }
+
+    @Test
+    void thirdClientHelloShouldLeadToUnexpectedMessageAlert() throws Exception {
+        // Given
+        TlsServerEngineImpl engine = createEngineRequiringHelloRetryRequest();
+        engine.received(createClientHelloWithKeyShares(List.of(NamedGroup.x25519, NamedGroup.secp256r1), List.of(NamedGroup.x25519)),
+                ProtectionKeysType.None);
+        engine.received(createClientHelloWithKeyShares(List.of(NamedGroup.x25519, NamedGroup.secp256r1), List.of(NamedGroup.secp256r1)),
+                ProtectionKeysType.None);
+
+        assertThatThrownBy(() ->
+                // When
+                engine.received(createClientHelloWithKeyShares(List.of(NamedGroup.x25519, NamedGroup.secp256r1), List.of(NamedGroup.secp256r1)),
+                        ProtectionKeysType.None))
+                // Then
+                .isInstanceOf(UnexpectedMessageAlert.class);
+    }
+
+    @Test
+    void extensionsReceivedShouldOnlyBeCalledForTheNegotiatedClientHello() throws Exception {
+        // Given
+        TlsServerEngineImpl engine = createEngineRequiringHelloRetryRequest();
+
+        // When
+        engine.received(createClientHelloWithKeyShares(List.of(NamedGroup.x25519, NamedGroup.secp256r1), List.of(NamedGroup.x25519)),
+                ProtectionKeysType.None);
+        verify(tlsStatusHandler, never()).extensionsReceived(anyList());
+
+        engine.received(createClientHelloWithKeyShares(List.of(NamedGroup.x25519, NamedGroup.secp256r1), List.of(NamedGroup.secp256r1)),
+                ProtectionKeysType.None);
+
+        // Then: the callback is used once, for the client hello that is actually negotiated
+        verify(tlsStatusHandler, times(1)).extensionsReceived(anyList());
+    }
+
+    @Test
     void whenClientProvidesAUsableKeyShareNoHelloRetryRequestIsSent() throws Exception {
         // Given
         TlsServerEngineImpl engine = createEngine(keyExchangeFactorySupporting(NamedGroup.x25519, NamedGroup.secp256r1));
@@ -615,6 +747,16 @@ public class TlsServerEngineTest {
                 engine.received(clientHello, ProtectionKeysType.None))
                 // Then
                 .isInstanceOf(HandshakeFailureAlert.class);
+    }
+
+    /**
+     * Creates an engine that can do both x25519 and secp256r1, but is configured to offer secp256r1 only, so a client
+     * that provides a key share for x25519 only gets a hello retry request.
+     */
+    private TlsServerEngineImpl createEngineRequiringHelloRetryRequest() throws Exception {
+        TlsServerEngineImpl engine = createEngine(keyExchangeFactorySupporting(NamedGroup.x25519, NamedGroup.secp256r1));
+        engine.addSupportedGroups(List.of(NamedGroup.secp256r1));
+        return engine;
     }
 
     /**
@@ -702,6 +844,13 @@ public class TlsServerEngineTest {
      */
     private ClientHello createClientHelloWithKeyShares(List<NamedGroup> supportedGroups, List<NamedGroup> keyShareGroups,
                                                        boolean compatibilityMode, SignatureScheme signatureScheme) throws Exception {
+        return createClientHelloWithKeyShares(supportedGroups, keyShareGroups, compatibilityMode, signatureScheme,
+                List.of(TLS_AES_128_GCM_SHA256));
+    }
+
+    private ClientHello createClientHelloWithKeyShares(List<NamedGroup> supportedGroups, List<NamedGroup> keyShareGroups,
+                                                       boolean compatibilityMode, SignatureScheme signatureScheme,
+                                                       List<CipherSuite> cipherSuites) throws Exception {
         List<Extension> extensions = List.of(
                 new ServerNameExtension("localhost"),
                 new SupportedVersionsExtension(HandshakeType.client_hello),
@@ -712,7 +861,7 @@ public class TlsServerEngineTest {
         // "In compatibility mode (...) this field MUST be non-empty, so a client not offering a pre-TLS 1.3 session
         //  MUST generate a new 32-byte value."
         byte[] sessionId = compatibilityMode? new byte[32]: new byte[0];
-        return new ClientHello(new byte[32], sessionId, List.of(TLS_AES_128_GCM_SHA256), extensions, null);
+        return new ClientHello(new byte[32], sessionId, cipherSuites, extensions, null);
     }
 
     private SupportedGroupsExtension createSupportedGroupsExtension(NamedGroup... groups) throws Exception {

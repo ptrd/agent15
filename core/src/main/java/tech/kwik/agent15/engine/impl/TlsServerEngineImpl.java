@@ -109,9 +109,13 @@ public class TlsServerEngineImpl extends TlsEngineImpl implements TlsServerEngin
 
     @Override
     public void received(ClientHello clientHello, ProtectionKeysType protectedBy) throws TlsProtocolException, IOException {
-        if (status != Status.Start) {
+        if (protectedBy != ProtectionKeysType.None) {
+            throw new UnexpectedMessageAlert("incorrect protection level");
+        }
+        if (status != Status.Start && status != Status.SentHelloRetryRequest) {
             throw new UnexpectedMessageAlert("client hello already received");
         }
+        boolean isRetriedClientHello = status == Status.SentHelloRetryRequest;
         status = Status.ReceivedClientHello;
 
         // https://www.rfc-editor.org/rfc/rfc8446.html#section-4.2
@@ -121,6 +125,19 @@ public class TlsServerEngineImpl extends TlsEngineImpl implements TlsServerEngin
         checkSupportedVersions(clientHello);
 
         selectedCipher = negotiateCipherSuite(clientHello);
+        if (isRetriedClientHello && selectedCipher != helloRetryRequest.getCipherSuite()) {
+            // https://datatracker.ietf.org/doc/html/rfc8446#section-4.1.4
+            // "Servers MUST ensure that they negotiate the same cipher suite when receiving a conformant updated
+            //  ClientHello (if the server selects the cipher suite as the first step in the negotiation, then this
+            //  will happen automatically)."
+            throw new IllegalParameterAlert("cipher suite does not match the one in the hello retry request");
+        }
+        if (!isRetriedClientHello) {
+            // The cipher suite determines the hash function, so the transcript hash can be created now. When a hello
+            // retry request was sent it already exists, and must be kept: it holds the synthetic message that replaces
+            // the first client hello, followed by the hello retry request.
+            transcriptHash = new TranscriptHash(hashLength(selectedCipher));
+        }
 
         TlsConstants.NamedGroup negotiatedGroup = negotiateNamedGroup(clientHello);
 
@@ -128,15 +145,22 @@ public class TlsServerEngineImpl extends TlsEngineImpl implements TlsServerEngin
         // handshake cannot succeed, so there is no point in asking the client to retry first.
         signatureScheme = negotiateSignatureScheme(clientHello);
 
-        Optional<KeyShareExtension.KeyShareEntry> keyShareEntry = selectKeyShareEntry(clientHello);
-        if (keyShareEntry.isEmpty()) {
-            // https://datatracker.ietf.org/doc/html/rfc8446#section-4.1.1
-            // "If the server selects an (EC)DHE group and the client did not offer a compatible "key_share" extension
-            //  in the initial ClientHello, the server MUST respond with a HelloRetryRequest (Section 4.1.4) message."
-            sendHelloRetryRequest(clientHello, negotiatedGroup);
-            return;
+        KeyShareExtension.KeyShareEntry selectedKeyShareEntry;
+        if (isRetriedClientHello) {
+            selectedKeyShareEntry = retriedKeyShareEntry(clientHello);
         }
-        KeyShareExtension.KeyShareEntry selectedKeyShareEntry = keyShareEntry.get();
+        else {
+            Optional<KeyShareExtension.KeyShareEntry> keyShareEntry = selectKeyShareEntry(clientHello);
+            if (keyShareEntry.isEmpty()) {
+                // https://datatracker.ietf.org/doc/html/rfc8446#section-4.1.1
+                // "If the server selects an (EC)DHE group and the client did not offer a compatible "key_share"
+                //  extension in the initial ClientHello, the server MUST respond with a HelloRetryRequest
+                //  (Section 4.1.4) message."
+                sendHelloRetryRequest(clientHello, negotiatedGroup);
+                return;
+            }
+            selectedKeyShareEntry = keyShareEntry.get();
+        }
         keyExchange = keyExchangeFactory.forGroup(selectedKeyShareEntry.getNamedGroup());
 
         collectClientSupportedKeyExchangeModes(clientHello);
@@ -212,14 +236,33 @@ public class TlsServerEngineImpl extends TlsEngineImpl implements TlsServerEngin
      * preference, so the first one this server supports is selected.
      */
     private Optional<KeyShareExtension.KeyShareEntry> selectKeyShareEntry(ClientHello clientHello) throws MissingExtensionAlert {
-        KeyShareExtension keyShareExtension = (KeyShareExtension) clientHello.getExtensions().stream()
+        return keyShareExtension(clientHello).getKeyShareEntries().stream()
+                .filter(entry -> isSupportedGroup(entry.getNamedGroup()))
+                .findFirst();
+    }
+
+    /**
+     * Returns the key share entry of a client hello that is sent in response to a hello retry request. Such a client
+     * hello must provide exactly the key share that was asked for.
+     */
+    private KeyShareExtension.KeyShareEntry retriedKeyShareEntry(ClientHello clientHello) throws TlsProtocolException {
+        // https://datatracker.ietf.org/doc/html/rfc8446#section-4.2.8
+        // "when sending the new ClientHello, the client MUST replace the original "key_share" extension with one
+        //  containing only a new KeyShareEntry for the group indicated in the selected_group field of the triggering
+        //  HelloRetryRequest."
+        TlsConstants.NamedGroup requestedGroup = helloRetryRequest.getSelectedGroup().orElseThrow();  // Sent HRR always contains group
+        List<KeyShareExtension.KeyShareEntry> keyShareEntries = keyShareExtension(clientHello).getKeyShareEntries();
+        if (keyShareEntries.size() != 1 || keyShareEntries.get(0).getNamedGroup() != requestedGroup) {
+            throw new IllegalParameterAlert("second client hello must contain exactly one key share, for the group of the hello retry request");
+        }
+        return keyShareEntries.get(0);
+    }
+
+    private KeyShareExtension keyShareExtension(ClientHello clientHello) throws MissingExtensionAlert {
+        return (KeyShareExtension) clientHello.getExtensions().stream()
                 .filter(ext -> ext instanceof KeyShareExtension)
                 .findFirst()
                 .orElseThrow(() -> new MissingExtensionAlert("key share extension is required in Client Hello"));
-
-        return keyShareExtension.getKeyShareEntries().stream()
-                .filter(entry -> isSupportedGroup(entry.getNamedGroup()))
-                .findFirst();
     }
 
     /**
@@ -237,10 +280,6 @@ public class TlsServerEngineImpl extends TlsEngineImpl implements TlsServerEngin
                 List.of(new SupportedVersionsExtension(TlsConstants.HandshakeType.server_hello),
                         new KeyShareExtension(selectedGroup)));
 
-        // The cipher suite is negotiated at this point, so the transcript hash can be created. The TLS state cannot:
-        // whether a pre-shared key is used is only determined when the second client hello arrives.
-        transcriptHash = new TranscriptHash(hashLength(selectedCipher));
-        transcriptHash.record(clientHello);
         // https://datatracker.ietf.org/doc/html/rfc8446#section-4.4.1
         // "when the server responds to a ClientHello with a HelloRetryRequest, the value of ClientHello1 is replaced
         //  with a special synthetic handshake message of handshake type "message_hash" containing Hash(ClientHello1)"
@@ -274,6 +313,8 @@ public class TlsServerEngineImpl extends TlsEngineImpl implements TlsServerEngin
      * and the TLS state (with the pre-shared key of the resumed session when resumption is accepted).
      */
     private PskSelection processPreSharedKey(ClientHello clientHello) throws TlsProtocolException {
+        assert transcriptHash != null;  // Transcript hash must have been created by now, when cipher suite is negotiated.
+
         Optional<Extension> pskExtension = clientHello.getExtensions().stream().filter(ext -> ext instanceof ClientHelloPreSharedKeyExtension).findFirst();
 
         boolean earlyDataAccepted = false;
@@ -296,14 +337,17 @@ public class TlsServerEngineImpl extends TlsEngineImpl implements TlsServerEngin
                         //  and validate solely the binder that corresponds to that PSK."
                         TlsSession resumedSession = sessionRegistry.useSession(preSharedKeyExtension.getIdentities().get(selectedIdentity));
                         if (resumedSession != null) {
-                            transcriptHash = new TranscriptHash(hashLength(selectedCipher));
                             state = new TlsState(transcriptHash, resumedSession.getPsk(), keyLength(selectedCipher), hashLength(selectedCipher));
                             if (!validateBinder(preSharedKeyExtension.getBinders().get(selectedIdentity), preSharedKeyExtension.getBinderPosition(), clientHello)) {
                                 state = null;
                                 throw new DecryptErrorAlert("Invalid PSK binder");
                             }
-                            // Now PSK is accepted, check for early-data-indication
-                            if (clientHello.getExtensions().stream().filter(ext -> ext instanceof EarlyDataExtension).findAny().isPresent()) {
+                            // Now PSK is accepted, check for early-data-indication.
+                            // https://datatracker.ietf.org/doc/html/rfc8446#section-4.2.10
+                            // "A client MUST NOT include the "early_data" extension in its followup ClientHello."
+                            // "The server then ignores early data ..."
+                            if (clientHello.getExtensions().stream().filter(ext -> ext instanceof EarlyDataExtension).findAny().isPresent()
+                                    && helloRetryRequest == null) {
                                 // Client intends to send early data, first check whether application layer protocols match
                                 // https://datatracker.ietf.org/doc/html/rfc8446#section-4.2.11
                                 // "In order to accept early data, the server MUST have accepted a PSK cipher suite and selected
@@ -325,7 +369,6 @@ public class TlsServerEngineImpl extends TlsEngineImpl implements TlsServerEngin
         }
         if (state == null) {
             // Resumption was not requested or not successful; init TLS state without PSK.
-            transcriptHash = new TranscriptHash(hashLength(selectedCipher));
             state = new TlsState(transcriptHash, keyLength(selectedCipher), hashLength(selectedCipher));
             // The selectedIdentity indicates which PSK was used to resume the session; it must be null when session is not resumed.
             selectedIdentity = null;
