@@ -2,10 +2,16 @@
 
 ## Unreleased
 
-- Client support for HelloRetryRequest (RFC 8446, section 4.1.4): the client validates the message and sends a second
-  ClientHello with a key share for the group the server selected. The cookie extension is echoed, the early_data
-  extension is removed, and the pre_shared_key extension is updated with a recomputed obfuscated ticket age and binder.
-  The server never sends a HelloRetryRequest.
+- Support for HelloRetryRequest (RFC 8446, section 4.1.4) on both sides.
+  A client that receives one validates it and sends a second ClientHello with a key share for the group the server
+  selected. The cookie extension is echoed, the early_data extension is removed, and the pre_shared_key extension is
+  updated with a recomputed obfuscated ticket age and binder.
+  A server sends one when the client's key share is for a group it does not offer, whilst the client did offer a group
+  it can use; this is what RFC 8446, section 4.1.1 requires, where the server previously aborted the handshake. The
+  server never sends a cookie, as it keeps its state between the two ClientHello messages.
+- Added `TlsServerEngine.addSupportedGroups` to configure which named groups the server offers for key exchange. When
+  it is not used, the server offers all groups its key exchange factory can provide, as before.
+- **Breaking**: `ServerMessageSender` has a new method `send(HelloRetryRequest)`; implementations must add it.
 - Added `CookieExtension` (RFC 8446, section 4.2.2); it was parsed as an `UnknownExtension` before. Note that a cookie
   in a ServerHello (as opposed to a HelloRetryRequest) is now rejected with an `illegal_parameter` alert.
 - `BinderCalculator.computePskBinder` takes the preceding transcript as an extra parameter, which is needed for
