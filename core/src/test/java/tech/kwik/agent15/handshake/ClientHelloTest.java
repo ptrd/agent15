@@ -430,15 +430,11 @@ class ClientHelloTest {
     }
 
     private ClientHello createClientHello(TlsConstants.NamedGroup keyShareGroup) {
-        return new ClientHello("localhost", keyShareGroup, KEY_EXCHANGE_DATA, false,
-                List.of(TLS_AES_128_GCM_SHA256), List.of(rsa_pss_rsae_sha256),
-                Collections.emptyList(), null, ClientHello.PskKeyEstablishmentMode.none);
+        return createClientHello(keyShareGroup, List.of(keyShareGroup));
     }
 
     private ClientHello createClientHello(TlsConstants.NamedGroup keyShareGroup, List<TlsConstants.NamedGroup> supportedGroups) {
-        return new ClientHello("localhost", keyShareGroup, KEY_EXCHANGE_DATA, false,
-                List.of(TLS_AES_128_GCM_SHA256), List.of(rsa_pss_rsae_sha256), supportedGroups,
-                Collections.emptyList(), null, ClientHello.PskKeyEstablishmentMode.none);
+        return createClientHello(List.of(keyShareGroup), supportedGroups);
     }
 
     private List<TlsConstants.NamedGroup> supportedGroupsOf(ClientHello clientHello) {

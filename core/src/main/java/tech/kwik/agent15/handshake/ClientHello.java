@@ -151,44 +151,6 @@ public class ClientHello extends HandshakeMessage {
     }
 
     /**
-     * @param serverName
-     * @param ecCurve
-     * @param keyShare
-     * @param compatibilityMode
-     * @param supportedCiphers
-     * @param supportedSignatures
-     * @param extraExtensions
-     * @param binderCalculator              can be null when no ClientHelloPreSharedKeyExtension is present, must be non-null when ClientHelloPreSharedKeyExtension is present.
-     * @param pskKeyEstablishmentMode
-     */
-    public ClientHello(String serverName, TlsConstants.NamedGroup ecCurve, byte[] keyShare, boolean compatibilityMode,
-                       List<TlsConstants.CipherSuite> supportedCiphers, List<TlsConstants.SignatureScheme> supportedSignatures,
-                       List<Extension> extraExtensions, BinderCalculator binderCalculator, PskKeyEstablishmentMode pskKeyEstablishmentMode) {
-        this(serverName, ecCurve, keyShare, compatibilityMode, supportedCiphers, supportedSignatures, List.of(ecCurve),
-                extraExtensions, binderCalculator, pskKeyEstablishmentMode);
-    }
-
-    /**
-     * @param serverName
-     * @param ecCurve
-     * @param keyShare
-     * @param compatibilityMode
-     * @param supportedCiphers
-     * @param supportedSignatures
-     * @param supportedGroups
-     * @param extraExtensions
-     * @param binderCalculator        can be null when no ClientHelloPreSharedKeyExtension is present, must be non-null when ClientHelloPreSharedKeyExtension is present.
-     * @param pskKeyEstablishmentMode
-     */
-    public ClientHello(String serverName, TlsConstants.NamedGroup ecCurve, byte[] keyShare, boolean compatibilityMode,
-                       List<TlsConstants.CipherSuite> supportedCiphers, List<TlsConstants.SignatureScheme> supportedSignatures,
-                       List<TlsConstants.NamedGroup> supportedGroups, List<Extension> extraExtensions, BinderCalculator binderCalculator, PskKeyEstablishmentMode pskKeyEstablishmentMode) {
-        this(serverName, List.of(new KeyShareExtension.KeyShareEntry(ecCurve, keyShare)), compatibilityMode,
-                supportedCiphers, supportedSignatures, supportedGroups, extraExtensions, binderCalculator,
-                pskKeyEstablishmentMode);
-    }
-
-    /**
      * Creates a (first) ClientHello that offers a key share for each of the given groups.
      * https://datatracker.ietf.org/doc/html/rfc8446#section-4.2.8
      * "Clients MAY send an empty client_shares vector in order to request group selection from the server, at the cost

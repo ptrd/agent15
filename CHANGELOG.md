@@ -2,13 +2,21 @@
 
 ## Unreleased
 
-- A client can offer a key share for more than one named group, with the new `TlsClientEngine.startHandshake` overloads
-  that take a list of key share groups. This avoids the extra round trip of a HelloRetryRequest when the server does not
-  support the client's first choice, which is especially useful when offering a post-quantum hybrid group next to a
-  classical one. The key share groups must occur in the supported groups, in the same order (RFC 8446, section 4.2.8).
-  The existing `startHandshake` methods are unchanged and still offer a single key share.
+- A client can offer a key share for more than one named group, with the new
+  `TlsClientEngine.startHandshake(List<NamedGroup> keyShareGroups, List<NamedGroup> supportedGroups, List<SignatureScheme>)`.
+  This avoids the extra round trip of a HelloRetryRequest when the server does not support the client's first choice,
+  which is especially useful when offering a post-quantum hybrid group next to a classical one. The key share groups
+  must occur in the supported groups, in the same order (RFC 8446, section 4.2.8).
+  The `startHandshake` methods that take a single named group are unchanged and still offer one key share.
+- **Breaking**: `TlsClientEngine.startHandshake(NamedGroup, List<NamedGroup>, List<SignatureScheme>)` is replaced by the
+  method above; callers pass `List.of(namedGroup)` instead of `namedGroup`.
 - Added a `KeyShareExtension` constructor that takes a list of key share entries, and a `ClientHello` constructor that
   takes a list of key shares.
+- **Breaking**: the two `ClientHello` constructors that take a single named group and key share
+  (`ClientHello(String, NamedGroup, byte[], boolean, ...)`, with and without the supported groups parameter) are
+  replaced by the constructor that takes a `List<KeyShareExtension.KeyShareEntry>`; callers pass
+  `List.of(new KeyShareExtension.KeyShareEntry(namedGroup, keyShare))` instead of the group and key share, and the
+  supported groups are no longer derived from the key share group, so they must always be given.
 - The server now checks the rules RFC 8446, section 4.2.8 imposes on the client's key shares, which it MAY do: a
   ClientHello with two key shares for the same group, with a key share for a group that is not in its supported groups,
   or with key shares in another order than its supported groups, is rejected with an `illegal_parameter` alert.
