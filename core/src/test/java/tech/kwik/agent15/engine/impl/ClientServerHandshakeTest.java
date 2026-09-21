@@ -113,6 +113,21 @@ class ClientServerHandshakeTest {
     }
 
     @Test
+    void whenClientOffersMultipleKeySharesNoHelloRetryRequestIsNeeded() throws Exception {
+        // Given: a server that only offers x25519
+        server.addSupportedGroups(List.of(x25519));
+
+        // When: a client that sends a key share for both secp256r1 and x25519, in that order of preference
+        client.startHandshake(List.of(secp256r1, x25519), List.of(secp256r1, x25519), List.of(rsa_pss_rsae_sha256));
+        deliverAll();
+
+        // Then: the server could use the second key share right away, so no hello retry request was needed.
+        assertThat(helloRetryRequestCount).isZero();
+        assertThat(client.handshakeFinished()).isTrue();
+        verify(serverStatusHandler).handshakeFinished();
+    }
+
+    @Test
     void handshakeWithHelloRetryRequestShouldSucceed() throws Exception {
         // Given: a server that only offers x25519
         server.addSupportedGroups(List.of(x25519));

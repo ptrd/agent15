@@ -48,7 +48,9 @@ import java.security.spec.InvalidParameterSpecException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -89,9 +91,9 @@ public class TlsClientEngineImpl extends TlsEngineImpl implements TlsClientEngin
     private String serverName;
     private boolean compatibilityMode;
     private List<TlsConstants.CipherSuite> supportedCiphers;
-    private TlsConstants.NamedGroup ecCurve;
     private List<TlsConstants.NamedGroup> offeredGroups;
-    private KeyExchange keyExchange;
+    // The key exchanges for the groups a key share was sent for, in the order the key shares were offered.
+    private final Map<TlsConstants.NamedGroup, KeyExchange> offeredKeyExchanges = new LinkedHashMap<>();
     private final KeyExchangeFactory keyExchangeFactory;
     private TlsConstants.CipherSuite selectedCipher;
     private List<Extension> requestedExtensions;
@@ -141,30 +143,49 @@ public class TlsClientEngineImpl extends TlsEngineImpl implements TlsClientEngin
 
     /**
      * Start TLS handshake with given parameters
-     * @param ecNamedGroup            the EC named group to use both for the DHE key generation (and thus for the key share
+     * @param namedGroup         the named group to use both for the DHE key generation (and thus for the key share
      *                           extension) and (as the only supported group) in the supported group extension.
      * @param signatureSchemes   the signature algorithms this peer is willing to accept
      * @throws IOException
      */
     @Override
-    public void startHandshake(TlsConstants.NamedGroup ecNamedGroup, List<TlsConstants.SignatureScheme> signatureSchemes) throws IOException {
-        startHandshake(ecNamedGroup, List.of(ecNamedGroup), signatureSchemes);
+    public void startHandshake(TlsConstants.NamedGroup namedGroup, List<TlsConstants.SignatureScheme> signatureSchemes) throws IOException {
+        startHandshake(namedGroup, List.of(namedGroup), signatureSchemes);
+    }
+
+    @Override
+    public void startHandshake(TlsConstants.NamedGroup namedGroup, List<TlsConstants.NamedGroup> supportedGroups, List<TlsConstants.SignatureScheme> signatureSchemes) throws IOException {
+        startHandshake(List.of(namedGroup), supportedGroups, signatureSchemes);
+    }
+
+    @Override
+    public void startHandshake(List<TlsConstants.NamedGroup> keyShareGroups, List<TlsConstants.SignatureScheme> signatureSchemes) throws IOException {
+        startHandshake(keyShareGroups, keyShareGroups, signatureSchemes);
     }
 
     /**
-     * Start TLS handshake with given parameters
+     * Start TLS handshake with given parameters, offering a key share for each of the given named groups.
      *
-     * @param ecNamedGroup     the EC named group to use for the DHE key generation (and thus for the key share
-     *                         extension); must be one of the given supported groups.
+     * @param keyShareGroups   the named groups to generate a key share for (and thus to include in the key share
+     *                         extension), in descending order of preference; must not be empty and each of these groups
+     *                         must occur in the given supported groups, in the same order.
      * @param supportedGroups  the named groups to advertise in the supported groups extension; the order determines
-     *                         the client's preference. Must contain the given ecNamedGroup.
+     *                         the client's preference. Must contain all given keyShareGroups.
      * @param signatureSchemes the signature algorithms this peer is willing to accept
      * @throws IOException
      */
     @Override
-    public void startHandshake(TlsConstants.NamedGroup ecNamedGroup, List<TlsConstants.NamedGroup> supportedGroups, List<TlsConstants.SignatureScheme> signatureSchemes) throws IOException {
+    public void startHandshake(List<TlsConstants.NamedGroup> keyShareGroups, List<TlsConstants.NamedGroup> supportedGroups, List<TlsConstants.SignatureScheme> signatureSchemes) throws IOException {
         if (status != Status.Start) {
             throw new IllegalStateException("Handshake already started");
+        }
+        if (keyShareGroups.isEmpty()) {
+            throw new IllegalArgumentException("At least one named group for the key share is required");
+        }
+        if (keyShareGroups.stream().distinct().count() != keyShareGroups.size()) {
+            // https://datatracker.ietf.org/doc/html/rfc8446#section-4.2.8
+            // "Clients MUST NOT offer multiple KeyShareEntry values for the same group."
+            throw new IllegalArgumentException("Duplicate named group(s) for the key share: " + keyShareGroups);
         }
         if (signatureSchemes.stream().anyMatch(scheme -> !AVAILABLE_SIGNATURES.contains(scheme))) {
             // Remove available leaves the ones that are not available (cannot be supported)
@@ -172,8 +193,10 @@ public class TlsClientEngineImpl extends TlsEngineImpl implements TlsClientEngin
             unsupportedSignatures.removeAll(AVAILABLE_SIGNATURES);
             throw new IllegalArgumentException("Unsupported signature scheme(s): " + unsupportedSignatures);
         }
-        if (!supportedGroups.contains(ecNamedGroup)) {
-            throw new IllegalArgumentException("Supported groups must contain the named group used for the key share (" + ecNamedGroup + ")");
+        if (!supportedGroups.containsAll(keyShareGroups)) {
+            var missingGroups = new ArrayList<>(keyShareGroups);
+            missingGroups.removeAll(supportedGroups);
+            throw new IllegalArgumentException("Supported groups must contain the named group(s) used for the key share " + missingGroups);
         }
         if (!keyExchangeFactory.getSupportedGroups().containsAll(supportedGroups)) {
             // Do not offer groups that cannot be used for key exchange (e.g. when the server would select one of them).
@@ -196,15 +219,19 @@ public class TlsClientEngineImpl extends TlsEngineImpl implements TlsClientEngin
             throw new IllegalStateException("not all mandatory properties are set");
         }
 
-        keyExchange = keyExchangeFactory.forGroup(ecNamedGroup);
-        if (keyExchange == null) {
-            throw new IllegalArgumentException("Named group " + ecNamedGroup + " not supported");
+        List<KeyShareExtension.KeyShareEntry> keyShares = new ArrayList<>();
+        for (TlsConstants.NamedGroup keyShareGroup: keyShareGroups) {
+            KeyExchange keyExchange = keyExchangeFactory.forGroup(keyShareGroup);
+            if (keyExchange == null) {
+                throw new IllegalArgumentException("Named group " + keyShareGroup + " not supported");
+            }
+            keyExchange.generateClientKeyPair();
+            offeredKeyExchanges.put(keyShareGroup, keyExchange);
+            keyShares.add(new KeyShareExtension.KeyShareEntry(keyShareGroup, keyExchange.getClientKeyShare()));
         }
 
         supportedSignatures = signatureSchemes;
-        this.ecCurve = ecNamedGroup;
         this.offeredGroups = supportedGroups;
-        keyExchange.generateClientKeyPair();
 
         List<Extension> extensions;
         if (newSessionTicket != null) {
@@ -219,7 +246,7 @@ public class TlsClientEngineImpl extends TlsEngineImpl implements TlsClientEngin
             // Defer initialization of TlsState until selected cipher is known.
         }
 
-        clientHello1 = new ClientHello(serverName, ecNamedGroup, keyExchange.getClientKeyShare(), compatibilityMode,
+        clientHello1 = new ClientHello(serverName, keyShares, compatibilityMode,
                 supportedCiphers, supportedSignatures, supportedGroups, extensions, state, ClientHello.PskKeyEstablishmentMode.PSKwithDHE);
         sentExtensions = clientHello1.getExtensions();
 
@@ -335,8 +362,8 @@ public class TlsClientEngineImpl extends TlsEngineImpl implements TlsClientEngin
             if (selectedGroup.isEmpty() || ! offeredGroups.contains(selectedGroup.get())) {
                 throw new IllegalParameterAlert("server selected a group that was not offered in the supported groups extension");
             }
-            if (selectedGroup.get() == ecCurve) {
-                throw new IllegalParameterAlert("server selected the group that was already used for the key share");
+            if (offeredKeyExchanges.containsKey(selectedGroup.get())) {
+                throw new IllegalParameterAlert("server selected a group that was already used for a key share");
             }
         }
 
@@ -394,14 +421,17 @@ public class TlsClientEngineImpl extends TlsEngineImpl implements TlsClientEngin
     private ClientHello createRetryClientHello(HelloRetryRequest helloRetryRequest, Optional<TlsConstants.NamedGroup> selectedGroup) throws TlsProtocolException {
         KeyShareExtension newKeyShare = null;
         if (selectedGroup.isPresent()) {
-            ecCurve = selectedGroup.get();
-            keyExchange = keyExchangeFactory.forGroup(ecCurve);
+            TlsConstants.NamedGroup retryGroup = selectedGroup.get();
+            KeyExchange keyExchange = keyExchangeFactory.forGroup(retryGroup);
             if (keyExchange == null) {
                 // Cannot happen: the selected group was offered, and only groups that can be used for key exchange are offered.
-                throw new IllegalParameterAlert("server selected a group that is not supported: " + ecCurve);
+                throw new IllegalParameterAlert("server selected a group that is not supported: " + retryGroup);
             }
             keyExchange.generateClientKeyPair();
-            newKeyShare = new KeyShareExtension(keyExchange.getClientKeyShare(), ecCurve, TlsConstants.HandshakeType.client_hello);
+            // "(...) replacing the list of shares with a list containing a single KeyShareEntry from the indicated group."
+            offeredKeyExchanges.clear();
+            offeredKeyExchanges.put(retryGroup, keyExchange);
+            newKeyShare = new KeyShareExtension(keyExchange.getClientKeyShare(), retryGroup, TlsConstants.HandshakeType.client_hello);
         }
 
         List<Extension> clientHello2Extensions = new ArrayList<>();
@@ -534,13 +564,13 @@ public class TlsClientEngineImpl extends TlsEngineImpl implements TlsClientEngin
                     .map(extension -> ((KeyShareExtension) extension).getKeyShareEntries().get(0))
                     .orElseThrow(() -> new IllegalParameterAlert("")));
             // In the context of a server hello, the key share extension contains exactly one key share entry
-            // Note that when a hello retry request selected a group, ecCurve holds that group, so this check also
-            // implements https://datatracker.ietf.org/doc/html/rfc8446#section-4.2.8:
+            // Note that when a hello retry request selected a group, the offered key exchanges hold that group only, so
+            // this check also implements https://datatracker.ietf.org/doc/html/rfc8446#section-4.2.8:
             // "If using (EC)DHE key establishment and a HelloRetryRequest containing a "key_share" extension was
             //  received by the client, the client MUST verify that the selected NamedGroup in the ServerHello is the
             //  same as that in the HelloRetryRequest. If this check fails, the client MUST abort the handshake with an
             //  "illegal_parameter" alert."
-            if (keyShare.get().getNamedGroup() != ecCurve) {
+            if (! offeredKeyExchanges.containsKey(keyShare.get().getNamedGroup())) {
                 throw new IllegalParameterAlert("server supplied key share does not match client supported named group");
             }
         }
@@ -620,6 +650,7 @@ public class TlsClientEngineImpl extends TlsEngineImpl implements TlsClientEngin
             state.setNoPskSelected();
         }
         if (keyShare.isPresent()) {
+            KeyExchange keyExchange = offeredKeyExchanges.get(keyShare.get().getNamedGroup());
             state.setSharedSecret(keyExchange.clientComputeSharedSecret(keyShare.get().getKeyExchangeData()));
         }
         transcriptHash.record(serverHello);

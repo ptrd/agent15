@@ -31,6 +31,7 @@ import tech.kwik.agent15.TlsConstants;
 import tech.kwik.agent15.alert.*;
 import tech.kwik.agent15.engine.CertificateWithPrivateKey;
 import tech.kwik.agent15.engine.ClientMessageSender;
+import tech.kwik.agent15.engine.KeyExchange;
 import tech.kwik.agent15.engine.HostnameVerifier;
 import tech.kwik.agent15.engine.TlsStatusEventHandler;
 import tech.kwik.agent15.extension.*;
@@ -1451,6 +1452,151 @@ class TlsClientEngineTest {
                 engine.startHandshake(secp256r1, Collections.emptyList(), List.of(rsa_pss_rsae_sha256)))
                 // Then
                 .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void clientHelloSentByEngineOffersAKeyShareForEachGivenGroup() throws Exception {
+        // When
+        engine.startHandshake(List.of(x25519, secp256r1), List.of(x25519, secp256r1, x448), List.of(rsa_pss_rsae_sha256));
+
+        // Then: the key shares are offered in the given order, which expresses the client's preference.
+        assertThat(keyShareGroupsOf(capturedClientHello())).containsExactly(x25519, secp256r1);
+    }
+
+    @Test
+    void whenNoSupportedGroupsAreGivenExactlyTheKeyShareGroupsAreOffered() throws Exception {
+        // When
+        engine.startHandshake(List.of(x25519, secp256r1), List.of(rsa_pss_rsae_sha256));
+
+        // Then
+        assertThat(keyShareGroupsOf(capturedClientHello())).containsExactly(x25519, secp256r1);
+        SupportedGroupsExtension supportedGroups = (SupportedGroupsExtension) extensionOfType(capturedClientHello(), SupportedGroupsExtension.class);
+        assertThat(supportedGroups.getNamedGroups()).containsExactly(x25519, secp256r1);
+    }
+
+    @Test
+    void emptyListOfKeyShareGroupsLeadsToException() {
+        assertThatThrownBy(() ->
+                // When
+                engine.startHandshake(Collections.emptyList(), List.of(x25519, secp256r1), List.of(rsa_pss_rsae_sha256)))
+                // Then
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void duplicateKeyShareGroupLeadsToException() {
+        // https://datatracker.ietf.org/doc/html/rfc8446#section-4.2.8
+        // "Clients MUST NOT offer multiple KeyShareEntry values for the same group."
+        assertThatThrownBy(() ->
+                // When
+                engine.startHandshake(List.of(x25519, x25519), List.of(x25519, secp256r1), List.of(rsa_pss_rsae_sha256)))
+                // Then
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void keyShareGroupNotInSupportedGroupsLeadsToException() {
+        assertThatThrownBy(() ->
+                // When
+                engine.startHandshake(List.of(x25519, secp256r1), List.of(x25519, x448), List.of(rsa_pss_rsae_sha256)))
+                // Then
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("secp256r1");
+    }
+
+    @Test
+    void whenServerSelectsTheSecondOfferedKeyShareGroupHandshakeProceeds() throws Exception {
+        // Given
+        engine.startHandshake(List.of(x25519, secp256r1), List.of(x25519, secp256r1), List.of(rsa_pss_rsae_sha256));
+
+        // When: the server picks secp256r1, the second group the client offered a key share for.
+        engine.received(serverHelloWithKeyShareFor(secp256r1), ProtectionKeysType.None);
+
+        // Then
+        assertThat(engine.getSelectedCipher()).isEqualTo(engineCipher);
+    }
+
+    @Test
+    void whenServerSelectsAGroupWithoutOfferedKeyShareServerHelloIsRejected() throws Exception {
+        // Given: a key share for x25519 only, while secp256r1 is offered as supported group.
+        engine.startHandshake(List.of(x25519), List.of(x25519, secp256r1), List.of(rsa_pss_rsae_sha256));
+
+        ServerHello serverHello = new ServerHello(engineCipher, List.of(mandatorySupportedVersionExtension,
+                new KeyShareExtension(KEY_EXCHANGE_DATA, secp256r1, TlsConstants.HandshakeType.server_hello)));
+
+        assertThatThrownBy(() ->
+                // When
+                engine.received(serverHello, ProtectionKeysType.None))
+                // Then
+                .isInstanceOf(IllegalParameterAlert.class)
+                .hasMessageContaining("named group");
+    }
+
+    @Test
+    void helloRetryRequestSelectingAGroupThatWasOfferedAsSecondKeyShareLeadsToIllegalParameterAlert() throws Exception {
+        // Given
+        engine.startHandshake(List.of(x25519, secp256r1), List.of(x25519, secp256r1, x448), List.of(rsa_pss_rsae_sha256));
+
+        assertThatThrownBy(() ->
+                // When: the server asks for secp256r1, for which the client already sent a key share.
+                engine.received(createHelloRetryRequest(secp256r1), ProtectionKeysType.None))
+                // Then
+                // https://datatracker.ietf.org/doc/html/rfc8446#section-4.2.8
+                // "(...) the client MUST verify that (...) (2) the selected_group field does not correspond to a group
+                //  which was provided in the "key_share" extension in the original ClientHello."
+                .isInstanceOf(IllegalParameterAlert.class)
+                .hasMessageContaining("already used");
+    }
+
+    @Test
+    void afterHelloRetryRequestSecondClientHelloContainsOneKeyShareOnly() throws Exception {
+        // Given: key shares for two groups, and a third group offered as supported group only.
+        engine.startHandshake(List.of(x25519, secp256r1), List.of(x25519, secp256r1, x448), List.of(rsa_pss_rsae_sha256));
+
+        // When
+        engine.received(createHelloRetryRequest(x448), ProtectionKeysType.None);
+
+        // Then
+        // https://datatracker.ietf.org/doc/html/rfc8446#section-4.1.2
+        // "(...) replacing the list of shares with a list containing a single KeyShareEntry from the indicated group."
+        assertThat(keyShareGroupsOf(capturedClientHello())).containsExactly(x448);
+    }
+
+    @Test
+    void afterHelloRetryRequestServerHelloWithAnOriginallyOfferedKeyShareGroupIsRejected() throws Exception {
+        // Given
+        engine.startHandshake(List.of(x25519, secp256r1), List.of(x25519, secp256r1, x448), List.of(rsa_pss_rsae_sha256));
+        engine.received(createHelloRetryRequest(x448), ProtectionKeysType.None);
+
+        // A server hello with a key share for x25519, one of the groups of the first client hello, instead of for x448,
+        // the group the hello retry request selected.
+        ServerHello serverHello = new ServerHello(engineCipher, List.of(mandatorySupportedVersionExtension,
+                new KeyShareExtension(new byte[32], x25519, TlsConstants.HandshakeType.server_hello)));
+
+        assertThatThrownBy(() ->
+                // When
+                engine.received(serverHello, ProtectionKeysType.None))
+                // Then
+                .isInstanceOf(IllegalParameterAlert.class)
+                .hasMessageContaining("named group");
+    }
+
+    /**
+     * Creates a server hello with a valid key share for the given group, computed from the key share the client offered
+     * for that group in the client hello it sent last.
+     */
+    private ServerHello serverHelloWithKeyShareFor(TlsConstants.NamedGroup group) throws Exception {
+        KeyShareExtension clientKeyShare = (KeyShareExtension) extensionOfType(capturedClientHello(), KeyShareExtension.class);
+        byte[] clientKeyExchangeData = clientKeyShare.getKeyShareEntries().stream()
+                .filter(entry -> entry.getNamedGroup() == group)
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("client hello does not offer a key share for " + group))
+                .getKeyExchangeData();
+
+        KeyExchange serverKeyExchange = new KeyExchangeFactoryImpl().forGroup(group);
+        serverKeyExchange.serverProcessClientKeyShare(clientKeyExchangeData);
+        return new ServerHello(engineCipher, List.of(mandatorySupportedVersionExtension,
+                new KeyShareExtension(serverKeyExchange.getServerKeyShare(), group, TlsConstants.HandshakeType.server_hello)));
     }
 
     private void startHandshakeWithPsk() throws Exception {
