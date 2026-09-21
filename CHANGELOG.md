@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- A client can offer a key share for more than one named group, with the new `TlsClientEngine.startHandshake` overloads
+  that take a list of key share groups. This avoids the extra round trip of a HelloRetryRequest when the server does not
+  support the client's first choice, which is especially useful when offering a post-quantum hybrid group next to a
+  classical one. The key share groups must occur in the supported groups, in the same order (RFC 8446, section 4.2.8).
+  The existing `startHandshake` methods are unchanged and still offer a single key share.
+- Added a `KeyShareExtension` constructor that takes a list of key share entries, and a `ClientHello` constructor that
+  takes a list of key shares.
 - Support for HelloRetryRequest (RFC 8446, section 4.1.4) on both sides.
   A client that receives one validates it and sends a second ClientHello with a key share for the group the server
   selected. The cookie extension is echoed, the early_data extension is removed, and the pre_shared_key extension is

@@ -78,6 +78,8 @@ Maven coordinates:
 
 
 Client: instantiate a `TlsClientEngine` with a `ClientMessageSender` and a `TlsStatusEventHandler` and call `startHandshake()` on it.
+The `startHandshake` overloads that take a list of named groups make the client offer a key share for each of them,
+which avoids the extra round trip of a HelloRetryRequest when the server does not support the client's first choice.
 The `ClientMessageSender` is the callback to let the client actually send the handshake messages. 
 The `TlsStatusEventHandler` enables to client to react TLS events that are needed for the QUIC handshake,
 e.g. when the early secrets or the handshake secrets are known (QUIC computes its own secrets based on the TLS secrets).
