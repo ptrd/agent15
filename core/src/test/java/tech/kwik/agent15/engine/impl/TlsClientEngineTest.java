@@ -264,7 +264,7 @@ class TlsClientEngineTest {
     @Test
     void helloRetryRequestShouldLeadToSecondClientHello() throws Exception {
         // Given
-        engine.startHandshake(secp256r1, List.of(secp256r1, x25519), List.of(rsa_pss_rsae_sha256));
+        engine.startHandshake(List.of(secp256r1), List.of(secp256r1, x25519), List.of(rsa_pss_rsae_sha256));
         ClientHello firstClientHello = capturedClientHello();
 
         // When
@@ -283,7 +283,7 @@ class TlsClientEngineTest {
     @Test
     void secondClientHelloShouldContainKeyShareForSelectedGroup() throws Exception {
         // Given
-        engine.startHandshake(secp256r1, List.of(secp256r1, x25519), List.of(rsa_pss_rsae_sha256));
+        engine.startHandshake(List.of(secp256r1), List.of(secp256r1, x25519), List.of(rsa_pss_rsae_sha256));
         assertThat(keyShareGroupsOf(capturedClientHello())).containsExactly(secp256r1);
 
         // When
@@ -299,7 +299,7 @@ class TlsClientEngineTest {
     @Test
     void secondClientHelloShouldEchoCookieFromHelloRetryRequest() throws Exception {
         // Given
-        engine.startHandshake(secp256r1, List.of(secp256r1, x25519), List.of(rsa_pss_rsae_sha256));
+        engine.startHandshake(List.of(secp256r1), List.of(secp256r1, x25519), List.of(rsa_pss_rsae_sha256));
 
         // When
         engine.received(createHelloRetryRequest(x25519, ByteUtils.hexToBytes("cafebabe")), ProtectionKeysType.None);
@@ -315,7 +315,7 @@ class TlsClientEngineTest {
     @Test
     void whenHelloRetryRequestHasNoKeyShareTheOriginalKeyShareIsRetained() throws Exception {
         // Given
-        engine.startHandshake(secp256r1, List.of(secp256r1, x25519), List.of(rsa_pss_rsae_sha256));
+        engine.startHandshake(List.of(secp256r1), List.of(secp256r1, x25519), List.of(rsa_pss_rsae_sha256));
 
         // When: a hello retry request with a cookie only (e.g. to have the client prove reachability)
         engine.received(new HelloRetryRequest(engineCipher, EMPTY_SESSION_ID,
@@ -330,7 +330,7 @@ class TlsClientEngineTest {
     void earlyDataExtensionShouldBeRemovedFromSecondClientHello() throws Exception {
         // Given
         engine.add(new EarlyDataExtension());
-        engine.startHandshake(secp256r1, List.of(secp256r1, x25519), List.of(rsa_pss_rsae_sha256));
+        engine.startHandshake(List.of(secp256r1), List.of(secp256r1, x25519), List.of(rsa_pss_rsae_sha256));
         assertThat(capturedClientHello().getExtensions()).anyMatch(ext -> ext instanceof EarlyDataExtension);
 
         // When
@@ -345,7 +345,7 @@ class TlsClientEngineTest {
     @Test
     void secondHelloRetryRequestShouldLeadToUnexpectedMessageAlert() throws Exception {
         // Given
-        engine.startHandshake(secp256r1, List.of(secp256r1, x25519), List.of(rsa_pss_rsae_sha256));
+        engine.startHandshake(List.of(secp256r1), List.of(secp256r1, x25519), List.of(rsa_pss_rsae_sha256));
         engine.received(createHelloRetryRequest(x25519), ProtectionKeysType.None);
 
         assertThatThrownBy(() ->
@@ -358,7 +358,7 @@ class TlsClientEngineTest {
     @Test
     void helloRetryRequestSelectingGroupThatWasNotOfferedShouldLeadToIllegalParameterAlert() throws Exception {
         // Given
-        engine.startHandshake(secp256r1, List.of(secp256r1, x25519), List.of(rsa_pss_rsae_sha256));
+        engine.startHandshake(List.of(secp256r1), List.of(secp256r1, x25519), List.of(rsa_pss_rsae_sha256));
 
         assertThatThrownBy(() ->
                 // When: x448 is supported by this implementation, but was not offered
@@ -371,7 +371,7 @@ class TlsClientEngineTest {
     @Test
     void helloRetryRequestSelectingUnknownGroupShouldLeadToIllegalParameterAlert() throws Exception {
         // Given
-        engine.startHandshake(secp256r1, List.of(secp256r1, x25519), List.of(rsa_pss_rsae_sha256));
+        engine.startHandshake(List.of(secp256r1), List.of(secp256r1, x25519), List.of(rsa_pss_rsae_sha256));
 
         // A key share extension selecting group 0x6666, which is not a group this implementation knows.
         String hrrInHex = ("02 000000  0303 CF21AD74E59A6111BE1D8C021E65B891C2A211167ABB8C5E079E09E2C8A8339C  00  1301   00"
@@ -389,7 +389,7 @@ class TlsClientEngineTest {
     @Test
     void helloRetryRequestSelectingGroupAlreadyUsedForKeyShareShouldLeadToIllegalParameterAlert() throws Exception {
         // Given
-        engine.startHandshake(secp256r1, List.of(secp256r1, x25519), List.of(rsa_pss_rsae_sha256));
+        engine.startHandshake(List.of(secp256r1), List.of(secp256r1, x25519), List.of(rsa_pss_rsae_sha256));
 
         assertThatThrownBy(() ->
                 // When
@@ -402,7 +402,7 @@ class TlsClientEngineTest {
     @Test
     void helloRetryRequestThatChangesNothingShouldLeadToIllegalParameterAlert() throws Exception {
         // Given
-        engine.startHandshake(secp256r1, List.of(secp256r1, x25519), List.of(rsa_pss_rsae_sha256));
+        engine.startHandshake(List.of(secp256r1), List.of(secp256r1, x25519), List.of(rsa_pss_rsae_sha256));
 
         assertThatThrownBy(() ->
                 // When: neither a key share nor a cookie, so the client hello would not change
@@ -416,7 +416,7 @@ class TlsClientEngineTest {
     @Test
     void helloRetryRequestWithCipherThatWasNotOfferedShouldLeadToIllegalParameterAlert() throws Exception {
         // Given
-        engine.startHandshake(secp256r1, List.of(secp256r1, x25519), List.of(rsa_pss_rsae_sha256));
+        engine.startHandshake(List.of(secp256r1), List.of(secp256r1, x25519), List.of(rsa_pss_rsae_sha256));
 
         assertThatThrownBy(() ->
                 // When
@@ -432,7 +432,7 @@ class TlsClientEngineTest {
     void helloRetryRequestWithIncorrectSessionIdEchoShouldLeadToIllegalParameterAlert() throws Exception {
         // Given
         engine.setCompatibilityMode(true);
-        engine.startHandshake(secp256r1, List.of(secp256r1, x25519), List.of(rsa_pss_rsae_sha256));
+        engine.startHandshake(List.of(secp256r1), List.of(secp256r1, x25519), List.of(rsa_pss_rsae_sha256));
 
         assertThatThrownBy(() ->
                 // When
@@ -447,7 +447,7 @@ class TlsClientEngineTest {
     @Test
     void helloRetryRequestWithoutSupportedVersionsExtensionShouldLeadToMissingExtensionAlert() throws Exception {
         // Given
-        engine.startHandshake(secp256r1, List.of(secp256r1, x25519), List.of(rsa_pss_rsae_sha256));
+        engine.startHandshake(List.of(secp256r1), List.of(secp256r1, x25519), List.of(rsa_pss_rsae_sha256));
 
         assertThatThrownBy(() ->
                 // When
@@ -460,7 +460,7 @@ class TlsClientEngineTest {
     @Test
     void helloRetryRequestWithExtensionThatIsNotAllowedShouldLeadToIllegalParameterAlert() throws Exception {
         // Given
-        engine.startHandshake(secp256r1, List.of(secp256r1, x25519), List.of(rsa_pss_rsae_sha256));
+        engine.startHandshake(List.of(secp256r1), List.of(secp256r1, x25519), List.of(rsa_pss_rsae_sha256));
 
         assertThatThrownBy(() ->
                 // When: a pre_shared_key extension is allowed in CH and SH, but not in a HelloRetryRequest
@@ -476,7 +476,7 @@ class TlsClientEngineTest {
     @Test
     void helloRetryRequestWithUnrequestedExtensionShouldLeadToUnsupportedExtensionAlert() throws Exception {
         // Given
-        engine.startHandshake(secp256r1, List.of(secp256r1, x25519), List.of(rsa_pss_rsae_sha256));
+        engine.startHandshake(List.of(secp256r1), List.of(secp256r1, x25519), List.of(rsa_pss_rsae_sha256));
 
         assertThatThrownBy(() ->
                 // When: an extension the client did not offer (and that is not the cookie extension)
@@ -504,7 +504,7 @@ class TlsClientEngineTest {
     void serverHelloWithOtherCipherThanHelloRetryRequestShouldLeadToIllegalParameterAlert() throws Exception {
         // Given
         engine.addSupportedCiphers(List.of(TLS_CHACHA20_POLY1305_SHA256));
-        engine.startHandshake(x25519, List.of(x25519, secp256r1), List.of(rsa_pss_rsae_sha256));
+        engine.startHandshake(List.of(x25519), List.of(x25519, secp256r1), List.of(rsa_pss_rsae_sha256));
         engine.received(createHelloRetryRequest(secp256r1), ProtectionKeysType.None);
 
         assertThatThrownBy(() ->
@@ -518,7 +518,7 @@ class TlsClientEngineTest {
     @Test
     void serverHelloWithOtherGroupThanHelloRetryRequestShouldLeadToIllegalParameterAlert() throws Exception {
         // Given
-        engine.startHandshake(x25519, List.of(x25519, secp256r1), List.of(rsa_pss_rsae_sha256));
+        engine.startHandshake(List.of(x25519), List.of(x25519, secp256r1), List.of(rsa_pss_rsae_sha256));
         engine.received(createHelloRetryRequest(secp256r1), ProtectionKeysType.None);
 
         // A server hello with a key share for x25519, the group used in the first client hello, instead of for
@@ -541,7 +541,7 @@ class TlsClientEngineTest {
     void secondClientHelloShouldOfferPreSharedKeyAsLastExtensionWithNewBinder() throws Exception {
         // Given
         engine.setNewSessionTicket(createNewSessionTicket());
-        engine.startHandshake(x25519, List.of(x25519, secp256r1), List.of(rsa_pss_rsae_sha256));
+        engine.startHandshake(List.of(x25519), List.of(x25519, secp256r1), List.of(rsa_pss_rsae_sha256));
         byte[] binderInFirstClientHello = binderOf(capturedClientHello());
 
         // When
@@ -563,7 +563,7 @@ class TlsClientEngineTest {
     void binderOfSecondClientHelloShouldBeComputedOverTranscriptIncludingHelloRetryRequest() throws Exception {
         // Given
         engine.setNewSessionTicket(createNewSessionTicket());
-        engine.startHandshake(x25519, List.of(x25519, secp256r1), List.of(rsa_pss_rsae_sha256));
+        engine.startHandshake(List.of(x25519), List.of(x25519, secp256r1), List.of(rsa_pss_rsae_sha256));
         ClientHello clientHello1 = capturedClientHello();
         HelloRetryRequest helloRetryRequest = createHelloRetryRequest(secp256r1);
 
@@ -590,7 +590,7 @@ class TlsClientEngineTest {
         // Given: a ticket for a cipher with a SHA-256 hash
         engine.addSupportedCiphers(List.of(TLS_AES_256_GCM_SHA384));
         engine.setNewSessionTicket(createNewSessionTicket());
-        engine.startHandshake(x25519, List.of(x25519, secp256r1), List.of(rsa_pss_rsae_sha256));
+        engine.startHandshake(List.of(x25519), List.of(x25519, secp256r1), List.of(rsa_pss_rsae_sha256));
         assertThat(capturedClientHello().getExtensions()).anyMatch(ext -> ext instanceof ClientHelloPreSharedKeyExtension);
 
         // When: the server selects a cipher with a SHA-384 hash
@@ -609,7 +609,7 @@ class TlsClientEngineTest {
         // Given
         engine.addSupportedCiphers(List.of(TLS_AES_256_GCM_SHA384));
         engine.setNewSessionTicket(createNewSessionTicket());
-        engine.startHandshake(x25519, List.of(x25519, secp256r1), List.of(rsa_pss_rsae_sha256));
+        engine.startHandshake(List.of(x25519), List.of(x25519, secp256r1), List.of(rsa_pss_rsae_sha256));
         engine.received(new HelloRetryRequest(TLS_AES_256_GCM_SHA384, EMPTY_SESSION_ID,
                 List.of(mandatorySupportedVersionExtension, new KeyShareExtension(secp256r1))), ProtectionKeysType.None);
 
@@ -624,7 +624,7 @@ class TlsClientEngineTest {
     @Test
     void helloRetryRequestWithIncorrectProtectionLevelShouldLeadToUnexpectedMessageAlert() throws Exception {
         // Given
-        engine.startHandshake(secp256r1, List.of(secp256r1, x25519), List.of(rsa_pss_rsae_sha256));
+        engine.startHandshake(List.of(secp256r1), List.of(secp256r1, x25519), List.of(rsa_pss_rsae_sha256));
 
         assertThatThrownBy(() ->
                 // When
@@ -1381,7 +1381,7 @@ class TlsClientEngineTest {
     @Test
     void clientHelloSentByEngineOffersTheGivenSupportedGroups() throws Exception {
         // When
-        engine.startHandshake(secp256r1, List.of(secp256r1, x448, x25519), List.of(rsa_pss_rsae_sha256));
+        engine.startHandshake(List.of(secp256r1), List.of(secp256r1, x448, x25519), List.of(rsa_pss_rsae_sha256));
 
         // Then
         ArgumentCaptor<ClientHello> messageCaptor = ArgumentCaptor.forClass(ClientHello.class);
@@ -1396,7 +1396,7 @@ class TlsClientEngineTest {
     @Test
     void whenSupportedGroupsAreGivenKeyShareStillUsesTheGivenNamedGroupOnly() throws Exception {
         // When
-        engine.startHandshake(x25519, List.of(secp256r1, x448, x25519), List.of(rsa_pss_rsae_sha256));
+        engine.startHandshake(List.of(x25519), List.of(secp256r1, x448, x25519), List.of(rsa_pss_rsae_sha256));
 
         // Then
         ArgumentCaptor<ClientHello> messageCaptor = ArgumentCaptor.forClass(ClientHello.class);
@@ -1429,7 +1429,7 @@ class TlsClientEngineTest {
     void supportedGroupsNotContainingTheKeyShareGroupLeadsToException() {
         assertThatThrownBy(() ->
                 // When
-                engine.startHandshake(secp256r1, List.of(x448, x25519), List.of(rsa_pss_rsae_sha256)))
+                engine.startHandshake(List.of(secp256r1), List.of(x448, x25519), List.of(rsa_pss_rsae_sha256)))
                 // Then
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("secp256r1");
@@ -1439,7 +1439,7 @@ class TlsClientEngineTest {
     void unsupportedGroupInSupportedGroupsLeadsToException() {
         assertThatThrownBy(() ->
                 // When
-                engine.startHandshake(secp256r1, List.of(secp256r1, TlsConstants.NamedGroup.ffdhe8192), List.of(rsa_pss_rsae_sha256)))
+                engine.startHandshake(List.of(secp256r1), List.of(secp256r1, TlsConstants.NamedGroup.ffdhe8192), List.of(rsa_pss_rsae_sha256)))
                 // Then
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("ffdhe8192");
@@ -1449,7 +1449,7 @@ class TlsClientEngineTest {
     void emptySupportedGroupsLeadsToException() {
         assertThatThrownBy(() ->
                 // When
-                engine.startHandshake(secp256r1, Collections.emptyList(), List.of(rsa_pss_rsae_sha256)))
+                engine.startHandshake(List.of(secp256r1), Collections.emptyList(), List.of(rsa_pss_rsae_sha256)))
                 // Then
                 .isInstanceOf(IllegalArgumentException.class);
     }
@@ -1461,17 +1461,6 @@ class TlsClientEngineTest {
 
         // Then: the key shares are offered in the given order, which expresses the client's preference.
         assertThat(keyShareGroupsOf(capturedClientHello())).containsExactly(x25519, secp256r1);
-    }
-
-    @Test
-    void whenNoSupportedGroupsAreGivenExactlyTheKeyShareGroupsAreOffered() throws Exception {
-        // When
-        engine.startHandshake(List.of(x25519, secp256r1), List.of(rsa_pss_rsae_sha256));
-
-        // Then
-        assertThat(keyShareGroupsOf(capturedClientHello())).containsExactly(x25519, secp256r1);
-        SupportedGroupsExtension supportedGroups = (SupportedGroupsExtension) extensionOfType(capturedClientHello(), SupportedGroupsExtension.class);
-        assertThat(supportedGroups.getNamedGroups()).containsExactly(x25519, secp256r1);
     }
 
     @Test

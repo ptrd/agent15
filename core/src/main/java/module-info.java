@@ -23,8 +23,8 @@
  * {@code x448}, and, when the {@code tech.kwik.agent15.pqc} module is present, the hybrid groups
  * {@code X25519MLKEM768}, {@code SecP256r1MLKEM768} and {@code SecP384r1MLKEM1024}. A server can restrict the set it
  * offers with {@code TlsServerEngine.addSupportedGroups}; a client can offer a key share for more than one group with
- * the {@code TlsClientEngine.startHandshake} overloads that take a list of key share groups, which avoids the extra
- * round trip of a HelloRetryRequest when the server does not support the client's first choice.
+ * the {@code TlsClientEngine.startHandshake} method that takes a list of key share groups, which avoids the extra round
+ * trip of a HelloRetryRequest when the server does not support the client's first choice.
  *
  * <h2>Getting started</h2>
  * The public API lives in the {@link tech.kwik.agent15.engine} package.

@@ -150,17 +150,7 @@ public class TlsClientEngineImpl extends TlsEngineImpl implements TlsClientEngin
      */
     @Override
     public void startHandshake(TlsConstants.NamedGroup namedGroup, List<TlsConstants.SignatureScheme> signatureSchemes) throws IOException {
-        startHandshake(namedGroup, List.of(namedGroup), signatureSchemes);
-    }
-
-    @Override
-    public void startHandshake(TlsConstants.NamedGroup namedGroup, List<TlsConstants.NamedGroup> supportedGroups, List<TlsConstants.SignatureScheme> signatureSchemes) throws IOException {
-        startHandshake(List.of(namedGroup), supportedGroups, signatureSchemes);
-    }
-
-    @Override
-    public void startHandshake(List<TlsConstants.NamedGroup> keyShareGroups, List<TlsConstants.SignatureScheme> signatureSchemes) throws IOException {
-        startHandshake(keyShareGroups, keyShareGroups, signatureSchemes);
+        startHandshake(List.of(namedGroup), List.of(namedGroup), signatureSchemes);
     }
 
     /**

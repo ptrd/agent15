@@ -103,7 +103,7 @@ class ClientServerHandshakeTest {
     @Test
     void handshakeWithoutHelloRetryRequestShouldSucceed() throws Exception {
         // When
-        client.startHandshake(secp256r1, List.of(secp256r1, x25519), List.of(rsa_pss_rsae_sha256));
+        client.startHandshake(List.of(secp256r1), List.of(secp256r1, x25519), List.of(rsa_pss_rsae_sha256));
         deliverAll();
 
         // Then
@@ -133,7 +133,7 @@ class ClientServerHandshakeTest {
         server.addSupportedGroups(List.of(x25519));
 
         // When: a client that sends a key share for secp256r1, but does offer x25519
-        client.startHandshake(secp256r1, List.of(secp256r1, x25519), List.of(rsa_pss_rsae_sha256));
+        client.startHandshake(List.of(secp256r1), List.of(secp256r1, x25519), List.of(rsa_pss_rsae_sha256));
         deliverAll();
 
         // Then: exactly one hello retry request was needed, and the handshake completed on both sides. Note that this
@@ -149,7 +149,7 @@ class ClientServerHandshakeTest {
     @Test
     void sessionResumptionWithHelloRetryRequestShouldSucceed() throws Exception {
         // Given: a completed handshake that provided a session ticket
-        client.startHandshake(secp256r1, List.of(secp256r1, x25519), List.of(rsa_pss_rsae_sha256));
+        client.startHandshake(List.of(secp256r1), List.of(secp256r1, x25519), List.of(rsa_pss_rsae_sha256));
         deliverAll();
         NewSessionTicket ticket = obtainedSessionTicket();
 
@@ -165,7 +165,7 @@ class ClientServerHandshakeTest {
 
         // When: the client resumes the session
         client.setNewSessionTicket(ticket);
-        client.startHandshake(secp256r1, List.of(secp256r1, x25519), List.of(rsa_pss_rsae_sha256));
+        client.startHandshake(List.of(secp256r1), List.of(secp256r1, x25519), List.of(rsa_pss_rsae_sha256));
         deliverAll();
 
         // Then: the binder was accepted (it is computed over the transcript that includes the hello retry request) and
