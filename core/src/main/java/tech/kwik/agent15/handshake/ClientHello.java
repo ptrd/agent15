@@ -45,7 +45,6 @@ public class ClientHello extends HandshakeMessage {
         both
     };
 
-    private static final int MAX_CLIENT_HELLO_SIZE = 3000;
     public static final List<TlsConstants.CipherSuite> SUPPORTED_CIPHERS = List.of(TlsConstants.CipherSuite.TLS_AES_128_GCM_SHA256);
     private static final int MINIMAL_MESSAGE_LENGTH = 1 + 3 + 2 + 32 + 1 + 2 + 2 + 2 + 2;
     private static final List<TlsConstants.SignatureScheme> SUPPORTED_SIGNATURES = List.of(TlsConstants.SignatureScheme.rsa_pss_rsae_sha256);
@@ -183,8 +182,33 @@ public class ClientHello extends HandshakeMessage {
     public ClientHello(String serverName, TlsConstants.NamedGroup ecCurve, byte[] keyShare, boolean compatibilityMode,
                        List<TlsConstants.CipherSuite> supportedCiphers, List<TlsConstants.SignatureScheme> supportedSignatures,
                        List<TlsConstants.NamedGroup> supportedGroups, List<Extension> extraExtensions, BinderCalculator binderCalculator, PskKeyEstablishmentMode pskKeyEstablishmentMode) {
+        this(serverName, List.of(new KeyShareExtension.KeyShareEntry(ecCurve, keyShare)), compatibilityMode,
+                supportedCiphers, supportedSignatures, supportedGroups, extraExtensions, binderCalculator,
+                pskKeyEstablishmentMode);
+    }
+
+    /**
+     * Creates a (first) ClientHello that offers a key share for each of the given groups.
+     * https://datatracker.ietf.org/doc/html/rfc8446#section-4.2.8
+     * "Clients MAY send an empty client_shares vector in order to request group selection from the server, at the cost
+     *  of an additional round trip"; this implementation always sends at least one key share.
+     *
+     * @param serverName
+     * @param keyShares               the key shares to offer, in descending order of preference; must not be empty and
+     *                                each of its groups must occur in supportedGroups, in the same order.
+     * @param compatibilityMode
+     * @param supportedCiphers
+     * @param supportedSignatures
+     * @param supportedGroups
+     * @param extraExtensions
+     * @param binderCalculator        can be null when no ClientHelloPreSharedKeyExtension is present, must be non-null when ClientHelloPreSharedKeyExtension is present.
+     * @param pskKeyEstablishmentMode
+     */
+    public ClientHello(String serverName, List<KeyShareExtension.KeyShareEntry> keyShares, boolean compatibilityMode,
+                       List<TlsConstants.CipherSuite> supportedCiphers, List<TlsConstants.SignatureScheme> supportedSignatures,
+                       List<TlsConstants.NamedGroup> supportedGroups, List<Extension> extraExtensions, BinderCalculator binderCalculator, PskKeyEstablishmentMode pskKeyEstablishmentMode) {
         this(generateClientRandom(), generateSessionId(compatibilityMode), supportedCiphers,
-                assembleExtensions(serverName, ecCurve, keyShare, supportedSignatures, supportedGroups, extraExtensions,
+                assembleExtensions(serverName, keyShares, supportedSignatures, supportedGroups, extraExtensions,
                         pskKeyEstablishmentMode),
                 binderCalculator);
     }
@@ -226,7 +250,12 @@ public class ClientHello extends HandshakeMessage {
         this.cipherSuites = cipherSuites;
         this.extensions = extensions;
 
-        ByteBuffer buffer = ByteBuffer.allocate(MAX_CLIENT_HELLO_SIZE);
+        int extensionsLength = extensions.stream().mapToInt(ext -> ext.getBytes().length).sum();
+        // Message type (1) + length (3) + legacy version (2) + client random (32) + legacy session id length (1) +
+        // legacy session id + cipher suites length (2) + cipher suites + legacy compression methods (2) +
+        // extensions length (2) + extensions.
+        int messageSize = 1 + 3 + 2 + 32 + 1 + sessionId.length + 2 + 2 * cipherSuites.size() + 2 + 2 + extensionsLength;
+        ByteBuffer buffer = ByteBuffer.allocate(messageSize);
 
         // HandshakeType client_hello(1),
         buffer.put((byte) 1);
@@ -259,7 +288,6 @@ public class ClientHello extends HandshakeMessage {
         });
 
         ClientHelloPreSharedKeyExtension pskExtension = null;
-        int extensionsLength = extensions.stream().mapToInt(ext -> ext.getBytes().length).sum();
         buffer.putShort((short) extensionsLength);
         int pskExtensionStartPosition = -1;
         for (Extension extension: extensions) {
@@ -317,13 +345,19 @@ public class ClientHello extends HandshakeMessage {
      * Assembles the extensions of a (first) ClientHello: the extensions that are always sent, followed by the
      * extensions provided by the caller.
      */
-    private static List<Extension> assembleExtensions(String serverName, TlsConstants.NamedGroup ecCurve, byte[] keyShare,
+    private static List<Extension> assembleExtensions(String serverName, List<KeyShareExtension.KeyShareEntry> keyShares,
                                                       List<TlsConstants.SignatureScheme> supportedSignatures,
                                                       List<TlsConstants.NamedGroup> supportedGroups,
                                                       List<Extension> extraExtensions,
                                                       PskKeyEstablishmentMode pskKeyEstablishmentMode) {
-        if (! supportedGroups.contains(ecCurve)) {
-            throw new IllegalArgumentException("ecCurve must be in supportedGroups");
+        if (keyShares.isEmpty()) {
+            throw new IllegalArgumentException("at least one key share is required");
+        }
+        // https://datatracker.ietf.org/doc/html/rfc8446#section-4.2.8
+        // "Each KeyShareEntry value MUST correspond to a group offered in the "supported_groups" extension and MUST
+        //  appear in the same order."
+        if (! isSubSequence(keyShares.stream().map(KeyShareExtension.KeyShareEntry::getNamedGroup).collect(Collectors.toList()), supportedGroups)) {
+            throw new IllegalArgumentException("the key share groups must occur in supportedGroups, in the same order");
         }
 
         Extension[] defaultExtensions = new Extension[] {
@@ -331,7 +365,7 @@ public class ClientHello extends HandshakeMessage {
                 new SupportedVersionsExtension(TlsConstants.HandshakeType.client_hello),
                 new SupportedGroupsExtension(supportedGroups),
                 new SignatureAlgorithmsExtension(supportedSignatures),
-                new KeyShareExtension(keyShare, ecCurve, TlsConstants.HandshakeType.client_hello),
+                new KeyShareExtension(keyShares, TlsConstants.HandshakeType.client_hello),
         };
 
         List<Extension> extensions = new ArrayList<>();
@@ -341,6 +375,22 @@ public class ClientHello extends HandshakeMessage {
         }
         extensions.addAll(extraExtensions);
         return extensions;
+    }
+
+    /**
+     * Returns whether the first list is a sub sequence of the second: all its elements occur in the second list, in the
+     * same (relative) order.
+     */
+    private static <T> boolean isSubSequence(List<T> candidate, List<T> sequence) {
+        int index = 0;
+        for (T element: candidate) {
+            int position = sequence.subList(index, sequence.size()).indexOf(element);
+            if (position < 0) {
+                return false;
+            }
+            index += position + 1;
+        }
+        return true;
     }
 
     private static PskKeyExchangeModesExtension createPskKeyExchangeModesExtension(PskKeyEstablishmentMode pskKeyEstablishmentMode) {

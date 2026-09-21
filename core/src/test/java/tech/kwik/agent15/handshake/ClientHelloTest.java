@@ -36,6 +36,7 @@ import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -329,6 +330,103 @@ class ClientHelloTest {
 
         // Then
         assertThat(second.getBytes()).isEqualTo(first.getBytes());
+    }
+
+    @Test
+    void clientHelloCanOfferKeyShareForMultipleGroups() {
+        // When
+        ClientHello ch = createClientHello(List.of(x25519, secp256r1), List.of(x25519, secp256r1, x448));
+
+        // Then: the key share entries are offered in the given order, which expresses the client's preference.
+        assertThat(keyShareGroupsOf(ch)).containsExactly(x25519, secp256r1);
+    }
+
+    @Test
+    void multipleKeyShareGroupsSurviveSerializationRoundTrip() throws Exception {
+        // Given
+        ClientHello ch = createClientHello(List.of(x25519, secp256r1), List.of(x25519, secp256r1, x448));
+
+        // When
+        ClientHello parsed = new ClientHello(ByteBuffer.wrap(ch.getBytes()), null);
+
+        // Then
+        assertThat(keyShareGroupsOf(parsed)).containsExactly(x25519, secp256r1);
+        assertThat(supportedGroupsOf(parsed)).containsExactly(x25519, secp256r1, x448);
+    }
+
+    @Test
+    void oneOfMultipleKeyShareGroupsThatIsNotInSupportedGroupsThrows() {
+        assertThatThrownBy(() ->
+                // When
+                createClientHello(List.of(x25519, secp384r1), List.of(x25519, secp256r1, x448))
+        )
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("supportedGroups");
+    }
+
+    @Test
+    void keyShareGroupsInAnotherOrderThanTheSupportedGroupsThrows() {
+        // https://datatracker.ietf.org/doc/html/rfc8446#section-4.2.8
+        // "Each KeyShareEntry value MUST correspond to a group offered in the "supported_groups" extension and MUST
+        //  appear in the same order."
+        assertThatThrownBy(() ->
+                // When
+                createClientHello(List.of(secp256r1, x25519), List.of(x25519, secp256r1, x448))
+        ).isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void emptyKeyShareListThrows() {
+        assertThatThrownBy(() ->
+                // When
+                createClientHello(Collections.emptyList(), List.of(x25519, secp256r1))
+        ).isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void clientHelloWithKeyShareEntriesExceedingTheFormerFixedBufferSizeCanBeSerialized() throws Exception {
+        // Given: three key shares of the sizes of the post-quantum hybrid key shares (X25519MLKEM768,
+        // SecP256r1MLKEM768 and SecP384r1MLKEM1024), which together far exceed the former fixed 3000 byte
+        // serialization buffer.
+        byte[] largeKeyShare1 = new byte[1216];
+        Arrays.fill(largeKeyShare1, (byte) 0x11);
+        byte[] largeKeyShare2 = new byte[1281];
+        Arrays.fill(largeKeyShare2, (byte) 0x22);
+        byte[] largeKeyShare3 = new byte[1665];
+        Arrays.fill(largeKeyShare3, (byte) 0x33);
+        List<KeyShareExtension.KeyShareEntry> keyShares = List.of(
+                new KeyShareExtension.KeyShareEntry(x25519, largeKeyShare1),
+                new KeyShareExtension.KeyShareEntry(secp256r1, largeKeyShare2),
+                new KeyShareExtension.KeyShareEntry(secp384r1, largeKeyShare3));
+
+        // When
+        ClientHello ch = new ClientHello("localhost", keyShares, false,
+                List.of(TLS_AES_128_GCM_SHA256), List.of(rsa_pss_rsae_sha256), List.of(x25519, secp256r1, secp384r1),
+                Collections.emptyList(), null, ClientHello.PskKeyEstablishmentMode.none);
+
+        // Then
+        assertThat(ch.getBytes().length).isGreaterThan(4000);
+        ClientHello parsed = new ClientHello(ByteBuffer.wrap(ch.getBytes()), null);
+        assertThat(keyShareGroupsOf(parsed)).containsExactly(x25519, secp256r1, secp384r1);
+        KeyShareExtension keyShare = (KeyShareExtension) extensionOfType(parsed, KeyShareExtension.class);
+        assertThat(keyShare.getKeyShareEntries().get(0).getKeyExchangeData()).isEqualTo(largeKeyShare1);
+        assertThat(keyShare.getKeyShareEntries().get(1).getKeyExchangeData()).isEqualTo(largeKeyShare2);
+        assertThat(keyShare.getKeyShareEntries().get(2).getKeyExchangeData()).isEqualTo(largeKeyShare3);
+    }
+
+    private ClientHello createClientHello(List<TlsConstants.NamedGroup> keyShareGroups, List<TlsConstants.NamedGroup> supportedGroups) {
+        List<KeyShareExtension.KeyShareEntry> keyShares = keyShareGroups.stream()
+                .map(group -> new KeyShareExtension.KeyShareEntry(group, KEY_EXCHANGE_DATA))
+                .collect(Collectors.toList());
+        return new ClientHello("localhost", keyShares, false,
+                List.of(TLS_AES_128_GCM_SHA256), List.of(rsa_pss_rsae_sha256), supportedGroups,
+                Collections.emptyList(), null, ClientHello.PskKeyEstablishmentMode.none);
+    }
+
+    private List<TlsConstants.NamedGroup> keyShareGroupsOf(ClientHello clientHello) {
+        return ((KeyShareExtension) extensionOfType(clientHello, KeyShareExtension.class)).getKeyShareEntries().stream()
+                .map(KeyShareExtension.KeyShareEntry::getNamedGroup)
+                .collect(Collectors.toList());
     }
 
     private ClientHello createClientHello(TlsConstants.NamedGroup keyShareGroup) {
