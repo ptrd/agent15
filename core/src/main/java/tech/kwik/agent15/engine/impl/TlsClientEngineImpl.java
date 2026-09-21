@@ -428,6 +428,7 @@ public class TlsClientEngineImpl extends TlsEngineImpl implements TlsClientEngin
                 throw new IllegalParameterAlert("server selected a group that is not supported: " + retryGroup);
             }
             keyExchange.generateClientKeyPair();
+            // https://datatracker.ietf.org/doc/html/rfc8446#section-4.1.2
             // "(...) replacing the list of shares with a list containing a single KeyShareEntry from the indicated group."
             offeredKeyExchanges.clear();
             offeredKeyExchanges.put(retryGroup, keyExchange);

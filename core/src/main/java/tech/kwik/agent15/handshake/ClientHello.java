@@ -24,6 +24,7 @@ import tech.kwik.agent15.TlsProtocolException;
 import tech.kwik.agent15.alert.DecodeErrorException;
 import tech.kwik.agent15.alert.IllegalParameterAlert;
 import tech.kwik.agent15.extension.*;
+import tech.kwik.agent15.util.ListUtils;
 
 import java.nio.ByteBuffer;
 import java.security.SecureRandom;
@@ -356,7 +357,7 @@ public class ClientHello extends HandshakeMessage {
         // https://datatracker.ietf.org/doc/html/rfc8446#section-4.2.8
         // "Each KeyShareEntry value MUST correspond to a group offered in the "supported_groups" extension and MUST
         //  appear in the same order."
-        if (! isSubSequence(keyShares.stream().map(KeyShareExtension.KeyShareEntry::getNamedGroup).collect(Collectors.toList()), supportedGroups)) {
+        if (! ListUtils.isSubSequence(keyShares.stream().map(KeyShareExtension.KeyShareEntry::getNamedGroup).collect(Collectors.toList()), supportedGroups)) {
             throw new IllegalArgumentException("the key share groups must occur in supportedGroups, in the same order");
         }
 
@@ -375,22 +376,6 @@ public class ClientHello extends HandshakeMessage {
         }
         extensions.addAll(extraExtensions);
         return extensions;
-    }
-
-    /**
-     * Returns whether the first list is a sub sequence of the second: all its elements occur in the second list, in the
-     * same (relative) order.
-     */
-    private static <T> boolean isSubSequence(List<T> candidate, List<T> sequence) {
-        int index = 0;
-        for (T element: candidate) {
-            int position = sequence.subList(index, sequence.size()).indexOf(element);
-            if (position < 0) {
-                return false;
-            }
-            index += position + 1;
-        }
-        return true;
     }
 
     private static PskKeyExchangeModesExtension createPskKeyExchangeModesExtension(PskKeyEstablishmentMode pskKeyEstablishmentMode) {

@@ -26,6 +26,7 @@ import tech.kwik.agent15.alert.*;
 import tech.kwik.agent15.engine.*;
 import tech.kwik.agent15.extension.*;
 import tech.kwik.agent15.handshake.*;
+import tech.kwik.agent15.util.ListUtils;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -145,6 +146,8 @@ public class TlsServerEngineImpl extends TlsEngineImpl implements TlsServerEngin
         // handshake cannot succeed, so there is no point in asking the client to retry first.
         signatureScheme = negotiateSignatureScheme(clientHello);
 
+        validateKeyShares(clientHello);
+
         KeyShareExtension.KeyShareEntry selectedKeyShareEntry;
         if (isRetriedClientHello) {
             selectedKeyShareEntry = retriedKeyShareEntry(clientHello);
@@ -228,6 +231,29 @@ public class TlsServerEngineImpl extends TlsEngineImpl implements TlsServerEngin
                 .findFirst()
                 .orElseThrow(() -> new MissingExtensionAlert("supported groups extension is required in Client Hello"));
         return clientSupportedGroups.getNamedGroups();
+    }
+
+    /**
+     * Checks the rules RFC 8446 imposes on the key share entries a client sends.
+     * https://datatracker.ietf.org/doc/html/rfc8446#section-4.2.8
+     * "Clients MUST NOT offer multiple KeyShareEntry values for the same group. Clients MUST NOT offer any KeyShareEntry
+     *  values for groups not listed in the client's "supported_groups" extension. Servers MAY check for violations of
+     *  these rules and abort the handshake with an "illegal_parameter" alert if one is violated."
+     * Note that both extensions are parsed leaving out the named groups this implementation does not recognize, so
+     * these checks are effectively done on the recognized groups only.
+     */
+    private void validateKeyShares(ClientHello clientHello) throws TlsProtocolException {
+        List<TlsConstants.NamedGroup> keyShareGroups = keyShareExtension(clientHello).getKeyShareEntries().stream()
+                .map(KeyShareExtension.KeyShareEntry::getNamedGroup)
+                .collect(Collectors.toList());
+        if (!(keyShareGroups.stream().distinct().count() == keyShareGroups.size())) {
+            throw new IllegalParameterAlert("client hello must not contain multiple key shares for the same group");
+        }
+        // "Each KeyShareEntry value MUST correspond to a group offered in the "supported_groups" extension and MUST
+        //  appear in the same order."
+        if (! ListUtils.isSubSequence(keyShareGroups, clientSupportedGroups(clientHello))) {
+            throw new IllegalParameterAlert("key share groups must occur in the supported groups, in the same order");
+        }
     }
 
     /**

@@ -479,6 +479,72 @@ public class TlsServerEngineTest {
     }
 
     @Test
+    void clientHelloWithTwoKeySharesForTheSameGroupLeadsToIllegalParameterAlert() throws Exception {
+        // Given: a server that supports x25519
+        TlsServerEngineImpl engine = createEngine(keyExchangeFactorySupporting(NamedGroup.x25519));
+        // and a client that offers two key shares for x25519
+        ClientHello clientHello = createClientHelloWithKeyShares(List.of(NamedGroup.x25519, NamedGroup.x25519), List.of(NamedGroup.x25519));
+
+        assertThatThrownBy(() ->
+                // When
+                engine.received(clientHello, ProtectionKeysType.None))
+                // Then
+                // https://datatracker.ietf.org/doc/html/rfc8446#section-4.2.8
+                // "Clients MUST NOT offer multiple KeyShareEntry values for the same group."
+                .isInstanceOf(IllegalParameterAlert.class);
+    }
+
+    @Test
+    void clientHelloWithKeyShareForGroupThatIsNotOfferedLeadsToIllegalParameterAlert() throws Exception {
+        // Given: a server that supports x25519
+        TlsServerEngineImpl engine = createEngine(keyExchangeFactorySupporting(NamedGroup.x25519, NamedGroup.secp256r1));
+        // and a client that provides a key share for secp256r1 without offering it as supported group
+        ClientHello clientHello = createClientHelloWithKeyShares(List.of(NamedGroup.x25519, NamedGroup.secp256r1), List.of(NamedGroup.x25519));
+
+        assertThatThrownBy(() ->
+                // When
+                engine.received(clientHello, ProtectionKeysType.None))
+                // Then
+                // https://datatracker.ietf.org/doc/html/rfc8446#section-4.2.8
+                // "Clients MUST NOT offer any KeyShareEntry values for groups not listed in the client's
+                //  "supported_groups" extension."
+                .isInstanceOf(IllegalParameterAlert.class);
+    }
+
+    @Test
+    void clientHelloWithKeySharesInOtherOrderThanSupportedGroupsLeadsToIllegalParameterAlert() throws Exception {
+        // Given: a server that supports both groups
+        TlsServerEngineImpl engine = createEngine(keyExchangeFactorySupporting(NamedGroup.x25519, NamedGroup.secp256r1));
+        // and a client whose key shares are not in the order of its supported groups
+        ClientHello clientHello = createClientHelloWithKeyShares(List.of(NamedGroup.secp256r1, NamedGroup.x25519), List.of(NamedGroup.x25519, NamedGroup.secp256r1));
+
+        assertThatThrownBy(() ->
+                // When
+                engine.received(clientHello, ProtectionKeysType.None))
+                // Then
+                // https://datatracker.ietf.org/doc/html/rfc8446#section-4.2.8
+                // "Each KeyShareEntry value MUST correspond to a group offered in the "supported_groups" extension and
+                //  MUST appear in the same order."
+                .isInstanceOf(IllegalParameterAlert.class);
+    }
+
+    @Test
+    void clientHelloWithKeySharesForASubsetOfTheSupportedGroupsIsAccepted() throws Exception {
+        // Given: a server that supports both groups
+        TlsServerEngineImpl engine = createEngine(keyExchangeFactorySupporting(NamedGroup.x25519, NamedGroup.secp256r1));
+        // and a client that offers three groups but provides key shares for the first and the third only
+        ClientHello clientHello = createClientHelloWithKeyShares(
+                List.of(NamedGroup.x25519, NamedGroup.secp256r1), List.of(NamedGroup.x25519, NamedGroup.x448, NamedGroup.secp256r1)
+        );
+
+        // When
+        engine.received(clientHello, ProtectionKeysType.None);
+
+        // Then
+        assertThat(selectedGroup()).isEqualTo(NamedGroup.x25519);
+    }
+
+    @Test
     void whenServerSupportsMultipleKeyShareGroupsClientPreferenceDetermines() throws Exception {
         // Given: a server that supports both X25519MLKEM768 and x25519
         KeyExchangeFactory keyExchangeFactory = keyExchangeFactorySupporting(NamedGroup.x448, NamedGroup.x25519, NamedGroup.X25519MLKEM768, NamedGroup.secp384r1);
@@ -543,7 +609,7 @@ public class TlsServerEngineTest {
         TlsServerEngineImpl engine = createEngine(keyExchangeFactorySupporting(NamedGroup.x25519, NamedGroup.secp256r1));
         engine.addSupportedGroups(List.of(NamedGroup.secp256r1));
         // and a client that offers both groups, but sent a key share for x25519 only
-        ClientHello clientHello = createClientHelloWithKeyShares(List.of(NamedGroup.x25519, NamedGroup.secp256r1), List.of(NamedGroup.x25519));
+        ClientHello clientHello = createClientHelloWithKeyShares(List.of(NamedGroup.x25519), List.of(NamedGroup.x25519, NamedGroup.secp256r1));
 
         // When
         engine.received(clientHello, ProtectionKeysType.None);
@@ -560,7 +626,7 @@ public class TlsServerEngineTest {
         engine.addSupportedGroups(List.of(NamedGroup.secp256r1));
         // A client hello that is parsed from bytes, so that it has a (compatibility mode) session id
         ClientHello clientHello = parsedClientHello(
-                createClientHelloWithKeyShares(List.of(NamedGroup.x25519, NamedGroup.secp256r1), List.of(NamedGroup.x25519), true));
+                createClientHelloWithKeyShares(List.of(NamedGroup.x25519), List.of(NamedGroup.x25519, NamedGroup.secp256r1), true));
 
         // When
         engine.received(clientHello, ProtectionKeysType.None);
@@ -583,8 +649,8 @@ public class TlsServerEngineTest {
         TlsServerEngineImpl engine = createEngine(keyExchangeFactorySupporting(NamedGroup.x25519, NamedGroup.secp256r1));
         engine.addSupportedGroups(List.of(NamedGroup.secp256r1));
         // but a client that offers a signature scheme the server does not support
-        ClientHello clientHello = createClientHelloWithKeyShares(List.of(NamedGroup.x25519, NamedGroup.secp256r1),
-                List.of(NamedGroup.x25519), false, ecdsa_secp256r1_sha256);
+        ClientHello clientHello = createClientHelloWithKeyShares(List.of(NamedGroup.x25519), List.of(NamedGroup.x25519, NamedGroup.secp256r1),
+                false, ecdsa_secp256r1_sha256);
 
         assertThatThrownBy(() ->
                 // When
@@ -598,11 +664,11 @@ public class TlsServerEngineTest {
     void afterHelloRetryRequestSecondClientHelloShouldCompleteTheServerFlight() throws Exception {
         // Given
         TlsServerEngineImpl engine = createEngineRequiringHelloRetryRequest();
-        engine.received(createClientHelloWithKeyShares(List.of(NamedGroup.x25519, NamedGroup.secp256r1), List.of(NamedGroup.x25519)),
+        engine.received(createClientHelloWithKeyShares(List.of(NamedGroup.x25519), List.of(NamedGroup.x25519, NamedGroup.secp256r1)),
                 ProtectionKeysType.None);
 
         // When: a conformant second client hello, with a key share for the group the server selected
-        engine.received(createClientHelloWithKeyShares(List.of(NamedGroup.x25519, NamedGroup.secp256r1), List.of(NamedGroup.secp256r1)),
+        engine.received(createClientHelloWithKeyShares(List.of(NamedGroup.secp256r1), List.of(NamedGroup.x25519, NamedGroup.secp256r1)),
                 ProtectionKeysType.None);
 
         // Then: the complete server flight is sent
@@ -623,13 +689,13 @@ public class TlsServerEngineTest {
         TlsServerEngineImpl engine = createEngine(keyExchangeFactorySupporting(NamedGroup.secp256r1, NamedGroup.x25519));
         // and a client that offers both, but provides a key share for neither of them, so it gets a hello retry
         // request for secp256r1 (the first group it offered that the server supports)
-        engine.received(createClientHelloWithKeyShares(List.of(NamedGroup.secp256r1, NamedGroup.x25519, NamedGroup.x448), List.of(NamedGroup.x448)),
+        engine.received(createClientHelloWithKeyShares(List.of(NamedGroup.x448), List.of(NamedGroup.secp256r1, NamedGroup.x25519, NamedGroup.x448)),
                 ProtectionKeysType.None);
         assertThat(sentHelloRetryRequest().getSelectedGroup()).hasValue(NamedGroup.secp256r1);
 
         assertThatThrownBy(() ->
                 // When: a second client hello with a key share for a group the server supports, but not the one it asked for
-                engine.received(createClientHelloWithKeyShares(List.of(NamedGroup.secp256r1, NamedGroup.x25519), List.of(NamedGroup.x25519)),
+                engine.received(createClientHelloWithKeyShares(List.of(NamedGroup.x25519), List.of(NamedGroup.secp256r1, NamedGroup.x25519)),
                         ProtectionKeysType.None))
                 // Then
                 .isInstanceOf(IllegalParameterAlert.class);
@@ -639,13 +705,13 @@ public class TlsServerEngineTest {
     void secondClientHelloWithMoreThanOneKeyShareShouldLeadToIllegalParameterAlert() throws Exception {
         // Given
         TlsServerEngineImpl engine = createEngineRequiringHelloRetryRequest();
-        engine.received(createClientHelloWithKeyShares(List.of(NamedGroup.x25519, NamedGroup.secp256r1), List.of(NamedGroup.x25519)),
+        engine.received(createClientHelloWithKeyShares(List.of(NamedGroup.x25519), List.of(NamedGroup.x25519, NamedGroup.secp256r1)),
                 ProtectionKeysType.None);
 
         assertThatThrownBy(() ->
                 // When: a second client hello that adds the requested key share instead of replacing the original one
-                engine.received(createClientHelloWithKeyShares(List.of(NamedGroup.x25519, NamedGroup.secp256r1),
-                                List.of(NamedGroup.secp256r1, NamedGroup.x25519)),
+                engine.received(createClientHelloWithKeyShares(List.of(NamedGroup.secp256r1, NamedGroup.x25519), List.of(NamedGroup.x25519, NamedGroup.secp256r1)
+                        ),
                         ProtectionKeysType.None))
                 // Then
                 // https://datatracker.ietf.org/doc/html/rfc8446#section-4.2.8
@@ -658,13 +724,13 @@ public class TlsServerEngineTest {
     void secondClientHelloWithoutUsableKeyShareShouldNotLeadToSecondHelloRetryRequest() throws Exception {
         // Given
         TlsServerEngineImpl engine = createEngineRequiringHelloRetryRequest();
-        engine.received(createClientHelloWithKeyShares(List.of(NamedGroup.x25519, NamedGroup.secp256r1), List.of(NamedGroup.x25519)),
+        engine.received(createClientHelloWithKeyShares(List.of(NamedGroup.x25519), List.of(NamedGroup.x25519, NamedGroup.secp256r1)),
                 ProtectionKeysType.None);
         clearInvocations(messageSender);
 
         assertThatThrownBy(() ->
                 // When: the client stubbornly repeats its original client hello
-                engine.received(createClientHelloWithKeyShares(List.of(NamedGroup.x25519, NamedGroup.secp256r1), List.of(NamedGroup.x25519)),
+                engine.received(createClientHelloWithKeyShares(List.of(NamedGroup.x25519), List.of(NamedGroup.x25519, NamedGroup.secp256r1)),
                         ProtectionKeysType.None))
                 // Then
                 .isInstanceOf(IllegalParameterAlert.class);
@@ -676,12 +742,12 @@ public class TlsServerEngineTest {
         // Given
         TlsServerEngineImpl engine = createEngineRequiringHelloRetryRequest();
         engine.addSupportedCiphers(List.of(TLS_CHACHA20_POLY1305_SHA256));
-        engine.received(createClientHelloWithKeyShares(List.of(NamedGroup.x25519, NamedGroup.secp256r1), List.of(NamedGroup.x25519)),
+        engine.received(createClientHelloWithKeyShares(List.of(NamedGroup.x25519), List.of(NamedGroup.x25519, NamedGroup.secp256r1)),
                 ProtectionKeysType.None);
 
         // When: a second client hello that offers another cipher suite than the first one did
-        ClientHello clientHello2 = createClientHelloWithKeyShares(List.of(NamedGroup.x25519, NamedGroup.secp256r1),
-                List.of(NamedGroup.secp256r1), false, rsa_pss_rsae_sha256, List.of(TLS_CHACHA20_POLY1305_SHA256));
+        ClientHello clientHello2 = createClientHelloWithKeyShares(List.of(NamedGroup.secp256r1), List.of(NamedGroup.x25519, NamedGroup.secp256r1),
+                false, rsa_pss_rsae_sha256, List.of(TLS_CHACHA20_POLY1305_SHA256));
 
         assertThatThrownBy(() ->
                 engine.received(clientHello2, ProtectionKeysType.None))
@@ -696,14 +762,14 @@ public class TlsServerEngineTest {
     void thirdClientHelloShouldLeadToUnexpectedMessageAlert() throws Exception {
         // Given
         TlsServerEngineImpl engine = createEngineRequiringHelloRetryRequest();
-        engine.received(createClientHelloWithKeyShares(List.of(NamedGroup.x25519, NamedGroup.secp256r1), List.of(NamedGroup.x25519)),
+        engine.received(createClientHelloWithKeyShares(List.of(NamedGroup.x25519), List.of(NamedGroup.x25519, NamedGroup.secp256r1)),
                 ProtectionKeysType.None);
-        engine.received(createClientHelloWithKeyShares(List.of(NamedGroup.x25519, NamedGroup.secp256r1), List.of(NamedGroup.secp256r1)),
+        engine.received(createClientHelloWithKeyShares(List.of(NamedGroup.secp256r1), List.of(NamedGroup.x25519, NamedGroup.secp256r1)),
                 ProtectionKeysType.None);
 
         assertThatThrownBy(() ->
                 // When
-                engine.received(createClientHelloWithKeyShares(List.of(NamedGroup.x25519, NamedGroup.secp256r1), List.of(NamedGroup.secp256r1)),
+                engine.received(createClientHelloWithKeyShares(List.of(NamedGroup.secp256r1), List.of(NamedGroup.x25519, NamedGroup.secp256r1)),
                         ProtectionKeysType.None))
                 // Then
                 .isInstanceOf(UnexpectedMessageAlert.class);
@@ -715,11 +781,11 @@ public class TlsServerEngineTest {
         TlsServerEngineImpl engine = createEngineRequiringHelloRetryRequest();
 
         // When
-        engine.received(createClientHelloWithKeyShares(List.of(NamedGroup.x25519, NamedGroup.secp256r1), List.of(NamedGroup.x25519)),
+        engine.received(createClientHelloWithKeyShares(List.of(NamedGroup.x25519), List.of(NamedGroup.x25519, NamedGroup.secp256r1)),
                 ProtectionKeysType.None);
         verify(tlsStatusHandler, never()).extensionsReceived(anyList());
 
-        engine.received(createClientHelloWithKeyShares(List.of(NamedGroup.x25519, NamedGroup.secp256r1), List.of(NamedGroup.secp256r1)),
+        engine.received(createClientHelloWithKeyShares(List.of(NamedGroup.secp256r1), List.of(NamedGroup.x25519, NamedGroup.secp256r1)),
                 ProtectionKeysType.None);
 
         // Then: the callback is used once, for the client hello that is actually negotiated
@@ -731,7 +797,7 @@ public class TlsServerEngineTest {
         // Given
         byte[] psk = new byte[32];
         TlsServerEngineImpl engine = createEngineRequiringHelloRetryRequest(sessionRegistryResuming(psk));
-        ClientHello clientHello1 = createClientHelloWithKeyShares(List.of(NamedGroup.x25519, NamedGroup.secp256r1), List.of(NamedGroup.x25519));
+        ClientHello clientHello1 = createClientHelloWithKeyShares(List.of(NamedGroup.x25519), List.of(NamedGroup.x25519, NamedGroup.secp256r1));
         engine.received(clientHello1, ProtectionKeysType.None);
         HelloRetryRequest helloRetryRequest = sentHelloRetryRequest();
 
@@ -751,7 +817,7 @@ public class TlsServerEngineTest {
         // Given
         byte[] psk = new byte[32];
         TlsServerEngineImpl engine = createEngineRequiringHelloRetryRequest(sessionRegistryResuming(psk));
-        engine.received(createClientHelloWithKeyShares(List.of(NamedGroup.x25519, NamedGroup.secp256r1), List.of(NamedGroup.x25519)),
+        engine.received(createClientHelloWithKeyShares(List.of(NamedGroup.x25519), List.of(NamedGroup.x25519, NamedGroup.secp256r1)),
                 ProtectionKeysType.None);
 
         // When: a second client hello whose binder is computed over the truncated client hello only, as it would be
@@ -930,13 +996,13 @@ public class TlsServerEngineTest {
         return clientHello;
     }
 
-    private ClientHello createClientHelloWithKeyShares(List<NamedGroup> supportedGroups, List<NamedGroup> keyShareGroups) throws Exception {
-        return createClientHelloWithKeyShares(supportedGroups, keyShareGroups, false);
+    private ClientHello createClientHelloWithKeyShares(List<NamedGroup> keyShareGroups, List<NamedGroup> supportedGroups) throws Exception {
+        return createClientHelloWithKeyShares(keyShareGroups, supportedGroups, false);
     }
 
-    private ClientHello createClientHelloWithKeyShares(List<NamedGroup> supportedGroups, List<NamedGroup> keyShareGroups,
+    private ClientHello createClientHelloWithKeyShares(List<NamedGroup> keyShareGroups, List<NamedGroup> supportedGroups,
                                                        boolean compatibilityMode) throws Exception {
-        return createClientHelloWithKeyShares(supportedGroups, keyShareGroups, compatibilityMode, rsa_pss_rsae_sha256);
+        return createClientHelloWithKeyShares(keyShareGroups, supportedGroups, compatibilityMode, rsa_pss_rsae_sha256);
     }
 
     /**
@@ -945,13 +1011,13 @@ public class TlsServerEngineTest {
      * an already serialized message, this one assembles the extensions before serializing, so the message bytes match
      * the extensions.
      */
-    private ClientHello createClientHelloWithKeyShares(List<NamedGroup> supportedGroups, List<NamedGroup> keyShareGroups,
+    private ClientHello createClientHelloWithKeyShares(List<NamedGroup> keyShareGroups, List<NamedGroup> supportedGroups,
                                                        boolean compatibilityMode, SignatureScheme signatureScheme) throws Exception {
-        return createClientHelloWithKeyShares(supportedGroups, keyShareGroups, compatibilityMode, signatureScheme,
+        return createClientHelloWithKeyShares(keyShareGroups, supportedGroups, compatibilityMode, signatureScheme,
                 List.of(TLS_AES_128_GCM_SHA256));
     }
 
-    private ClientHello createClientHelloWithKeyShares(List<NamedGroup> supportedGroups, List<NamedGroup> keyShareGroups,
+    private ClientHello createClientHelloWithKeyShares(List<NamedGroup> keyShareGroups, List<NamedGroup> supportedGroups,
                                                        boolean compatibilityMode, SignatureScheme signatureScheme,
                                                        List<CipherSuite> cipherSuites) throws Exception {
         List<Extension> extensions = List.of(

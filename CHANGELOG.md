@@ -9,6 +9,9 @@
   The existing `startHandshake` methods are unchanged and still offer a single key share.
 - Added a `KeyShareExtension` constructor that takes a list of key share entries, and a `ClientHello` constructor that
   takes a list of key shares.
+- The server now checks the rules RFC 8446, section 4.2.8 imposes on the client's key shares, which it MAY do: a
+  ClientHello with two key shares for the same group, with a key share for a group that is not in its supported groups,
+  or with key shares in another order than its supported groups, is rejected with an `illegal_parameter` alert.
 - Support for HelloRetryRequest (RFC 8446, section 4.1.4) on both sides.
   A client that receives one validates it and sends a second ClientHello with a key share for the group the server
   selected. The cookie extension is echoed, the early_data extension is removed, and the pre_shared_key extension is
