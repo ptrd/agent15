@@ -70,7 +70,7 @@ class ClientHelloTest {
                 + "ffa500340032000100048000ea6000040004802625a0000500048003d090000600048003d090000700048003d09000080001010009000101"
                 // unknown extension (ec_point_formats)  alpn extension
                 + "000b000403000102" +                  "0010000800060568712d3234").replaceAll(" ", ""));
-        ClientHello ch = new ClientHello(ByteBuffer.wrap(data), null);
+        ClientHello ch = ClientHello.parse(ByteBuffer.wrap(data), null);
 
         assertThat(ch.getClientRandom()).isEqualTo(ByteUtils.hexToBytes("2411ec38adb041713ca81a04182a655b567ecc8c4935e082ec20bb233d57aff2"));
         assertThat(ch.getCipherSuites()).containsExactly(TLS_AES_128_GCM_SHA256, TLS_AES_256_GCM_SHA384);
@@ -87,7 +87,7 @@ class ClientHelloTest {
         byte[] data = ByteUtils.hexToBytes(("01 00002b 0303 2411ec38adb041713ca81a04182a655b567ecc8c4935e082ec20bb233d57aff2"
                 //    cipher    comp ext's length
                 + "00 0002 1301 0100 0000").replaceAll(" ", ""));
-        ClientHello ch = new ClientHello(ByteBuffer.wrap(data), null);
+        ClientHello ch = ClientHello.parse(ByteBuffer.wrap(data), null);
         assertThat(ch.getClientRandom()).isEqualTo(ByteUtils.hexToBytes("2411ec38adb041713ca81a04182a655b567ecc8c4935e082ec20bb233d57aff2"));
         assertThat(ch.getCipherSuites()).containsExactly(TLS_AES_128_GCM_SHA256);
         assertThat(ch.getExtensions()).hasSize(0);
@@ -106,7 +106,7 @@ class ClientHelloTest {
         buffer.put(clientHelloData);
         buffer.position(prefix.length);  // position the buffer at the start of the ClientHello message
 
-        ClientHello ch = new ClientHello(buffer, null);
+        ClientHello ch = ClientHello.parse(buffer, null);
 
         // The raw bytes captured during parsing should be exactly the ClientHello message
         assertThat(ch.getBytes()).isEqualTo(clientHelloData);
@@ -119,7 +119,7 @@ class ClientHelloTest {
                 + "00 0002 1301 0100 0000").replaceAll(" ", ""));
 
         assertThatThrownBy(() ->
-                new ClientHello(ByteBuffer.wrap(data), null)
+                ClientHello.parse(ByteBuffer.wrap(data), null)
         ).isInstanceOf(DecodeErrorException.class);
     }
 
@@ -130,7 +130,7 @@ class ClientHelloTest {
                 + "00 0002 1301 0100 0000").replaceAll(" ", ""));
 
         assertThatThrownBy(() ->
-                new ClientHello(ByteBuffer.wrap(data), null)
+                ClientHello.parse(ByteBuffer.wrap(data), null)
         ).isInstanceOf(DecodeErrorException.class);
     }
 
@@ -140,7 +140,7 @@ class ClientHelloTest {
                 //    cipher    comp ext's length
                 + "00 0002 130f 0100 0000").replaceAll(" ", ""));
 
-        ClientHello ch = new ClientHello(ByteBuffer.wrap(data), null);
+        ClientHello ch = ClientHello.parse(ByteBuffer.wrap(data), null);
         assertThat(ch.getCipherSuites()).isEmpty();
     }
 
@@ -154,7 +154,7 @@ class ClientHelloTest {
                 + "000001000000" + "00".repeat(249)).replaceAll(" ", ""));
 
         assertThatThrownBy(() ->
-                new ClientHello(ByteBuffer.wrap(data), null)
+                ClientHello.parse(ByteBuffer.wrap(data), null)
         ).isInstanceOf(DecodeErrorException.class);
     }
 
@@ -165,7 +165,7 @@ class ClientHelloTest {
                 + "00 7ffe 130113021303").replaceAll(" ", ""));
 
         assertThatThrownBy(() ->
-                new ClientHello(ByteBuffer.wrap(data), null)
+                ClientHello.parse(ByteBuffer.wrap(data), null)
         ).isInstanceOf(DecodeErrorException.class);
     }
 
@@ -176,7 +176,7 @@ class ClientHelloTest {
                 + "00 8000 0100 0000      0000").replaceAll(" ", ""));
 
         assertThatThrownBy(() ->
-                new ClientHello(ByteBuffer.wrap(data), null)
+                ClientHello.parse(ByteBuffer.wrap(data), null)
         ).isInstanceOf(DecodeErrorException.class);
     }
 
@@ -187,7 +187,7 @@ class ClientHelloTest {
                 + "0a 0000000000000000").replaceAll(" ", ""));
 
         assertThatThrownBy(() ->
-                new ClientHello(ByteBuffer.wrap(data), null)
+                ClientHello.parse(ByteBuffer.wrap(data), null)
         ).isInstanceOf(DecodeErrorException.class);
     }
 
@@ -199,7 +199,7 @@ class ClientHelloTest {
                 + "00 0006 130113021303").replaceAll(" ", ""));
 
         assertThatThrownBy(() ->
-                new ClientHello(ByteBuffer.wrap(data), null)
+                ClientHello.parse(ByteBuffer.wrap(data), null)
         ).isInstanceOf(DecodeErrorException.class);
     }
 
@@ -214,7 +214,7 @@ class ClientHelloTest {
                 + "002b0003020304"));
 
         assertThatThrownBy(() ->
-                new ClientHello(ByteBuffer.wrap(data), null)
+                ClientHello.parse(ByteBuffer.wrap(data), null)
         )
                 .isInstanceOf(IllegalParameterAlert.class)
                 .hasMessageContaining("last extensio");
@@ -265,7 +265,7 @@ class ClientHelloTest {
         ClientHello ch = createClientHello(secp256r1, List.of(secp256r1, x448, x25519));
 
         // When
-        ClientHello parsed = new ClientHello(ByteBuffer.wrap(ch.getBytes()), null);
+        ClientHello parsed = ClientHello.parse(ByteBuffer.wrap(ch.getBytes()), null);
 
         // Then
         assertThat(supportedGroupsOf(parsed)).containsExactly(secp256r1, x448, x25519);
@@ -311,7 +311,7 @@ class ClientHelloTest {
         assertThat(clientHello.getExtensions()).isEqualTo(extensions);
 
         // And the serialized message can be parsed back into an equivalent message.
-        ClientHello parsed = new ClientHello(ByteBuffer.wrap(clientHello.getBytes()), null);
+        ClientHello parsed = ClientHello.parse(ByteBuffer.wrap(clientHello.getBytes()), null);
         assertThat(parsed.getClientRandom()).isEqualTo(clientRandom);
         assertThat(parsed.getCipherSuites()).containsExactly(TLS_AES_128_GCM_SHA256);
         assertThat(parsed.getExtensions()).hasSize(2);
@@ -347,7 +347,7 @@ class ClientHelloTest {
         ClientHello ch = createClientHello(List.of(x25519, secp256r1), List.of(x25519, secp256r1, x448));
 
         // When
-        ClientHello parsed = new ClientHello(ByteBuffer.wrap(ch.getBytes()), null);
+        ClientHello parsed = ClientHello.parse(ByteBuffer.wrap(ch.getBytes()), null);
 
         // Then
         assertThat(keyShareGroupsOf(parsed)).containsExactly(x25519, secp256r1);
@@ -406,7 +406,7 @@ class ClientHelloTest {
 
         // Then
         assertThat(ch.getBytes().length).isGreaterThan(4000);
-        ClientHello parsed = new ClientHello(ByteBuffer.wrap(ch.getBytes()), null);
+        ClientHello parsed = ClientHello.parse(ByteBuffer.wrap(ch.getBytes()), null);
         assertThat(keyShareGroupsOf(parsed)).containsExactly(x25519, secp256r1, secp384r1);
         KeyShareExtension keyShare = (KeyShareExtension) extensionOfType(parsed, KeyShareExtension.class);
         assertThat(keyShare.getKeyShareEntries().get(0).getKeyExchangeData()).isEqualTo(largeKeyShare1);

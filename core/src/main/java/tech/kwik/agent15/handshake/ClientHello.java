@@ -53,101 +53,19 @@ public class ClientHello extends HandshakeMessage {
     private static SecureRandom secureRandom = new SecureRandom();
     private final byte[] data;
     private final int pskExtensionStartPosition;
-    private byte[] clientRandom;
-    private byte[] sessionId = new byte[0];
+    private final byte[] clientRandom;
+    private final byte[] sessionId;
+    private final List<TlsConstants.CipherSuite> cipherSuites;
+    private final List<Extension> extensions;
 
-    private List<TlsConstants.CipherSuite> cipherSuites = new ArrayList<>();
-    private List<Extension> extensions;
-
-    /**
-     * Parses a ClientHello message from a byte stream.
-     * @param buffer
-     * @throws TlsProtocolException
-     * @throws IllegalParameterAlert
-     */
-    public ClientHello(ByteBuffer buffer, ExtensionParser customExtensionParser) throws TlsProtocolException, IllegalParameterAlert {
-        int startPosition = buffer.position();
-
-        if (buffer.remaining() < 4) {
-            throw new DecodeErrorException("message underflow");
-        }
-        if (buffer.remaining() < MINIMAL_MESSAGE_LENGTH) {
-            throw new DecodeErrorException("message underflow");
-        }
-
-        int messageType = buffer.get();
-        if (messageType != TlsConstants.HandshakeType.client_hello.value) {
-            throw new RuntimeException();  // Programming error
-        }
-        int length = ((buffer.get() & 0xff) << 16) | ((buffer.get() & 0xff) << 8) | (buffer.get() & 0xff);
-        if (buffer.remaining() < length) {
-            throw new DecodeErrorException("message underflow");
-        }
-
-        int legacyVersion = buffer.getShort();
-        if (legacyVersion != 0x0303) {
-            throw new DecodeErrorException("legacy version must be 0303");
-        }
-
-        clientRandom = new byte[32];
-        buffer.get(clientRandom);
-
-        // https://datatracker.ietf.org/doc/html/rfc8446#section-4.1.2
-        // "opaque legacy_session_id<0..32>;"
-        int sessionIdLength = buffer.get() & 0xff;
-        if (sessionIdLength > 32 || buffer.remaining() < sessionIdLength) {
-            throw new DecodeErrorException("legacy session id length out of bounds: " + sessionIdLength);
-        }
-        if (sessionIdLength > 0) {
-            sessionId = new byte[sessionIdLength];
-            buffer.get(sessionId);
-        }
-
-        int cipherSuitesLength = buffer.getShort() & 0xffff;
-        int compressionBytes = 1 + 1;  // Compression methods length (1 byte) + compression method (1 byte)
-        if (buffer.remaining() < cipherSuitesLength + compressionBytes || cipherSuitesLength % 2 != 0) {
-            throw new DecodeErrorException("message underflow");
-        }
-        for (int i = 0; i < cipherSuitesLength; i += 2) {
-            int cipherSuiteValue = buffer.getShort();
-            Arrays.stream(TlsConstants.CipherSuite.values())
-                    .filter(item -> item.value == cipherSuiteValue)
-                    .findFirst()
-                    // https://tools.ietf.org/html/rfc8446#section-4.1.2
-                    // "If the list contains cipher suites that the server does not recognize, support, or wish to use,
-                    // the server MUST ignore those cipher suites and process the remaining ones as usual."
-                    .ifPresent(item -> cipherSuites.add(item));
-        }
-
-        // https://datatracker.ietf.org/doc/html/rfc8446#section-4.1.2
-        // "For every TLS 1.3 ClientHello, this vector MUST contain exactly one byte, set to zero, which corresponds to
-        //  the "null" compression method in prior versions of TLS.  If a TLS 1.3 ClientHello is received with any other
-        //  value in this field, the server MUST abort the handshake with an "illegal_parameter" alert."
-        int legacyCompressionMethodsLength = buffer.get();
-        int legacyCompressionMethod = buffer.get();
-        if (legacyCompressionMethodsLength != 1 || legacyCompressionMethod != 0) {
-            throw new IllegalParameterAlert("Invalid legacy compression method");
-        }
-
-        int extensionStart = buffer.position();
-        extensions = parseExtensions(buffer, TlsConstants.HandshakeType.client_hello, customExtensionParser);
-        if (extensions.stream().anyMatch(ext -> ext instanceof PreSharedKeyExtension)) {
-            buffer.position(extensionStart);
-            pskExtensionStartPosition = findPositionLastExtension(buffer);
-            // https://datatracker.ietf.org/doc/html/rfc8446#section-4.2.11
-            // "The "pre_shared_key" extension MUST be the last extension in the ClientHello (...). Servers MUST check
-            //  that it is the last extension and otherwise fail the handshake with an "illegal_parameter" alert."
-            if (! (extensions.get(extensions.size() - 1) instanceof PreSharedKeyExtension)) {
-                throw new IllegalParameterAlert("pre_shared_key extension MUST be the last extension in the ClientHello");
-            }
-        }
-        else {
-            pskExtensionStartPosition = -1;
-        }
-
-        data = new byte[buffer.position() - startPosition];
-        buffer.position(startPosition);
-        buffer.get(data);
+    private ClientHello(byte[] data, int pskExtensionStartPosition, byte[] clientRandom, byte[] sessionId,
+                        List<TlsConstants.CipherSuite> cipherSuites, List<Extension> extensions) {
+        this.data = data;
+        this.pskExtensionStartPosition = pskExtensionStartPosition;
+        this.clientRandom = clientRandom;
+        this.sessionId = sessionId;
+        this.cipherSuites = cipherSuites;
+        this.extensions = extensions;
     }
 
     /**
@@ -280,6 +198,103 @@ public class ClientHello extends HandshakeMessage {
             buffer.rewind();
             buffer.get(data);
         }
+    }
+
+    /**
+     * Parses a ClientHello message from a byte stream.
+     *
+     * @param buffer                  the buffer to read the message from
+     * @param customExtensionParser   parser for extensions not known to this implementation; may be null
+     * @throws TlsProtocolException
+     * @throws IllegalParameterAlert
+     */
+    public static ClientHello parse(ByteBuffer buffer, ExtensionParser customExtensionParser) throws TlsProtocolException, IllegalParameterAlert {
+        int startPosition = buffer.position();
+
+        if (buffer.remaining() < 4) {
+            throw new DecodeErrorException("message underflow");
+        }
+        if (buffer.remaining() < MINIMAL_MESSAGE_LENGTH) {
+            throw new DecodeErrorException("message underflow");
+        }
+
+        int messageType = buffer.get();
+        if (messageType != TlsConstants.HandshakeType.client_hello.value) {
+            throw new RuntimeException();  // Programming error
+        }
+        int length = ((buffer.get() & 0xff) << 16) | ((buffer.get() & 0xff) << 8) | (buffer.get() & 0xff);
+        if (buffer.remaining() < length) {
+            throw new DecodeErrorException("message underflow");
+        }
+
+        int legacyVersion = buffer.getShort();
+        if (legacyVersion != 0x0303) {
+            throw new DecodeErrorException("legacy version must be 0303");
+        }
+
+        byte[] clientRandom = new byte[32];
+        buffer.get(clientRandom);
+
+        // https://datatracker.ietf.org/doc/html/rfc8446#section-4.1.2
+        // "opaque legacy_session_id<0..32>;"
+        int sessionIdLength = buffer.get() & 0xff;
+        if (sessionIdLength > 32 || buffer.remaining() < sessionIdLength) {
+            throw new DecodeErrorException("legacy session id length out of bounds: " + sessionIdLength);
+        }
+        byte[] sessionId = new byte[sessionIdLength];
+        if (sessionIdLength > 0) {
+            buffer.get(sessionId);
+        }
+
+        int cipherSuitesLength = buffer.getShort() & 0xffff;
+        int compressionBytes = 1 + 1;  // Compression methods length (1 byte) + compression method (1 byte)
+        if (buffer.remaining() < cipherSuitesLength + compressionBytes || cipherSuitesLength % 2 != 0) {
+            throw new DecodeErrorException("message underflow");
+        }
+        List<TlsConstants.CipherSuite> cipherSuites = new ArrayList<>();
+        for (int i = 0; i < cipherSuitesLength; i += 2) {
+            int cipherSuiteValue = buffer.getShort();
+            Arrays.stream(TlsConstants.CipherSuite.values())
+                    .filter(item -> item.value == cipherSuiteValue)
+                    .findFirst()
+                    // https://tools.ietf.org/html/rfc8446#section-4.1.2
+                    // "If the list contains cipher suites that the server does not recognize, support, or wish to use,
+                    // the server MUST ignore those cipher suites and process the remaining ones as usual."
+                    .ifPresent(item -> cipherSuites.add(item));
+        }
+
+        // https://datatracker.ietf.org/doc/html/rfc8446#section-4.1.2
+        // "For every TLS 1.3 ClientHello, this vector MUST contain exactly one byte, set to zero, which corresponds to
+        //  the "null" compression method in prior versions of TLS.  If a TLS 1.3 ClientHello is received with any other
+        //  value in this field, the server MUST abort the handshake with an "illegal_parameter" alert."
+        int legacyCompressionMethodsLength = buffer.get();
+        int legacyCompressionMethod = buffer.get();
+        if (legacyCompressionMethodsLength != 1 || legacyCompressionMethod != 0) {
+            throw new IllegalParameterAlert("Invalid legacy compression method");
+        }
+
+        int extensionStart = buffer.position();
+        List<Extension> extensions = parseExtensions(buffer, TlsConstants.HandshakeType.client_hello, customExtensionParser);
+        int pskExtensionStartPosition;
+        if (extensions.stream().anyMatch(ext -> ext instanceof PreSharedKeyExtension)) {
+            buffer.position(extensionStart);
+            pskExtensionStartPosition = findPositionLastExtension(buffer);
+            // https://datatracker.ietf.org/doc/html/rfc8446#section-4.2.11
+            // "The "pre_shared_key" extension MUST be the last extension in the ClientHello (...). Servers MUST check
+            //  that it is the last extension and otherwise fail the handshake with an "illegal_parameter" alert."
+            if (! (extensions.get(extensions.size() - 1) instanceof PreSharedKeyExtension)) {
+                throw new IllegalParameterAlert("pre_shared_key extension MUST be the last extension in the ClientHello");
+            }
+        }
+        else {
+            pskExtensionStartPosition = -1;
+        }
+
+        byte[] data = new byte[buffer.position() - startPosition];
+        buffer.position(startPosition);
+        buffer.get(data);
+
+        return new ClientHello(data, pskExtensionStartPosition, clientRandom, sessionId, cipherSuites, extensions);
     }
 
     private static byte[] generateClientRandom() {

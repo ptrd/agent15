@@ -939,7 +939,7 @@ public class TlsServerEngineTest {
      * Serializes and parses the given client hello, so the result is a client hello as a server would see it.
      */
     private ClientHello parsedClientHello(ClientHello clientHello) throws Exception {
-        return new ClientHello(ByteBuffer.wrap(clientHello.getBytes()), null);
+        return ClientHello.parse(ByteBuffer.wrap(clientHello.getBytes()), null);
     }
 
     /**

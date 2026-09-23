@@ -64,7 +64,7 @@ public class TlsMessageParser {
 
         HandshakeMessage parsedMessage;
         if (messageType == client_hello.value) {
-            ClientHello ch = new ClientHello(buffer, customExtensionParser);
+            ClientHello ch = ClientHello.parse(buffer, customExtensionParser);
             parsedMessage = ch;
             if (messageProcessor != null) {
                 messageProcessor.received(ch, protectedBy);
