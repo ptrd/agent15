@@ -1,59 +1,63 @@
-apply plugin: 'java'
-apply plugin: 'idea'
-apply plugin: 'maven-publish'
-apply plugin: 'signing'
+allprojects {
+    group = 'tech.kwik'
 
-java {
-    sourceCompatibility = JavaVersion.VERSION_11
-    targetCompatibility = JavaVersion.VERSION_11
+    repositories {
+        mavenCentral()
+    }
 }
 
-repositories {
-    mavenCentral()
-}
+subprojects {
+    apply plugin: 'java-library'
+    apply plugin: 'idea'
+    apply plugin: 'maven-publish'
+    apply plugin: 'signing'
 
-dependencies {
-    def junitVersion = "5.13.4"
+    dependencies {
+        def junitVersion = "5.13.4"
 
-    // https://mvnrepository.com/artifact/at.favre.lib/hkdf
-    implementation group: 'at.favre.lib', name: 'hkdf', version: '2.0.0'
+        testImplementation("org.junit.jupiter:junit-jupiter-api:$junitVersion")
+        testImplementation("org.junit.jupiter:junit-jupiter-params:$junitVersion")
+        testImplementation("org.junit.jupiter:junit-jupiter-engine:$junitVersion")
+        testImplementation("org.mockito:mockito-core:5.23.0")
+        testImplementation("org.assertj:assertj-core:3.27.7")
 
-    testImplementation("org.junit.jupiter:junit-jupiter-api:$junitVersion")
-    testImplementation("org.junit.jupiter:junit-jupiter-params:$junitVersion")
-    testImplementation("org.junit.jupiter:junit-jupiter-engine:$junitVersion")
-    testImplementation("org.mockito:mockito-core:5.23.0")
-    testImplementation("org.assertj:assertj-core:3.27.7")
-    testImplementation("org.bouncycastle:bcprov-jdk18on:1.78.1")
+        testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+    }
 
-    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
-}
+    test {
+        useJUnitPlatform()
 
-sourceSets {
-    main {
-        resources {
-            srcDir "${buildDir}/generated"
-            exclude 'sources/**'
+        testLogging {
+            events "passed", "skipped", "failed"
+        }
+
+        afterSuite { desc, result ->
+            if (!desc.parent) { // will match the outermost suite
+                println "Results: ${result.resultType} (${result.testCount} tests, ${result.successfulTestCount} successes, ${result.failedTestCount} failures, ${result.skippedTestCount} skipped)"
+            }
         }
     }
-}
 
-test {
-    useJUnitPlatform()
-
-    testLogging {
-        events "passed", "skipped", "failed"
+    java {
+        withJavadocJar()
+        withSourcesJar()
     }
 
-    afterSuite { desc, result ->
-        if (!desc.parent) { // will match the outermost suite
-            println "Results: ${result.resultType} (${result.testCount} tests, ${result.successfulTestCount} successes, ${result.failedTestCount} failures, ${result.skippedTestCount} skipped)"
-        }
+    javadoc {
+        options.addStringOption('Xdoclint:none', '-quiet')
+        options.addBooleanOption('html5', true)
     }
-}
 
-jar {
-    manifest {
-        attributes 'Main-Class': 'tech.kwik.agent15.Version'
+    tasks.withType(JavaCompile).configureEach {
+        // Suppresses two module warnings that are both expected: core's qualified 'exports ... to
+        // tech.kwik.agent15.pqc' cannot be resolved when compiling core (the pqc module is not, and must not be,
+        // on core's module path), and both module names have a component ending in a digit ("agent15").
+        options.compilerArgs << '-Xlint:-module'
+    }
+
+    // The version is only known once determineVersion has run, so make sure it has, before any archive is named.
+    tasks.withType(Jar).configureEach {
+        dependsOn rootProject.tasks.determineVersion
     }
 }
 
@@ -76,79 +80,13 @@ task determineVersion {
             else {
                 logger.error("Version tag '${versionTag}' does not contain a valid version.");
             }
-            project.version = versionTag
+            allprojects { it.version = versionTag }
 
-            ext.versionDir = new File("${buildDir}", "generated/tech/kwik/agent15")
+            // The Version class (and thus the version.properties resource it reads) lives in the core module.
+            ext.versionDir = project(':core').layout.buildDirectory.dir("generated/tech/kwik/agent15").get().asFile
             versionDir.mkdirs()
 
             new File(versionDir, "version.properties").text = versionTag
         }
     }
-}
-
-compileJava.dependsOn (determineVersion, processResources)
-
-tasks.compileJava {
-    options.javaModuleMainClass = "tech.kwik.agent15.Version"
-}
-
-group = 'tech.kwik'
-
-java {
-    withJavadocJar()
-    withSourcesJar()
-}
-
-publishing {
-    publications {
-        library(MavenPublication) {
-            artifactId = 'agent15'
-            from components.java
-            pom {
-                name = 'Agent15'
-                description = 'A (partial) TLS 1.3 implementation in Java, suitable and intended for use in a QUIC implementation.'
-                url = 'https://github.com/ptrd/agent15'
-
-                licenses {
-                    license {
-                        name = 'GNU Lesser General Public License v3'
-                        url = 'https://www.gnu.org/licenses/lgpl-3.0-standalone.html'
-                    }
-                }
-
-                developers {
-                    developer {
-                        id = 'peterd'
-                        name = 'Peter Doornbosch'
-                        email = 'peter.doornbosch@gmail.com'
-                    }
-                }
-
-                scm {
-                    connection = 'scm:git:git@github.com:ptrd/agent15.git'
-                    developerConnection = 'scm:git:git@github.com:ptrd/agent15.git'
-                    url = 'https://github.com/ptrd/agent15'
-                }
-            }
-        }
-    }
-    repositories {
-        maven {
-            name = "ossrh-staging-api"
-            url = "https://ossrh-staging-api.central.sonatype.com/service/local/staging/deploy/maven2/"
-            credentials {
-                username = project.properties.ossrhUsername
-                password = project.properties.ossrhPassword
-            }
-        }
-    }
-}
-
-signing {
-    sign publishing.publications.library
-}
-
-javadoc {
-    options.addStringOption('Xdoclint:none', '-quiet')
-    options.addBooleanOption('html5', true)
 }
