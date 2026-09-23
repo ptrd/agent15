@@ -579,7 +579,7 @@ public class TlsServerEngineTest {
         // Given: a server whose key exchange factory can do both x25519 and secp256r1, but that is configured to
         // offer secp256r1 only
         TlsServerEngineImpl engine = createEngine(keyExchangeFactorySupporting(NamedGroup.x25519, NamedGroup.secp256r1));
-        engine.addSupportedGroups(List.of(NamedGroup.secp256r1));
+        engine.setSupportedGroups(List.of(NamedGroup.secp256r1));
         // and a client that prefers x25519
         ClientHello clientHello = createClientHelloWithKeyShares(NamedGroup.x25519, NamedGroup.secp256r1);
 
@@ -594,7 +594,7 @@ public class TlsServerEngineTest {
     void whenClientOffersNoConfiguredSupportedGroupHandshakeFailureIsThrown() throws Exception {
         // Given: a server that could do x25519, but is configured to offer secp256r1 only
         TlsServerEngineImpl engine = createEngine(keyExchangeFactorySupporting(NamedGroup.x25519, NamedGroup.secp256r1));
-        engine.addSupportedGroups(List.of(NamedGroup.secp256r1));
+        engine.setSupportedGroups(List.of(NamedGroup.secp256r1));
         // and a client that offers x25519 only
         ClientHello clientHello = createClientHelloWithKeyShares(NamedGroup.x25519);
 
@@ -609,7 +609,7 @@ public class TlsServerEngineTest {
     void whenKeyShareGroupIsNotConfiguredButAnotherOfferedGroupIsHelloRetryRequestIsSent() throws Exception {
         // Given: a server that could do x25519, but is configured to offer secp256r1 only
         TlsServerEngineImpl engine = createEngine(keyExchangeFactorySupporting(NamedGroup.x25519, NamedGroup.secp256r1));
-        engine.addSupportedGroups(List.of(NamedGroup.secp256r1));
+        engine.setSupportedGroups(List.of(NamedGroup.secp256r1));
         // and a client that offers both groups, but sent a key share for x25519 only
         ClientHello clientHello = createClientHelloWithKeyShares(List.of(NamedGroup.x25519), List.of(NamedGroup.x25519, NamedGroup.secp256r1));
 
@@ -625,7 +625,7 @@ public class TlsServerEngineTest {
     void helloRetryRequestShouldCarryTheNegotiatedCipherAndEchoTheSessionId() throws Exception {
         // Given
         TlsServerEngineImpl engine = createEngine(keyExchangeFactorySupporting(NamedGroup.x25519, NamedGroup.secp256r1));
-        engine.addSupportedGroups(List.of(NamedGroup.secp256r1));
+        engine.setSupportedGroups(List.of(NamedGroup.secp256r1));
         // A client hello that is parsed from bytes, so that it has a (compatibility mode) session id
         ClientHello clientHello = parsedClientHello(
                 createClientHelloWithKeyShares(List.of(NamedGroup.x25519), List.of(NamedGroup.x25519, NamedGroup.secp256r1), true));
@@ -649,7 +649,7 @@ public class TlsServerEngineTest {
     void whenSignatureSchemeCannotBeNegotiatedNoHelloRetryRequestIsSent() throws Exception {
         // Given: a server that would have to send a hello retry request for the key share
         TlsServerEngineImpl engine = createEngine(keyExchangeFactorySupporting(NamedGroup.x25519, NamedGroup.secp256r1));
-        engine.addSupportedGroups(List.of(NamedGroup.secp256r1));
+        engine.setSupportedGroups(List.of(NamedGroup.secp256r1));
         // but a client that offers a signature scheme the server does not support
         ClientHello clientHello = createClientHelloWithKeyShares(List.of(NamedGroup.x25519), List.of(NamedGroup.x25519, NamedGroup.secp256r1),
                 false, ecdsa_secp256r1_sha256);
@@ -870,7 +870,7 @@ public class TlsServerEngineTest {
 
     private TlsServerEngineImpl createEngineRequiringHelloRetryRequest(TlsSessionRegistry sessionRegistry) throws Exception {
         TlsServerEngineImpl engine = createEngine(keyExchangeFactorySupporting(NamedGroup.x25519, NamedGroup.secp256r1), sessionRegistry);
-        engine.addSupportedGroups(List.of(NamedGroup.secp256r1));
+        engine.setSupportedGroups(List.of(NamedGroup.secp256r1));
         return engine;
     }
 

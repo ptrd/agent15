@@ -23,7 +23,6 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import tech.kwik.agent15.NewSessionTicket;
 import tech.kwik.agent15.ProtectionKeysType;
-import tech.kwik.agent15.TlsConstants;
 import tech.kwik.agent15.engine.ClientMessageSender;
 import tech.kwik.agent15.engine.HostnameVerifier;
 import tech.kwik.agent15.engine.ServerMessageSender;
@@ -115,7 +114,7 @@ class ClientServerHandshakeTest {
     @Test
     void whenClientOffersMultipleKeySharesNoHelloRetryRequestIsNeeded() throws Exception {
         // Given: a server that only offers x25519
-        server.addSupportedGroups(List.of(x25519));
+        server.setSupportedGroups(List.of(x25519));
 
         // When: a client that sends a key share for both secp256r1 and x25519, in that order of preference
         client.startHandshake(List.of(secp256r1, x25519), List.of(secp256r1, x25519), List.of(rsa_pss_rsae_sha256));
@@ -130,7 +129,7 @@ class ClientServerHandshakeTest {
     @Test
     void handshakeWithHelloRetryRequestShouldSucceed() throws Exception {
         // Given: a server that only offers x25519
-        server.addSupportedGroups(List.of(x25519));
+        server.setSupportedGroups(List.of(x25519));
 
         // When: a client that sends a key share for secp256r1, but does offer x25519
         client.startHandshake(List.of(secp256r1), List.of(secp256r1, x25519), List.of(rsa_pss_rsae_sha256));
@@ -158,7 +157,7 @@ class ClientServerHandshakeTest {
         serverStatusHandler = mock(TlsStatusEventHandler.class);
         client = createClient(clientStatusHandler);
         server = createServer(serverStatusHandler);
-        server.addSupportedGroups(List.of(x25519));
+        server.setSupportedGroups(List.of(x25519));
         helloRetryRequestCount = 0;
         // The message sender is shared by both handshakes, so forget what the first one sent.
         clearInvocations(serverMessageSender);

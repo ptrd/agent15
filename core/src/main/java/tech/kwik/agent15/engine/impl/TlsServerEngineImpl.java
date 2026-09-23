@@ -559,7 +559,8 @@ public class TlsServerEngineImpl extends TlsEngineImpl implements TlsServerEngin
     }
 
     @Override
-    public void addSupportedGroups(List<TlsConstants.NamedGroup> namedGroups) {
+    public void setSupportedGroups(List<TlsConstants.NamedGroup> namedGroups) {
+        supportedGroups.clear();
         supportedGroups.addAll(namedGroups);
     }
 

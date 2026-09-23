@@ -27,7 +27,7 @@
   A server sends one when the client's key share is for a group it does not offer, whilst the client did offer a group
   it can use; this is what RFC 8446, section 4.1.1 requires, where the server previously aborted the handshake. The
   server never sends a cookie, as it keeps its state between the two ClientHello messages.
-- Added `TlsServerEngine.addSupportedGroups` to configure which named groups the server offers for key exchange. When
+- Added `TlsServerEngine.setSupportedGroups` to configure which named groups the server offers for key exchange. When
   it is not used, the server offers all groups its key exchange factory can provide, as before.
 - **Breaking**: `ServerMessageSender` has a new method `send(HelloRetryRequest)`; implementations must add it.
 - Added `CookieExtension` (RFC 8446, section 4.2.2); it was parsed as an `UnknownExtension` before. Note that a cookie
