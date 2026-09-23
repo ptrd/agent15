@@ -51,16 +51,17 @@ public class ClientHello extends HandshakeMessage {
     private static final List<TlsConstants.SignatureScheme> SUPPORTED_SIGNATURES = List.of(TlsConstants.SignatureScheme.rsa_pss_rsae_sha256);
 
     private static SecureRandom secureRandom = new SecureRandom();
-    private final byte[] data;
+    private final byte[] serialized;
     private final int pskExtensionStartPosition;
     private final byte[] clientRandom;
     private final byte[] sessionId;
     private final List<TlsConstants.CipherSuite> cipherSuites;
     private final List<Extension> extensions;
 
-    private ClientHello(byte[] data, int pskExtensionStartPosition, byte[] clientRandom, byte[] sessionId,
+
+    private ClientHello(byte[] serializedCH, int pskExtensionStartPosition, byte[] clientRandom, byte[] sessionId,
                         List<TlsConstants.CipherSuite> cipherSuites, List<Extension> extensions) {
-        this.data = data;
+        this.serialized = serializedCH;
         this.pskExtensionStartPosition = pskExtensionStartPosition;
         this.clientRandom = clientRandom;
         this.sessionId = sessionId;
@@ -184,19 +185,19 @@ public class ClientHello extends HandshakeMessage {
         int clientHelloLength = buffer.position() - 4;
         buffer.putShort(2, (short) clientHelloLength);
         
-        data = new byte[clientHelloLength + 4];
+        serialized = new byte[clientHelloLength + 4];
         buffer.rewind();
-        buffer.get(data);
+        buffer.get(serialized);
 
         if (pskExtension != null) {
             if (binderCalculator == null) {
                 throw new IllegalArgumentException("BinderCalculator cannot be null when ClientHelloPreSharedKeyExtension is present");
             }
-            pskExtension.calculateBinder(data, pskExtensionStartPosition, transcriptPrefix, binderCalculator);
+            pskExtension.calculateBinder(serialized, pskExtensionStartPosition, transcriptPrefix, binderCalculator);
             buffer.position(pskExtensionStartPosition);
             buffer.put(pskExtension.getBytes());
             buffer.rewind();
-            buffer.get(data);
+            buffer.get(serialized);
         }
     }
 
@@ -375,7 +376,7 @@ public class ClientHello extends HandshakeMessage {
 
     @Override
     public byte[] getBytes() {
-        return data;
+        return serialized;
     }
 
     public byte[] getClientRandom() {
