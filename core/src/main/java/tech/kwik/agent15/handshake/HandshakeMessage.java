@@ -41,7 +41,7 @@ public abstract class HandshakeMessage {
 
     public abstract TlsConstants.HandshakeType getType();
 
-    protected int parseHandshakeHeader(ByteBuffer buffer, TlsConstants.HandshakeType expectedType, int minimumMessageSize) throws DecodeErrorException {
+    protected static int parseHandshakeHeader(ByteBuffer buffer, TlsConstants.HandshakeType expectedType, int minimumMessageSize) throws DecodeErrorException {
         if (buffer.remaining() < 4) {
             throw new DecodeErrorException("handshake message underflow");
         }
@@ -51,7 +51,7 @@ public abstract class HandshakeMessage {
         }
         int messageDataLength = ((buffer.get() & 0xff) << 16) | ((buffer.get() & 0xff) << 8) | (buffer.get() & 0xff);
         if (4 + messageDataLength < minimumMessageSize) {
-            throw new DecodeErrorException(getClass().getSimpleName() + " can't be less than " + minimumMessageSize + " bytes");
+            throw new DecodeErrorException(expectedType + " message can't be less than " + minimumMessageSize + " bytes");
         }
         if (buffer.remaining() < messageDataLength) {
             throw new DecodeErrorException("handshake message underflow");

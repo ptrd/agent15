@@ -31,21 +31,29 @@ public class CertificateRequestMessage extends HandshakeMessage {
 
     private static final int MINIMUM_MESSAGE_SIZE = 1 + 3 + 1 + 2;
 
-    private byte[] certificateRequestContext;
-    private List<Extension> extensions;
-    private byte[] raw;
-
-    public CertificateRequestMessage() {
-    }
+    private final byte[] certificateRequestContext;
+    private final List<Extension> extensions;
+    private final byte[] raw;
 
     public CertificateRequestMessage(Extension extension) {
         extensions = List.of(extension);
         certificateRequestContext = new byte[0];
 
-        serialize();
+        raw = serialize(certificateRequestContext, extensions);
     }
 
-    public CertificateRequestMessage parse(ByteBuffer buffer) throws TlsProtocolException {
+    private CertificateRequestMessage(byte[] certificateRequestContext, List<Extension> extensions, byte[] raw) {
+        this.certificateRequestContext = certificateRequestContext;
+        this.extensions = extensions;
+        this.raw = raw;
+    }
+
+    /**
+     * Parses a certificate request message from a byte stream.
+     * @param buffer
+     * @throws TlsProtocolException
+     */
+    public static CertificateRequestMessage parse(ByteBuffer buffer) throws TlsProtocolException {
         int startPosition = buffer.position();
         int remainingLength = parseHandshakeHeader(buffer, TlsConstants.HandshakeType.certificate_request, MINIMUM_MESSAGE_SIZE);
 
@@ -53,26 +61,25 @@ public class CertificateRequestMessage extends HandshakeMessage {
         if (buffer.remaining() < contextLength + 2) {
             throw new DecodeErrorException("invalid certificate_request_context length");
         }
-        certificateRequestContext = new byte[contextLength];
+        byte[] certificateRequestContext = new byte[contextLength];
         if (contextLength > 0) {
             buffer.get(certificateRequestContext);
         }
 
-        extensions = parseExtensions(buffer, TlsConstants.HandshakeType.certificate_request, null);
+        List<Extension> extensions = parseExtensions(buffer, TlsConstants.HandshakeType.certificate_request, null);
 
         if (buffer.position() - (startPosition + 4) != remainingLength) {
             throw new DecodeErrorException("inconsistent length");
         }
 
-        // Update state.
-        raw = new byte[4 + remainingLength];
+        byte[] raw = new byte[4 + remainingLength];
         buffer.position(startPosition);
         buffer.get(raw);
 
-        return this;
+        return new CertificateRequestMessage(certificateRequestContext, extensions, raw);
     }
 
-    private void serialize() {
+    private static byte[] serialize(byte[] certificateRequestContext, List<Extension> extensions) {
         int extensionsLength = extensions.stream().mapToInt(ext -> ext.getBytes().length).sum();
         int messageLength = 4 + 1 + certificateRequestContext.length + 2 + extensionsLength;
         ByteBuffer buffer = ByteBuffer.allocate(messageLength);
@@ -87,7 +94,7 @@ public class CertificateRequestMessage extends HandshakeMessage {
         for (Extension extension: extensions) {
             buffer.put(extension.getBytes());
         }
-        raw = buffer.array();
+        return buffer.array();
     }
 
 

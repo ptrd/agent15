@@ -39,17 +39,20 @@ import static tech.kwik.agent15.TlsConstants.decodeSignatureScheme;
 public class CertificateVerifyMessage extends HandshakeMessage {
 
     private static final int MINIMUM_MESSAGE_SIZE = 1 + 3 + 2 + 2 + 1;
-    private TlsConstants.SignatureScheme signatureScheme;
-    private byte[] signature;
-    private byte[] raw;
+    private final TlsConstants.SignatureScheme signatureScheme;
+    private final byte[] signature;
+    private final byte[] raw;
 
     public CertificateVerifyMessage(TlsConstants.SignatureScheme signatureScheme, byte[] signature) {
         this.signatureScheme = signatureScheme;
         this.signature = signature;
-        serialize();
+        raw = serialize(signatureScheme, signature);
     }
 
-    public CertificateVerifyMessage() {
+    private CertificateVerifyMessage(TlsConstants.SignatureScheme signatureScheme, byte[] signature, byte[] raw) {
+        this.signatureScheme = signatureScheme;
+        this.signature = signature;
+        this.raw = raw;
     }
 
     @Override
@@ -57,26 +60,32 @@ public class CertificateVerifyMessage extends HandshakeMessage {
         return TlsConstants.HandshakeType.certificate_verify;
     }
 
-    public CertificateVerifyMessage parse(ByteBuffer buffer, int length) throws TlsProtocolException {
+    /**
+     * Parses a certificate verify message from a byte stream.
+     * @param buffer
+     * @param length  the length of the message (including the handshake header)
+     * @throws TlsProtocolException
+     */
+    public static CertificateVerifyMessage parse(ByteBuffer buffer, int length) throws TlsProtocolException {
         int startPosition = buffer.position();
         int remainingLength = parseHandshakeHeader(buffer, TlsConstants.HandshakeType.certificate_verify, MINIMUM_MESSAGE_SIZE);
 
         try {
             short signatureSchemeValue = buffer.getShort();
-            signatureScheme = decodeSignatureScheme(signatureSchemeValue).orElse(null);
+            TlsConstants.SignatureScheme signatureScheme = decodeSignatureScheme(signatureSchemeValue).orElse(null);
 
             int signatureLength = buffer.getShort() & 0xffff;
-            signature = new byte[signatureLength];
+            byte[] signature = new byte[signatureLength];
             buffer.get(signature);
             if (buffer.position() - startPosition != 4 + remainingLength) {
                 throw new DecodeErrorException("Incorrect message length");
             }
 
-            raw = new byte[length];
+            byte[] raw = new byte[length];
             buffer.position(startPosition);
             buffer.get(raw);
 
-            return this;
+            return new CertificateVerifyMessage(signatureScheme, signature, raw);
         }
         catch (BufferUnderflowException notEnoughBytes) {
             throw new DecodeErrorException("message underflow");
@@ -88,14 +97,14 @@ public class CertificateVerifyMessage extends HandshakeMessage {
         return raw;
     }
 
-    private void serialize() {
+    private static byte[] serialize(TlsConstants.SignatureScheme signatureScheme, byte[] signature) {
         int signatureLength = signature.length;
         ByteBuffer buffer = ByteBuffer.allocate(4 + 2 + 2 + signatureLength);
         buffer.putInt((TlsConstants.HandshakeType.certificate_verify.value << 24) | (2 + 2 + signatureLength));
         buffer.putShort(signatureScheme.value);
         buffer.putShort((short) signatureLength);
         buffer.put(signature);
-        raw = buffer.array();
+        return buffer.array();
     }
 
     /**

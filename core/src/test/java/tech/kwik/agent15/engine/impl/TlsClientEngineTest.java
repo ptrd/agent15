@@ -911,7 +911,7 @@ class TlsClientEngineTest {
         // Then
         assertThatThrownBy(() ->
                 // When, no Encrypted Extensions Message received, but
-                engine.received(new CertificateMessage(), ProtectionKeysType.Handshake))
+                engine.received(new CertificateMessage((X509Certificate) null), ProtectionKeysType.Handshake))
                 // Then
                 .isInstanceOf(UnexpectedMessageAlert.class);
     }
@@ -937,9 +937,8 @@ class TlsClientEngineTest {
         // Given
         handshakeUpToCertificate();
 
-        CertificateMessage certificateMessage = new CertificateMessage();
         byte[] emptyCertificateMessageData = ByteUtils.hexToBytes("0b000009" + "00" + "000005" + "0000000000");
-        certificateMessage.parse(ByteBuffer.wrap(emptyCertificateMessageData));
+        CertificateMessage certificateMessage = CertificateMessage.parse(ByteBuffer.wrap(emptyCertificateMessageData));
 
         assertThatThrownBy(() ->
                 // When
@@ -955,7 +954,7 @@ class TlsClientEngineTest {
 
         assertThatThrownBy(() ->
                 // When, no Certificate Message received, but
-                engine.received(new CertificateVerifyMessage(), ProtectionKeysType.Handshake))
+                engine.received(new CertificateVerifyMessage(rsa_pss_rsae_sha256, new byte[0]), ProtectionKeysType.Handshake))
                 // Then
                 .isInstanceOf(UnexpectedMessageAlert.class);
     }

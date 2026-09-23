@@ -39,10 +39,10 @@ import java.util.stream.Collectors;
 public class CertificateMessage extends HandshakeMessage {
 
     private static final int MINIMUM_MESSAGE_SIZE = 1 + 3 + 1 + 3 + 3 + 2;
-    private byte[] requestContext;
-    private X509Certificate endEntityCertificate;
-    private List<X509Certificate> certificateChain = new ArrayList<>();
-    private byte[] raw;
+    private final byte[] requestContext;
+    private final X509Certificate endEntityCertificate;
+    private final List<X509Certificate> certificateChain;
+    private final byte[] raw;
 
     public CertificateMessage(X509Certificate certificate) {
         this.requestContext = new byte[0];
@@ -54,7 +54,7 @@ public class CertificateMessage extends HandshakeMessage {
             certificateChain = Collections.emptyList();
         }
 
-        serialize();
+        raw = serialize(certificateChain);
     }
 
     /**
@@ -69,7 +69,7 @@ public class CertificateMessage extends HandshakeMessage {
         endEntityCertificate = certificateChain.get(0);
         this.certificateChain = certificateChain;
 
-        serialize();
+        raw = serialize(certificateChain);
     }
 
     public CertificateMessage(byte[] requestContext, X509Certificate certificate) {
@@ -78,10 +78,15 @@ public class CertificateMessage extends HandshakeMessage {
         endEntityCertificate = certificate;
         certificateChain = List.of(certificate);
 
-        serialize();
+        raw = serialize(certificateChain);
     }
 
-    public CertificateMessage() {
+    private CertificateMessage(byte[] requestContext, X509Certificate endEntityCertificate,
+                               List<X509Certificate> certificateChain, byte[] raw) {
+        this.requestContext = requestContext;
+        this.endEntityCertificate = endEntityCertificate;
+        this.certificateChain = certificateChain;
+        this.raw = raw;
     }
 
     @Override
@@ -89,11 +94,18 @@ public class CertificateMessage extends HandshakeMessage {
         return TlsConstants.HandshakeType.certificate;
     }
 
-    public CertificateMessage parse(ByteBuffer buffer) throws DecodeErrorException, BadCertificateAlert {
+    /**
+     * Parses a certificate message from a byte stream.
+     * @param buffer
+     * @throws DecodeErrorException
+     * @throws BadCertificateAlert
+     */
+    public static CertificateMessage parse(ByteBuffer buffer) throws DecodeErrorException, BadCertificateAlert {
         int startPosition = buffer.position();
         int remainingLength = parseHandshakeHeader(buffer, TlsConstants.HandshakeType.certificate, MINIMUM_MESSAGE_SIZE);
 
         try {
+            byte[] requestContext;
             int certificateRequestContextSize = buffer.get() & 0xff;
             if (certificateRequestContextSize > 0) {
                 requestContext = new byte[certificateRequestContextSize];
@@ -102,24 +114,29 @@ public class CertificateMessage extends HandshakeMessage {
             else {
                 requestContext = new byte[0];
             }
-            parseCertificateEntries(buffer);
+            List<X509Certificate> certificateChain = new ArrayList<>();
+            X509Certificate endEntityCertificate = parseCertificateEntries(buffer, certificateChain);
 
-            // Update state.
-            raw = new byte[4 + remainingLength];
+            byte[] raw = new byte[4 + remainingLength];
             buffer.position(startPosition);
             buffer.get(raw);
 
-            return this;
+            return new CertificateMessage(requestContext, endEntityCertificate, certificateChain, raw);
         }
         catch (BufferUnderflowException notEnoughBytes) {
             throw new DecodeErrorException("message underflow");
         }
     }
 
-    private int parseCertificateEntries(ByteBuffer buffer) throws BadCertificateAlert {
+    /**
+     * Parses the certificate entries of a certificate message and adds them to the given certificate chain.
+     * @return  the end entity certificate, or null if the message does not contain any certificate
+     */
+    private static X509Certificate parseCertificateEntries(ByteBuffer buffer, List<X509Certificate> certificateChain) throws BadCertificateAlert {
         int certificateListSize = ((buffer.get() & 0xff) << 16) | ((buffer.get() & 0xff) << 8) | (buffer.get() & 0xff);
         int remainingCertificateBytes = certificateListSize;
         int certCount = 0;
+        X509Certificate endEntityCertificate = null;
 
         while (remainingCertificateBytes > 0) {
             int certSize = ((buffer.get() & 0xff) << 16) | ((buffer.get() & 0xff) << 8) | (buffer.get() & 0xff);
@@ -157,10 +174,10 @@ public class CertificateMessage extends HandshakeMessage {
             buffer.get(extensionData);
             remainingCertificateBytes -= (2 + extensionsSize);
         }
-        return certCount;
+        return endEntityCertificate;
     }
 
-    private void serialize() {
+    private static byte[] serialize(List<X509Certificate> certificateChain) {
         int nrOfCerts = certificateChain.size();
         List<byte[]> encodedCerts = certificateChain.stream()
                 .map(cert -> encode(cert))
@@ -188,10 +205,10 @@ public class CertificateMessage extends HandshakeMessage {
             // extensions size
             buffer.putShort((short) 0);
         });
-        raw = buffer.array();
+        return buffer.array();
     }
 
-    byte[] encode(X509Certificate certificate) {
+    static byte[] encode(X509Certificate certificate) {
         try {
             return certificate.getEncoded();
         } catch (CertificateEncodingException e) {

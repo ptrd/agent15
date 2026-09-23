@@ -38,7 +38,7 @@ public class EncryptedExtensionsTest {
         //                                         msg type msg lenth  extenions list size
         byte[] data = ByteUtils.hexToBytes("08" +    "000002" + "0000");
 
-        EncryptedExtensions ee = new EncryptedExtensions().parse(ByteBuffer.wrap(data), data.length);
+        EncryptedExtensions ee = EncryptedExtensions.parse(ByteBuffer.wrap(data), data.length);
         assertThat(ee.getExtensions()).isEmpty();
     }
 
@@ -48,7 +48,7 @@ public class EncryptedExtensionsTest {
         byte[] data = ByteUtils.hexToBytes("08" +    "000000" + "00ff");
 
         assertThatThrownBy(() ->
-                new EncryptedExtensions().parse(ByteBuffer.wrap(data), data.length)
+                EncryptedExtensions.parse(ByteBuffer.wrap(data), data.length)
         ).isInstanceOf(DecodeErrorException.class);
     }
 
@@ -58,7 +58,7 @@ public class EncryptedExtensionsTest {
         byte[] data = ByteUtils.hexToBytes("08" +    "000002" + "00ff");
 
         assertThatThrownBy(() ->
-                new EncryptedExtensions().parse(ByteBuffer.wrap(data), data.length)
+                EncryptedExtensions.parse(ByteBuffer.wrap(data), data.length)
         ).isInstanceOf(DecodeErrorException.class);
     }
 
@@ -68,7 +68,7 @@ public class EncryptedExtensionsTest {
         byte[] data = ByteUtils.hexToBytes("08" +    "0000ff" + "00fd");
 
         assertThatThrownBy(() ->
-                new EncryptedExtensions().parse(ByteBuffer.wrap(data), data.length)
+                EncryptedExtensions.parse(ByteBuffer.wrap(data), data.length)
         ).isInstanceOf(DecodeErrorException.class);
     }
 
@@ -101,7 +101,7 @@ public class EncryptedExtensionsTest {
         byte[] data = ByteUtils.hexToBytes("08" + "000008" + "0006" + "0029" + "0002" + "0000");
 
         assertThatThrownBy(() ->
-                new EncryptedExtensions().parse(ByteBuffer.wrap(data), data.length)
+                EncryptedExtensions.parse(ByteBuffer.wrap(data), data.length)
         ).isInstanceOf(IllegalParameterAlert.class);
     }
 }

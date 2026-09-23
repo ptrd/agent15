@@ -26,7 +26,6 @@ import java.nio.ByteBuffer;
 
 import static tech.kwik.agent15.TlsConstants.SignatureScheme.rsa_pss_rsae_sha256;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class CertificateVerifyMessageTest {
@@ -34,8 +33,7 @@ class CertificateVerifyMessageTest {
     @Test
     void parseCertificateVerifyMessage() throws Exception {
         byte[] rawData = ByteUtils.hexToBytes("0f00001408040010000102030405060708090a0b0c0d0e0f");
-        CertificateVerifyMessage msg = new CertificateVerifyMessage();
-        msg.parse(ByteBuffer.wrap(rawData), 0);
+        CertificateVerifyMessage msg = CertificateVerifyMessage.parse(ByteBuffer.wrap(rawData), 0);
         assertThat(msg.getSignatureScheme()).isEqualTo(rsa_pss_rsae_sha256);
         assertThat(msg.getSignature()).isEqualTo(new byte[] { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08 , 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f });
     }
@@ -43,42 +41,32 @@ class CertificateVerifyMessageTest {
     @Test
     void whenParsingUnknownSignatureSchemaShouldBeIgnored() throws Exception {
         byte[] rawData = ByteUtils.hexToBytes("0f000014fafa0010000102030405060708090a0b0c0d0e0f");
-        CertificateVerifyMessage msg = new CertificateVerifyMessage();
+        CertificateVerifyMessage msg = CertificateVerifyMessage.parse(ByteBuffer.wrap(rawData), 0);
 
-        assertThatCode(() ->
-                msg.parse(ByteBuffer.wrap(rawData), 0))
-                .doesNotThrowAnyException();
-
-        assertThat(msg.getSignatureScheme() == null);
+        assertThat(msg.getSignatureScheme()).isNull();
     }
 
     @Test
     void parseCertificateVerifyWithMsgLengthTooSmall() throws Exception {
         byte[] rawData = ByteUtils.hexToBytes("0f00001008040010000102030405060708090a0b0c0d0e0f");
-        CertificateVerifyMessage msg = new CertificateVerifyMessage();
-
         assertThatThrownBy(() ->
-                msg.parse(ByteBuffer.wrap(rawData), 0)
+                CertificateVerifyMessage.parse(ByteBuffer.wrap(rawData), 0)
         ).isInstanceOf(DecodeErrorException.class);
     }
 
     @Test
     void parseCertificateVerifyWithMsgLengthTooLong() throws Exception {
         byte[] rawData = ByteUtils.hexToBytes("0f00001d08040010000102030405060708090a0b0c0d0e0f");
-        CertificateVerifyMessage msg = new CertificateVerifyMessage();
-
         assertThatThrownBy(() ->
-                msg.parse(ByteBuffer.wrap(rawData), 0)
+                CertificateVerifyMessage.parse(ByteBuffer.wrap(rawData), 0)
         ).isInstanceOf(DecodeErrorException.class);
     }
 
     @Test
     void parseCertificateVerifyWith() throws Exception {
         byte[] rawData = ByteUtils.hexToBytes("0f0000140804001d000102030405060708090a0b0c0d0e0f");
-        CertificateVerifyMessage msg = new CertificateVerifyMessage();
-
         assertThatThrownBy(() ->
-                msg.parse(ByteBuffer.wrap(rawData), 0)
+                CertificateVerifyMessage.parse(ByteBuffer.wrap(rawData), 0)
         ).isInstanceOf(DecodeErrorException.class);
     }
 
@@ -89,17 +77,15 @@ class CertificateVerifyMessageTest {
         CertificateVerifyMessage msg = new CertificateVerifyMessage(rsa_pss_rsae_sha256, signature);
         byte[] data = msg.getBytes();
 
-        CertificateVerifyMessage parsedMsg = msg.parse(ByteBuffer.wrap(data), data.length);
+        CertificateVerifyMessage parsedMsg = CertificateVerifyMessage.parse(ByteBuffer.wrap(data), data.length);
         assertThat(parsedMsg.getSignature()).isEqualTo(signature);
     }
 
     @Test
     void parseCertificateVerifyWithLargeSignatureLength() throws Exception {
         byte[] rawData = ByteUtils.hexToBytes("0f00 0014 0804 8010000102030405060708090a0b0c0d0e0f");
-        CertificateVerifyMessage msg = new CertificateVerifyMessage();
-
         assertThatThrownBy(() ->
-                msg.parse(ByteBuffer.wrap(rawData), 0)
+                CertificateVerifyMessage.parse(ByteBuffer.wrap(rawData), 0)
         ).isInstanceOf(DecodeErrorException.class);
 
     }

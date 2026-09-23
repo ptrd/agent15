@@ -27,7 +27,6 @@ import org.junit.jupiter.api.Test;
 import java.nio.ByteBuffer;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class NewSessionTicketMessageTest {
@@ -35,7 +34,7 @@ class NewSessionTicketMessageTest {
     @Test
     void parseValidMessage() throws Exception {
         byte[] rawData = ByteUtils.hexToBytes("0400004f 00093a80 fab00e11 04 01020304 0040 " + "00".repeat(64) + "0000");
-        NewSessionTicketMessage message = new NewSessionTicketMessage().parse(ByteBuffer.wrap(rawData));
+        NewSessionTicketMessage message = NewSessionTicketMessage.parse(ByteBuffer.wrap(rawData));
 
         assertThat(message.getTicketLifetime()).isEqualTo(604800);
         assertThat(message.getTicketNonce()).isEqualTo(new byte[] { 1, 2, 3, 4});
@@ -47,7 +46,7 @@ class NewSessionTicketMessageTest {
         byte[] rawData = ByteUtils.hexToBytes("0400004f 00093a81 fab00e11 04 01020304 0040 " + "00".repeat(64) + "0000");
 
         assertThatThrownBy(() ->
-                new NewSessionTicketMessage().parse(ByteBuffer.wrap(rawData))
+                NewSessionTicketMessage.parse(ByteBuffer.wrap(rawData))
         ).isInstanceOf(IllegalParameterAlert.class);
     }
 
@@ -56,11 +55,7 @@ class NewSessionTicketMessageTest {
         //                                              lifetime age_add  nonce       ticket        exts ext_1     ext_2
         byte[] rawData = ByteUtils.hexToBytes("0400001d 00093a80 fab00e11 04 01020304 0004 01020304 000c fab0 0000 002a 0004 01020304");
 
-        NewSessionTicketMessage newSessionTicketMessage = new NewSessionTicketMessage();
-
-        assertThatCode(() ->
-                newSessionTicketMessage.parse(ByteBuffer.wrap(rawData)))
-                .doesNotThrowAnyException();
+        NewSessionTicketMessage newSessionTicketMessage = NewSessionTicketMessage.parse(ByteBuffer.wrap(rawData));
 
         assertThat(newSessionTicketMessage.getEarlyDataExtension()).isNotNull();
     }
@@ -70,10 +65,8 @@ class NewSessionTicketMessageTest {
         //                                              lifetime age_add  nonce       ticket        exts ext 1              ext 2
         byte[] rawData = ByteUtils.hexToBytes("04000022 00093a80 fab00e11 04 01020304 0004 01020304 0010 002a 0004 01020304 002a 0004 01020304");
 
-        NewSessionTicketMessage newSessionTicketMessage = new NewSessionTicketMessage();
-
         assertThatThrownBy(() ->
-                newSessionTicketMessage.parse(ByteBuffer.wrap(rawData)))
+                NewSessionTicketMessage.parse(ByteBuffer.wrap(rawData)))
                 .isInstanceOf(DecodeErrorException.class);
     }
 
@@ -81,7 +74,7 @@ class NewSessionTicketMessageTest {
     void parseNoMessage() throws Exception {
         byte[] rawData = ByteUtils.hexToBytes("0400");
         assertThatThrownBy(() ->
-                new NewSessionTicketMessage().parse(ByteBuffer.wrap(rawData))
+                NewSessionTicketMessage.parse(ByteBuffer.wrap(rawData))
         ).isInstanceOf(DecodeErrorException.class);
     }
 
@@ -89,7 +82,7 @@ class NewSessionTicketMessageTest {
     void parseMessageWithInconsistentNonceLength() throws Exception {
         byte[] rawData = ByteUtils.hexToBytes("04000017 0000cafe cafebabe ff 01020304 0008 0102030405060708");
         assertThatThrownBy(() ->
-                new NewSessionTicketMessage().parse(ByteBuffer.wrap(rawData))
+                NewSessionTicketMessage.parse(ByteBuffer.wrap(rawData))
         ).isInstanceOf(DecodeErrorException.class);
     }
 
@@ -97,7 +90,7 @@ class NewSessionTicketMessageTest {
     void parseMessageWithInconsistentTicketLength() throws Exception {
         byte[] rawData = ByteUtils.hexToBytes("04000017 0000cafe cafebabe 04 01020304 04ff 0102030405060708");
         assertThatThrownBy(() ->
-                new NewSessionTicketMessage().parse(ByteBuffer.wrap(rawData))
+                NewSessionTicketMessage.parse(ByteBuffer.wrap(rawData))
         ).isInstanceOf(DecodeErrorException.class);
     }
 
@@ -107,7 +100,7 @@ class NewSessionTicketMessageTest {
         byte[] rawData = ByteUtils.hexToBytes("04000019 00093a80 fab00e11 04 01020304 0004 01020304 0004 0000 0000");
 
         assertThatThrownBy(() ->
-                new NewSessionTicketMessage().parse(ByteBuffer.wrap(rawData))
+                NewSessionTicketMessage.parse(ByteBuffer.wrap(rawData))
         ).isInstanceOf(IllegalParameterAlert.class);
     }
 
@@ -121,7 +114,7 @@ class NewSessionTicketMessageTest {
                 + "002a 0004 01ff ffff"
         );
 
-        EarlyDataExtension earlyDataExtension = new NewSessionTicketMessage().parse(ByteBuffer.wrap(rawData)).getEarlyDataExtension();
+        EarlyDataExtension earlyDataExtension = NewSessionTicketMessage.parse(ByteBuffer.wrap(rawData)).getEarlyDataExtension();
 
         assertThat(earlyDataExtension).isNotNull();
     }
@@ -134,8 +127,7 @@ class NewSessionTicketMessageTest {
         byte[] ticket = new byte[] { 0x0d, 0x0e, 0x0d, 0x0e, 0x0d, 0x0e, 0x0d, 0x0e, 0x0d, 0x0e };
         NewSessionTicketMessage message = new NewSessionTicketMessage(lifetime, ageAdd, nonce, ticket);
         byte[] serializedMsg = message.getBytes();
-        NewSessionTicketMessage parsedMsg = new NewSessionTicketMessage();
-        parsedMsg.parse(ByteBuffer.wrap(serializedMsg));
+        NewSessionTicketMessage parsedMsg = NewSessionTicketMessage.parse(ByteBuffer.wrap(serializedMsg));
 
         assertThat(parsedMsg.getTicketLifetime()).isEqualTo(lifetime);
         assertThat(parsedMsg.getTicketAgeAdd()).isEqualTo(ageAdd);
@@ -152,8 +144,7 @@ class NewSessionTicketMessageTest {
         long maxEarlyDataSize = 0x90008000L;
         NewSessionTicketMessage message = new NewSessionTicketMessage(lifetime, ageAdd, nonce, ticket, maxEarlyDataSize);
         byte[] serializedMsg = message.getBytes();
-        NewSessionTicketMessage parsedMsg = new NewSessionTicketMessage();
-        parsedMsg.parse(ByteBuffer.wrap(serializedMsg));
+        NewSessionTicketMessage parsedMsg = NewSessionTicketMessage.parse(ByteBuffer.wrap(serializedMsg));
 
         assertThat(parsedMsg.getTicketLifetime()).isEqualTo(lifetime);
         assertThat(parsedMsg.getTicketAgeAdd()).isEqualTo(ageAdd);

@@ -36,52 +36,56 @@ public class NewSessionTicketMessage extends HandshakeMessage {
 
     private static final int MINIMUM_MESSAGE_SIZE = 1 + 3 + 4 + 4 + 1 + 2 + 2;
 
-    private long ticketAgeAdd;
-    private byte[] ticket;
-    private byte[] ticketNonce;
-    private int ticketLifetime;
+    private final long ticketAgeAdd;
+    private final byte[] ticket;
+    private final byte[] ticketNonce;
+    private final int ticketLifetime;
     // "The sole extension currently defined for NewSessionTicket is "early_data", ..."
-    private EarlyDataExtension earlyDataExtension;
+    private final EarlyDataExtension earlyDataExtension;
 
-
-    public NewSessionTicketMessage() {
-    }
 
     public NewSessionTicketMessage(int ticketLifetime, long ticketAgeAdd, byte[] ticketNonce, byte[] ticket) {
-        this.ticketAgeAdd = ticketAgeAdd;
-        this.ticket = ticket;
-        this.ticketNonce = ticketNonce;
-        this.ticketLifetime = ticketLifetime;
+        this(ticketLifetime, ticketAgeAdd, ticketNonce, ticket, (EarlyDataExtension) null);
     }
 
     public NewSessionTicketMessage(int ticketLifetime, long ticketAgeAdd, byte[] ticketNonce, byte[] ticket, long maxEarlyDataSize) {
+        this(ticketLifetime, ticketAgeAdd, ticketNonce, ticket, new EarlyDataExtension(maxEarlyDataSize));
+    }
+
+    private NewSessionTicketMessage(int ticketLifetime, long ticketAgeAdd, byte[] ticketNonce, byte[] ticket, EarlyDataExtension earlyDataExtension) {
         this.ticketAgeAdd = ticketAgeAdd;
         this.ticket = ticket;
         this.ticketNonce = ticketNonce;
         this.ticketLifetime = ticketLifetime;
-        earlyDataExtension = new EarlyDataExtension(maxEarlyDataSize);
+        this.earlyDataExtension = earlyDataExtension;
     }
 
-    public NewSessionTicketMessage parse(ByteBuffer buffer) throws TlsProtocolException {
+    /**
+     * Parses a new session ticket message from a byte stream.
+     * @param buffer
+     * @throws TlsProtocolException
+     */
+    public static NewSessionTicketMessage parse(ByteBuffer buffer) throws TlsProtocolException {
         int remainingLength = parseHandshakeHeader(buffer, TlsConstants.HandshakeType.new_session_ticket, MINIMUM_MESSAGE_SIZE);
 
         // "ticket_lifetime: Indicates the lifetime in seconds as a 32-bit unsigned integer (...)"
         // "Servers MUST NOT use any value greater than 604800 seconds (7 days)."
         // So a signed int is large enough to hold the unsigned value.
-        ticketLifetime = buffer.getInt();
+        int ticketLifetime = buffer.getInt();
         remainingLength -= 4;
         if (ticketLifetime > 604800 || ticketLifetime < 0) {
             throw new IllegalParameterAlert("Invalid ticket lifetime");
         }
         // "ticket_age_add: A securely generated, random 32-bit value that is used to obscure the age of the ticket"
-        ticketAgeAdd = buffer.getInt() & 0xffffffffL;
+        long ticketAgeAdd = buffer.getInt() & 0xffffffffL;
         remainingLength -= 4;
         // "ticket_nonce: A per-ticket value that is unique across all tickets issued on this connection."
-        ticketNonce = parseByteVector(buffer, 1, remainingLength, "ticket nonce");
+        byte[] ticketNonce = parseByteVector(buffer, 1, remainingLength, "ticket nonce");
         remainingLength -= 1 + ticketNonce.length;
         // "ticket: The value of the ticket to be used as the PSK identity."
-        ticket = parseByteVector(buffer, 2, remainingLength, "ticket");
+        byte[] ticket = parseByteVector(buffer, 2, remainingLength, "ticket");
 
+        EarlyDataExtension earlyDataExtension = null;
         List<Extension> extensions = EncryptedExtensions.parseExtensions(buffer, TlsConstants.HandshakeType.new_session_ticket);
         for (Extension extension: extensions) {
             if (extension instanceof EarlyDataExtension) {
@@ -100,10 +104,10 @@ public class NewSessionTicketMessage extends HandshakeMessage {
             }
         }
 
-        return this;
+        return new NewSessionTicketMessage(ticketLifetime, ticketAgeAdd, ticketNonce, ticket, earlyDataExtension);
     }
 
-    private byte[] parseByteVector(ByteBuffer buffer, int lengthBytes, int remainingMessageLength, String fieldName) throws DecodeErrorException {
+    private static byte[] parseByteVector(ByteBuffer buffer, int lengthBytes, int remainingMessageLength, String fieldName) throws DecodeErrorException {
         if (remainingMessageLength < lengthBytes) {
             throw new DecodeErrorException("No length specified for " + fieldName);
         }

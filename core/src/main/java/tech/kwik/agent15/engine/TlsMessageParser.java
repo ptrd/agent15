@@ -78,42 +78,42 @@ public class TlsMessageParser {
             }
         }
         else if (messageType == encrypted_extensions.value) {
-            EncryptedExtensions ee = new EncryptedExtensions().parse(buffer, length + 4, customExtensionParser);
+            EncryptedExtensions ee = EncryptedExtensions.parse(buffer, length + 4, customExtensionParser);
             parsedMessage = ee;
             if (messageProcessor != null) {
                 messageProcessor.received(ee, protectedBy);
             }
         }
         else if (messageType == certificate.value) {
-            CertificateMessage cm = new CertificateMessage().parse(buffer);
+            CertificateMessage cm = CertificateMessage.parse(buffer);
             parsedMessage = cm;
             if (messageProcessor != null) {
                 messageProcessor.received(cm, protectedBy);
             }
         }
         else if (messageType == certificate_request.value) {
-            CertificateRequestMessage cr = new CertificateRequestMessage().parse(buffer);
+            CertificateRequestMessage cr = CertificateRequestMessage.parse(buffer);
             parsedMessage = cr;
             if (messageProcessor != null) {
                 messageProcessor.received(cr, protectedBy);
             }
         }
         else if (messageType == certificate_verify.value) {
-            CertificateVerifyMessage cv = new CertificateVerifyMessage().parse(buffer, length + 4);
+            CertificateVerifyMessage cv = CertificateVerifyMessage.parse(buffer, length + 4);
             parsedMessage = cv;
             if (messageProcessor != null) {
                 messageProcessor.received(cv, protectedBy);
             }
         }
         else if (messageType == finished.value) {
-            FinishedMessage fm = new FinishedMessage().parse(buffer, length + 4);
+            FinishedMessage fm = FinishedMessage.parse(buffer, length + 4);
             parsedMessage = fm;
             if (messageProcessor != null) {
                 messageProcessor.received(fm, protectedBy);
             }
         }
         else if (messageType == new_session_ticket.value) {
-            NewSessionTicketMessage nst = new NewSessionTicketMessage().parse(buffer);
+            NewSessionTicketMessage nst = NewSessionTicketMessage.parse(buffer);
             parsedMessage = nst;
             if (messageProcessor != null) {
                 messageProcessor.received(nst, protectedBy);

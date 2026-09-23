@@ -40,8 +40,7 @@ public class CertificateMessageTest {
     @Test
     void parseCertificateMessage() throws Exception {
         byte[] rawData = ByteUtils.hexToBytes(gmailCertificateMessageBytes);
-        CertificateMessage cm = new CertificateMessage();
-        cm.parse(ByteBuffer.wrap(rawData));
+        CertificateMessage cm = CertificateMessage.parse(ByteBuffer.wrap(rawData));
         assertThat(cm.getEndEntityCertificate()).isNotNull();
         assertThat(cm.getCertificateChain()).hasSizeGreaterThan(1);
 
@@ -56,7 +55,7 @@ public class CertificateMessageTest {
     void parseNoMessage() throws Exception {
         byte[] rawData = ByteUtils.hexToBytes("0b00");
         assertThatThrownBy(() ->
-                new CertificateMessage().parse(ByteBuffer.wrap(rawData))
+                CertificateMessage.parse(ByteBuffer.wrap(rawData))
         ).isInstanceOf(DecodeErrorException.class);
     }
 
@@ -64,7 +63,7 @@ public class CertificateMessageTest {
     void parseNotEnoughBytesForMessage() throws Exception {
         byte[] rawData = ByteUtils.hexToBytes("0b000066");
         assertThatThrownBy(() ->
-                new CertificateMessage().parse(ByteBuffer.wrap(rawData))
+                CertificateMessage.parse(ByteBuffer.wrap(rawData))
         ).isInstanceOf(DecodeErrorException.class);
     }
 
@@ -73,7 +72,7 @@ public class CertificateMessageTest {
         byte[] rawData = ByteUtils.hexToBytes("0b000400" + "00"
                 // cert list size cert data size
                 + "0004d6" +      "0004d1" + gmailCertificateBytes + "0000");
-        CertificateMessage cm = new CertificateMessage().parse(ByteBuffer.wrap(rawData));
+        CertificateMessage cm = CertificateMessage.parse(ByteBuffer.wrap(rawData));
         assertThat(cm.getCertificateChain()).hasSize(1);
     }
 
@@ -85,7 +84,7 @@ public class CertificateMessageTest {
                 + "0004d6" +      "0004d1" + ByteUtils.bytesToHex(bogusCert) + "0000");
 
         assertThatThrownBy(() ->
-                new CertificateMessage().parse(ByteBuffer.wrap(rawData))
+                CertificateMessage.parse(ByteBuffer.wrap(rawData))
         ).isInstanceOf(BadCertificateAlert.class);
     }
 
@@ -93,7 +92,7 @@ public class CertificateMessageTest {
     void parseMessageWithoutCertificate() throws Exception {
         byte[] rawData = ByteUtils.hexToBytes("0b000009" + "00" + "000005" + "000000" + "0000");
 
-        CertificateMessage cm = new CertificateMessage().parse(ByteBuffer.wrap(rawData));
+        CertificateMessage cm = CertificateMessage.parse(ByteBuffer.wrap(rawData));
 
         assertThat(cm.getCertificateChain()).hasSize(0);
     }
@@ -105,7 +104,7 @@ public class CertificateMessageTest {
                 + "0004d6" +      "000020" + "012345678901234567890123456789012345678901" + "0000");
 
         assertThatThrownBy(() ->
-                new CertificateMessage().parse(ByteBuffer.wrap(rawData))
+                CertificateMessage.parse(ByteBuffer.wrap(rawData))
         ).isInstanceOf(DecodeErrorException.class);
     }
 
@@ -116,7 +115,7 @@ public class CertificateMessageTest {
                 + "0004d6" +      "000020" + "012345678901234567890123456789012345678901" + "0000");
 
         assertThatThrownBy(() ->
-                new CertificateMessage().parse(ByteBuffer.wrap(rawData))
+                CertificateMessage.parse(ByteBuffer.wrap(rawData))
         ).isInstanceOf(DecodeErrorException.class);
     }
 
@@ -127,7 +126,7 @@ public class CertificateMessageTest {
                 + "000024" +      "000020" + "0123456789012345678901234567890123456789" + "0000");
 
         assertThatThrownBy(() ->
-                new CertificateMessage().parse(ByteBuffer.wrap(rawData))
+                CertificateMessage.parse(ByteBuffer.wrap(rawData))
         ).isInstanceOf(DecodeErrorException.class);
     }
 
@@ -138,7 +137,7 @@ public class CertificateMessageTest {
                 + "0004d6" +      "0004d1" + gmailCertificateBytes + "00ff");
 
         assertThatThrownBy(() ->
-                new CertificateMessage().parse(ByteBuffer.wrap(rawData))
+                CertificateMessage.parse(ByteBuffer.wrap(rawData))
         ).isInstanceOf(DecodeErrorException.class);
     }
 
@@ -153,7 +152,7 @@ public class CertificateMessageTest {
         assertThat(data.length).isEqualTo(messageLength);
 
         assertThatThrownBy(() ->
-                new CertificateMessage().parse(ByteBuffer.wrap(data)))
+                CertificateMessage.parse(ByteBuffer.wrap(data)))
                 .isInstanceOf(BadCertificateAlert.class);
     }
 
@@ -166,7 +165,7 @@ public class CertificateMessageTest {
         int messageLength = 4 + ByteBuffer.wrap(data).getInt() & 0x00ffffff;
         assertThat(data.length).isEqualTo(messageLength);
 
-        CertificateMessage parsedCertificateMessage = new CertificateMessage().parse(ByteBuffer.wrap(data));
+        CertificateMessage parsedCertificateMessage = CertificateMessage.parse(ByteBuffer.wrap(data));
         assertThat(parsedCertificateMessage.getEndEntityCertificate()).isEqualTo(cert);
     }
 
@@ -177,7 +176,7 @@ public class CertificateMessageTest {
                 + "0004d6" +      "0004d1" + gmailCertificateBytes + "8000");
 
         assertThatThrownBy(() ->
-                new CertificateMessage().parse(ByteBuffer.wrap(rawData))
+                CertificateMessage.parse(ByteBuffer.wrap(rawData))
         ).isInstanceOf(DecodeErrorException.class);
     }
 

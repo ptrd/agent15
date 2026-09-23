@@ -36,17 +36,21 @@ public class EncryptedExtensions extends HandshakeMessage {
 
     private static final int MINIMAL_MESSAGE_LENGTH = 1 + 3 + 2;
 
-    private List<Extension> extensions;
-    private byte[] raw;
+    private final List<Extension> extensions;
+    private final byte[] raw;
 
     public EncryptedExtensions() {
-        extensions = Collections.emptyList();
-        serialize();
+        this(Collections.emptyList());
     }
 
     public EncryptedExtensions(List<Extension> extensions) {
         this.extensions = extensions;
-        serialize();
+        raw = serialize(extensions);
+    }
+
+    private EncryptedExtensions(List<Extension> extensions, byte[] raw) {
+        this.extensions = extensions;
+        this.raw = raw;
     }
 
     @Override
@@ -54,22 +58,36 @@ public class EncryptedExtensions extends HandshakeMessage {
         return TlsConstants.HandshakeType.encrypted_extensions;
     }
 
-    private void serialize() {
+    private static byte[] serialize(List<Extension> extensions) {
         List<byte[]> extensionBytes = extensions.stream().map(extension -> extension.getBytes()).collect(Collectors.toList());
         int extensionsSize = extensionBytes.stream().mapToInt(data -> data.length).sum();
 
-        raw = new byte[1 + 3 + 2 + extensionsSize];
+        byte[] raw = new byte[1 + 3 + 2 + extensionsSize];
         ByteBuffer buffer = ByteBuffer.wrap(raw);
         buffer.putInt(0x08000000 | (2 + extensionsSize));
         buffer.putShort((short) extensionsSize);
         extensionBytes.forEach(bytes -> buffer.put(bytes));
+        return raw;
     }
 
-    public EncryptedExtensions parse(ByteBuffer buffer, int length) throws TlsProtocolException {
+    /**
+     * Parses an encrypted extensions message from a byte stream.
+     * @param buffer
+     * @param length  the length of the message (including the handshake header)
+     * @throws TlsProtocolException
+     */
+    public static EncryptedExtensions parse(ByteBuffer buffer, int length) throws TlsProtocolException {
         return parse(buffer, length, null);
     }
-    
-    public EncryptedExtensions parse(ByteBuffer buffer, int length, ExtensionParser customExtensionParser) throws TlsProtocolException {
+
+    /**
+     * Parses an encrypted extensions message from a byte stream.
+     * @param buffer
+     * @param length                  the length of the message (including the handshake header)
+     * @param customExtensionParser   parser for extensions not known to this implementation; may be null
+     * @throws TlsProtocolException
+     */
+    public static EncryptedExtensions parse(ByteBuffer buffer, int length, ExtensionParser customExtensionParser) throws TlsProtocolException {
         if (buffer.remaining() < MINIMAL_MESSAGE_LENGTH) {
             throw new DecodeErrorException("Message too short");
         }
@@ -80,15 +98,15 @@ public class EncryptedExtensions extends HandshakeMessage {
             throw new DecodeErrorException("Incorrect message length");
         }
 
-        extensions = parseExtensions(buffer, TlsConstants.HandshakeType.encrypted_extensions, customExtensionParser);
+        List<Extension> extensions = parseExtensions(buffer, TlsConstants.HandshakeType.encrypted_extensions, customExtensionParser);
 
         // Raw bytes are needed for computing the transcript hash
         buffer.position(start);
-        raw = new byte[length];
+        byte[] raw = new byte[length];
         buffer.mark();
         buffer.get(raw);
 
-        return this;
+        return new EncryptedExtensions(extensions, raw);
     }
 
     public List<Extension> getExtensions() {

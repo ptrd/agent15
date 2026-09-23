@@ -37,7 +37,7 @@ class CertificateRequestMessageTest {
         //                                                 |-> extension, 30 bytes
         var data = ByteUtils.hexToBytes("0d00002100001e002f001a0018001630143112301006035504030c096c6f63616c686f7374");
         ByteBuffer buffer = ByteBuffer.wrap(data);
-        var message = new CertificateRequestMessage().parse(buffer);
+        var message = CertificateRequestMessage.parse(buffer);
 
         assertThat(message.getExtensions()).hasSize(1);
         assertThat(buffer.remaining()).isEqualTo(0);
@@ -48,7 +48,7 @@ class CertificateRequestMessageTest {
         var originalMessage = new CertificateRequestMessage(new SignatureAlgorithmsExtension(TlsConstants.SignatureScheme.rsa_pss_rsae_sha256));
         var serializedMessage = originalMessage.getBytes();
         ByteBuffer buffer = ByteBuffer.wrap(serializedMessage);
-        var parsedMessage = new CertificateRequestMessage().parse(buffer);
+        var parsedMessage = CertificateRequestMessage.parse(buffer);
 
         assertThat(serializedMessage).startsWith(new byte[] { 0x0d });
         assertThat(buffer.remaining()).isEqualTo(0);
@@ -64,7 +64,7 @@ class CertificateRequestMessageTest {
         var data = ByteUtils.hexToBytes("0d00002000001e002f001a0018001630143112301006035504030c096c6f63616c686f7374");
 
         assertThatThrownBy(() ->
-                new CertificateRequestMessage().parse(ByteBuffer.wrap(data))
+                CertificateRequestMessage.parse(ByteBuffer.wrap(data))
         ).isInstanceOf(DecodeErrorException.class);
     }
 
@@ -74,7 +74,7 @@ class CertificateRequestMessageTest {
         var data = ByteUtils.hexToBytes("0d00002100001d002f001a0018001630143112301006035504030c096c6f63616c686f7374");
 
         assertThatThrownBy(() ->
-                new CertificateRequestMessage().parse(ByteBuffer.wrap(data))
+                CertificateRequestMessage.parse(ByteBuffer.wrap(data))
         ).isInstanceOf(DecodeErrorException.class);
     }
 
@@ -84,7 +84,7 @@ class CertificateRequestMessageTest {
         var data = ByteUtils.hexToBytes("0d 000003  ff      0000".replaceAll(" ", ""));
 
         assertThatThrownBy(() ->
-                new CertificateRequestMessage().parse(ByteBuffer.wrap(data))
+                CertificateRequestMessage.parse(ByteBuffer.wrap(data))
         ).isInstanceOf(DecodeErrorException.class);
     }
 }

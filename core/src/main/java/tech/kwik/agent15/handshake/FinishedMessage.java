@@ -29,15 +29,17 @@ import java.nio.ByteBuffer;
  */
 public class FinishedMessage extends HandshakeMessage {
 
-    private byte[] verifyData;
-    private byte[] raw;
+    private final byte[] verifyData;
+    private final byte[] raw;
 
     public FinishedMessage(byte[] hmac) {
         verifyData = hmac;
-        serialize();
+        raw = serialize(hmac);
     }
 
-    public FinishedMessage() {
+    private FinishedMessage(byte[] verifyData, byte[] raw) {
+        this.verifyData = verifyData;
+        this.raw = raw;
     }
 
     @Override
@@ -45,25 +47,31 @@ public class FinishedMessage extends HandshakeMessage {
         return TlsConstants.HandshakeType.finished;
     }
 
-    public FinishedMessage parse(ByteBuffer buffer, int length) throws DecodeErrorException {
+    /**
+     * Parses a finished message from a byte stream.
+     * @param buffer
+     * @param length  the length of the message (including the handshake header)
+     * @throws DecodeErrorException
+     */
+    public static FinishedMessage parse(ByteBuffer buffer, int length) throws DecodeErrorException {
         Logger.debug("Got Finished message (" + length + " bytes)");
         buffer.mark();
         int remainingLength = parseHandshakeHeader(buffer, TlsConstants.HandshakeType.finished, 4 + 32);
-        verifyData = new byte[remainingLength];
+        byte[] verifyData = new byte[remainingLength];
         buffer.get(verifyData);
 
         buffer.reset();
-        raw = new byte[length];
+        byte[] raw = new byte[length];
         buffer.get(raw);
 
-        return this;
+        return new FinishedMessage(verifyData, raw);
     }
 
-    private void serialize() {
+    private static byte[] serialize(byte[] verifyData) {
         ByteBuffer buffer = ByteBuffer.allocate(4 + verifyData.length);
         buffer.putInt((TlsConstants.HandshakeType.finished.value << 24) | verifyData.length);
         buffer.put(verifyData);
-        raw = buffer.array();
+        return buffer.array();
     }
 
     @Override
