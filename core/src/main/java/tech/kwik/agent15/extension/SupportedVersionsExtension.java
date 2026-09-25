@@ -30,7 +30,7 @@ import static tech.kwik.agent15.extension.ExtensionBlockParser.parseExtensionHea
  * The TLS supported versions extension.
  * See https://tools.ietf.org/html/rfc8446#section-4.2.1
  */
-public class SupportedVersionsExtension extends Extension {
+public class SupportedVersionsExtension implements Extension {
 
     private final TlsConstants.HandshakeType handshakeType;
     private short tlsVersion;

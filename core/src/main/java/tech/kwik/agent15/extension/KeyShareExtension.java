@@ -34,7 +34,7 @@ import static tech.kwik.agent15.extension.ExtensionBlockParser.parseExtensionHea
  * The TLS "key_share" extension contains the endpoint's cryptographic parameters.
  * See https://tools.ietf.org/html/rfc8446#section-4.2.8
  */
-public class KeyShareExtension extends Extension {
+public class KeyShareExtension implements Extension {
 
     private TlsConstants.HandshakeType handshakeType;
     private boolean helloRetryRequestType;

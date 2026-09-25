@@ -22,5 +22,5 @@ package tech.kwik.agent15.extension;
  * TLS Pre-Shared Key extension.
  * see https://datatracker.ietf.org/doc/html/rfc8446#section-4.2.11
  */
-public abstract class PreSharedKeyExtension extends Extension {
+public abstract class PreSharedKeyExtension implements Extension {
 }

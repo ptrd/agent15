@@ -31,7 +31,7 @@ import static tech.kwik.agent15.extension.ExtensionBlockParser.parseExtensionHea
  * TLS server name extension: RFC 6066
  * https://tools.ietf.org/html/rfc6066#section-3
  */
-public class ServerNameExtension extends Extension {
+public class ServerNameExtension implements Extension {
 
     private String serverName;
 

@@ -1845,7 +1845,7 @@ class TlsClientEngineTest {
         };
     }
 
-    static class DummyExtension extends Extension {
+    static class DummyExtension implements Extension {
 
         @Override
         public int getType() {

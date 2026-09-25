@@ -31,7 +31,7 @@ import static tech.kwik.agent15.extension.ExtensionBlockParser.parseExtensionHea
 /**
  * https://tools.ietf.org/html/rfc8446#section-4.2.4
  */
-public class CertificateAuthoritiesExtension extends Extension {
+public class CertificateAuthoritiesExtension implements Extension {
 
     private final List<X500Principal> authorities = new ArrayList<>();
 

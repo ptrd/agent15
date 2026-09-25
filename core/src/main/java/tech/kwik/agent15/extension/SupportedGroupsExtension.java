@@ -32,7 +32,7 @@ import static tech.kwik.agent15.extension.ExtensionBlockParser.parseExtensionHea
  * The TLS supported groups extension.
  * See https://tools.ietf.org/html/rfc8446#section-4.2.7
  */
-public class SupportedGroupsExtension extends Extension {
+public class SupportedGroupsExtension implements Extension {
 
     private final List<TlsConstants.NamedGroup> namedGroups = new ArrayList<>();
 

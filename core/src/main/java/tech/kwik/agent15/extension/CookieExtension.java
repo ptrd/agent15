@@ -41,7 +41,7 @@ import static tech.kwik.agent15.extension.ExtensionBlockParser.parseExtensionHea
  *
  * @see <a href="https://datatracker.ietf.org/doc/html/rfc8446#section-4.2.2">RFC 8446 §4.2.2</a>
  */
-public class CookieExtension extends Extension {
+public class CookieExtension implements Extension {
 
     private final byte[] cookie;
 

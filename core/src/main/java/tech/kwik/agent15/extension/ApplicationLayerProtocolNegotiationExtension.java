@@ -28,7 +28,7 @@ import java.util.List;
 
 import static tech.kwik.agent15.extension.ExtensionBlockParser.parseExtensionHeader;
 
-public class ApplicationLayerProtocolNegotiationExtension extends Extension {
+public class ApplicationLayerProtocolNegotiationExtension implements Extension {
 
     private final List<String> protocols;
 

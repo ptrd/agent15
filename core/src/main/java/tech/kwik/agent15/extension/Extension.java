@@ -22,12 +22,16 @@ package tech.kwik.agent15.extension;
  * A TLS Extension.
  * See https://tools.ietf.org/html/rfc8446#section-4.2
  */
-public abstract class Extension {
+public interface Extension {
 
     /**
      * @return the extension type, as defined in https://www.rfc-editor.org/rfc/rfc8446.html#section-4.2
      */
-    public abstract int getType();
+    int getType();
 
-    public abstract byte[] getBytes();
+    /**
+     * Serializes the extension to a byte array, including the extension type and length.
+     * @return
+     */
+    byte[] getBytes();
 }

@@ -29,7 +29,7 @@ import static tech.kwik.agent15.extension.ExtensionBlockParser.parseExtensionHea
  * TLS Early Data Indication extension.
  * See https://tools.ietf.org/html/rfc8446#section-4.2.10
  */
-public class EarlyDataExtension extends Extension {
+public class EarlyDataExtension implements Extension {
 
     private Long maxEarlyDataSize;
 

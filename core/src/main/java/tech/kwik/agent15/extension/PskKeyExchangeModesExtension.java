@@ -32,7 +32,7 @@ import static tech.kwik.agent15.extension.ExtensionBlockParser.parseExtensionHea
  * TLS Pre-Shared Key Exchange Modes extension.
  * See https://tools.ietf.org/html/rfc8446#section-4.2.9
  */
-public class PskKeyExchangeModesExtension extends Extension {
+public class PskKeyExchangeModesExtension implements Extension {
 
     private final List<TlsConstants.PskKeyExchangeMode> keyExchangeModes = new ArrayList<>();
 

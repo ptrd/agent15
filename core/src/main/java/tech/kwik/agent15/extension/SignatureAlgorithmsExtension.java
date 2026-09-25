@@ -35,7 +35,7 @@ import static tech.kwik.agent15.extension.ExtensionBlockParser.parseExtensionHea
  * "Note: This enum is named "SignatureScheme" because there is already a "SignatureAlgorithm" type in TLS 1.2,
  * which this replaces.  We use the term "signature algorithm" throughout the text."
  */
-public class SignatureAlgorithmsExtension extends Extension {
+public class SignatureAlgorithmsExtension implements Extension {
 
     private List<TlsConstants.SignatureScheme> algorithms = new ArrayList<>();
 

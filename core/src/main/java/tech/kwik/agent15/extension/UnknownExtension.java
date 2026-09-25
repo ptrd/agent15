@@ -22,7 +22,7 @@ import tech.kwik.agent15.alert.DecodeErrorException;
 
 import java.nio.ByteBuffer;
 
-public class UnknownExtension extends Extension {
+public class UnknownExtension implements Extension {
 
     private byte[] data;
     private int type;
