@@ -297,7 +297,7 @@ public class TlsClientEngineImpl extends TlsEngineImpl implements TlsClientEngin
 
         // https://www.rfc-editor.org/rfc/rfc8446.html#section-4.2
         // "There MUST NOT be more than one extension of the same type in a given extension block."
-        HandshakeMessage.checkForDuplicateExtensions(helloRetryRequest.getExtensions());
+        ExtensionBlockParser.checkForDuplicateExtensions(helloRetryRequest.getExtensions());
 
         // https://datatracker.ietf.org/doc/html/rfc8446#section-4.1.4
         // "(...) and then process the extensions, starting with determining the version using "supported_versions"."
@@ -500,7 +500,7 @@ public class TlsClientEngineImpl extends TlsEngineImpl implements TlsClientEngin
 
         // https://www.rfc-editor.org/rfc/rfc8446.html#section-4.2
         // "There MUST NOT be more than one extension of the same type in a given extension block."
-        HandshakeMessage.checkForDuplicateExtensions(serverHello.getExtensions());
+        ExtensionBlockParser.checkForDuplicateExtensions(serverHello.getExtensions());
 
         boolean containsSupportedVersionExt = serverHello.getExtensions().stream().anyMatch(ext -> ext instanceof SupportedVersionsExtension);
         boolean containsKeyExt = serverHello.getExtensions().stream().anyMatch(ext -> ext instanceof PreSharedKeyExtension || ext instanceof KeyShareExtension);
@@ -676,7 +676,7 @@ public class TlsClientEngineImpl extends TlsEngineImpl implements TlsClientEngin
 
         // https://www.rfc-editor.org/rfc/rfc8446.html#section-4.2
         // "There MUST NOT be more than one extension of the same type in a given extension block."
-        HandshakeMessage.checkForDuplicateExtensions(encryptedExtensions.getExtensions());
+        ExtensionBlockParser.checkForDuplicateExtensions(encryptedExtensions.getExtensions());
 
         transcriptHash.record(encryptedExtensions);
         status = pskAccepted? Status.WaitFinished: Status.WaitCertificateRequest;
@@ -833,7 +833,7 @@ public class TlsClientEngineImpl extends TlsEngineImpl implements TlsClientEngin
 
         // https://www.rfc-editor.org/rfc/rfc8446.html#section-4.2
         // "There MUST NOT be more than one extension of the same type in a given extension block."
-        HandshakeMessage.checkForDuplicateExtensions(certificateRequestMessage.getExtensions());
+        ExtensionBlockParser.checkForDuplicateExtensions(certificateRequestMessage.getExtensions());
 
         serverSupportedSignatureSchemes = certificateRequestMessage.getExtensions().stream()
                 .filter(extension -> extension instanceof SignatureAlgorithmsExtension)

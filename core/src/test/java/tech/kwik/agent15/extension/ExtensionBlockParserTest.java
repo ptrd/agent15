@@ -16,12 +16,10 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-package tech.kwik.agent15.handshake;
+package tech.kwik.agent15.extension;
 
 import tech.kwik.agent15.TlsConstants;
 import tech.kwik.agent15.alert.IllegalParameterAlert;
-import tech.kwik.agent15.extension.Extension;
-import tech.kwik.agent15.extension.UnknownExtension;
 import tech.kwik.agent15.util.ByteUtils;
 import org.junit.jupiter.api.Test;
 
@@ -33,14 +31,14 @@ import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 
-class HandshakeMessageTest {
+class ExtensionBlockParserTest {
 
     @Test
     void parsingPreSharedKeyExtensionInEncryptedExtensionsShouldAbortHandshake() {
         byte[] rawData = ByteUtils.hexToBytes("0006 0029 0002 0000");
 
         assertThatThrownBy(() ->
-                HandshakeMessage.parseExtensions(ByteBuffer.wrap(rawData), TlsConstants.HandshakeType.encrypted_extensions)
+                ExtensionBlockParser.parseExtensionBlock(ByteBuffer.wrap(rawData), TlsConstants.HandshakeType.encrypted_extensions)
         )
                 .isInstanceOf(IllegalParameterAlert.class)
                 .hasMessageContaining("Extension not allowed")
@@ -52,7 +50,7 @@ class HandshakeMessageTest {
         // ...                                 size
         byte[] rawData = ByteUtils.hexToBytes("0006 0029 0002 0000 cafebabe");
 
-        assertThat(HandshakeMessage.findPositionLastExtension(ByteBuffer.wrap(rawData))).isEqualTo(2);
+        assertThat(ExtensionBlockParser.findPositionLastExtension(ByteBuffer.wrap(rawData))).isEqualTo(2);
     }
 
     @Test
@@ -60,7 +58,7 @@ class HandshakeMessageTest {
         // ...                                 size 18 bytes                             24 bytes                                         6 bytes      not part of extensions
         byte[] rawData = ByteUtils.hexToBytes("0030 0000000e000c0000096c6f63616c686f7374 000d00140012040308040401050308050501080606010201 002900020000 cafebabe");
 
-        assertThat(HandshakeMessage.findPositionLastExtension(ByteBuffer.wrap(rawData))).isEqualTo(44);
+        assertThat(ExtensionBlockParser.findPositionLastExtension(ByteBuffer.wrap(rawData))).isEqualTo(44);
     }
 
     @Test
@@ -69,7 +67,7 @@ class HandshakeMessageTest {
         UnknownExtension ext1 = new UnknownExtension().parse(ByteBuffer.wrap(ByteUtils.hexToBytes("00ff 0002 0000")));
         UnknownExtension ext2 = new UnknownExtension().parse(ByteBuffer.wrap(ByteUtils.hexToBytes("00fe 0002 0000")));
 
-        assertThatCode(() -> HandshakeMessage.checkForDuplicateExtensions(List.of(ext1, ext2)))
+        assertThatCode(() -> ExtensionBlockParser.checkForDuplicateExtensions(List.of(ext1, ext2)))
                 .doesNotThrowAnyException();
     }
 
@@ -79,6 +77,6 @@ class HandshakeMessageTest {
         byte[] rawData = new byte[6 + 32768];
         System.arraycopy(ByteUtils.hexToBytes("0006 0029 8000"), 0, rawData, 0, 6);
 
-        assertThat(HandshakeMessage.findPositionLastExtension(ByteBuffer.wrap(rawData))).isEqualTo(2);
+        assertThat(ExtensionBlockParser.findPositionLastExtension(ByteBuffer.wrap(rawData))).isEqualTo(2);
     }
 }

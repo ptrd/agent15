@@ -121,7 +121,7 @@ public class TlsServerEngineImpl extends TlsEngineImpl implements TlsServerEngin
 
         // https://www.rfc-editor.org/rfc/rfc8446.html#section-4.2
         // "There MUST NOT be more than one extension of the same type in a given extension block."
-        HandshakeMessage.checkForDuplicateExtensions(clientHello.getExtensions());
+        ExtensionBlockParser.checkForDuplicateExtensions(clientHello.getExtensions());
 
         checkSupportedVersions(clientHello);
 

@@ -24,10 +24,13 @@ import tech.kwik.agent15.alert.DecodeErrorException;
 import tech.kwik.agent15.alert.IllegalParameterAlert;
 import tech.kwik.agent15.extension.EarlyDataExtension;
 import tech.kwik.agent15.extension.Extension;
+import tech.kwik.agent15.extension.ExtensionBlockParser;
 import tech.kwik.agent15.extension.UnknownExtension;
 
 import java.nio.ByteBuffer;
 import java.util.List;
+
+import static tech.kwik.agent15.extension.ExtensionBlockParser.parseExtensionBlock;
 
 /**
  * https://tools.ietf.org/html/rfc8446#section-4.6.1
@@ -86,7 +89,7 @@ public class NewSessionTicketMessage extends HandshakeMessage {
         byte[] ticket = parseByteVector(buffer, 2, remainingLength, "ticket");
 
         EarlyDataExtension earlyDataExtension = null;
-        List<Extension> extensions = EncryptedExtensions.parseExtensions(buffer, TlsConstants.HandshakeType.new_session_ticket);
+        List<Extension> extensions = parseExtensionBlock(buffer, TlsConstants.HandshakeType.new_session_ticket);
         for (Extension extension: extensions) {
             if (extension instanceof EarlyDataExtension) {
                 if (earlyDataExtension == null) {

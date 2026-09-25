@@ -33,6 +33,9 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import static tech.kwik.agent15.extension.ExtensionBlockParser.findPositionLastExtension;
+import static tech.kwik.agent15.extension.ExtensionBlockParser.parseExtensionBlock;
+
 
 /**
  * https://datatracker.ietf.org/doc/html/rfc8446#section-4.1.2
@@ -275,7 +278,7 @@ public class ClientHello extends HandshakeMessage {
         }
 
         int extensionStart = buffer.position();
-        List<Extension> extensions = parseExtensions(buffer, TlsConstants.HandshakeType.client_hello, customExtensionParser);
+        List<Extension> extensions = parseExtensionBlock(buffer, TlsConstants.HandshakeType.client_hello, customExtensionParser);
         int pskExtensionStartPosition;
         if (extensions.stream().anyMatch(ext -> ext instanceof PreSharedKeyExtension)) {
             buffer.position(extensionStart);

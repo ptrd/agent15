@@ -23,13 +23,15 @@ import tech.kwik.agent15.TlsProtocolException;
 import tech.kwik.agent15.alert.DecodeErrorException;
 import tech.kwik.agent15.alert.IllegalParameterAlert;
 import tech.kwik.agent15.extension.Extension;
-import tech.kwik.agent15.log.Logger;
+import tech.kwik.agent15.extension.ExtensionBlockParser;
 
 import java.nio.ByteBuffer;
 import java.security.SecureRandom;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+
+import static tech.kwik.agent15.extension.ExtensionBlockParser.parseExtensionBlock;
 
 /**
  * https://datatracker.ietf.org/doc/html/rfc8446#section-4.1.3
@@ -132,7 +134,7 @@ public class ServerHello extends HandshakeMessage {
             throw new DecodeErrorException("Legacy compression method must have the value 0");
         }
 
-        List<Extension> extensions = parseExtensions(buffer, TlsConstants.HandshakeType.server_hello, null, isHelloRetryRequest);
+        List<Extension> extensions = parseExtensionBlock(buffer, TlsConstants.HandshakeType.server_hello, null, isHelloRetryRequest);
 
         byte[] raw = new byte[length];
         buffer.position(startPosition);

@@ -22,9 +22,12 @@ import tech.kwik.agent15.TlsConstants;
 import tech.kwik.agent15.TlsProtocolException;
 import tech.kwik.agent15.alert.DecodeErrorException;
 import tech.kwik.agent15.extension.Extension;
+import tech.kwik.agent15.extension.ExtensionBlockParser;
 
 import java.nio.ByteBuffer;
 import java.util.List;
+
+import static tech.kwik.agent15.extension.ExtensionBlockParser.parseExtensionBlock;
 
 // https://tools.ietf.org/html/rfc8446#section-4.3.2
 public class CertificateRequestMessage extends HandshakeMessage {
@@ -66,7 +69,7 @@ public class CertificateRequestMessage extends HandshakeMessage {
             buffer.get(certificateRequestContext);
         }
 
-        List<Extension> extensions = parseExtensions(buffer, TlsConstants.HandshakeType.certificate_request, null);
+        List<Extension> extensions = parseExtensionBlock(buffer, TlsConstants.HandshakeType.certificate_request, null);
 
         if (buffer.position() - (startPosition + 4) != remainingLength) {
             throw new DecodeErrorException("inconsistent length");

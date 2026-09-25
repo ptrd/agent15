@@ -23,11 +23,14 @@ import tech.kwik.agent15.TlsConstants;
 import tech.kwik.agent15.TlsProtocolException;
 import tech.kwik.agent15.alert.DecodeErrorException;
 import tech.kwik.agent15.extension.Extension;
+import tech.kwik.agent15.extension.ExtensionBlockParser;
 
 import java.nio.ByteBuffer;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
+
+import static tech.kwik.agent15.extension.ExtensionBlockParser.parseExtensionBlock;
 
 /**
  * https://tools.ietf.org/html/rfc8446#section-4.3.1
@@ -98,7 +101,7 @@ public class EncryptedExtensions extends HandshakeMessage {
             throw new DecodeErrorException("Incorrect message length");
         }
 
-        List<Extension> extensions = parseExtensions(buffer, TlsConstants.HandshakeType.encrypted_extensions, customExtensionParser);
+        List<Extension> extensions = parseExtensionBlock(buffer, TlsConstants.HandshakeType.encrypted_extensions, customExtensionParser);
 
         // Raw bytes are needed for computing the transcript hash
         buffer.position(start);
