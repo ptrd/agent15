@@ -159,7 +159,7 @@ public class ExtensionBlockParser {
             else {
                 Extension extension = null;
                 if (customExtensionParser != null) {
-                    extension = customExtensionParser.apply(buffer, context);
+                    extension = customExtensionParser.parse(buffer, context);
                 }
                 if (extension != null) {
                     extensions.add(extension);

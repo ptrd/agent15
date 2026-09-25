@@ -23,10 +23,31 @@ import tech.kwik.agent15.TlsProtocolException;
 
 import java.nio.ByteBuffer;
 
-
+/**
+ * A functional interface for parsing (custom) TLS extensions from a byte stream.
+ */
 @FunctionalInterface
 public interface ExtensionParser {
 
+    /**
+     * @deprecated Use {@link #parse(ByteBuffer, TlsConstants.HandshakeType)} instead.
+     * @param byteBuffer
+     * @param handshakeType
+     * @return
+     * @throws TlsProtocolException
+     */
+    @Deprecated(forRemoval = true)
     Extension apply(ByteBuffer byteBuffer, TlsConstants.HandshakeType handshakeType) throws TlsProtocolException;
+
+    /**
+     * Parses an extension from a byte stream.
+     * @param byteBuffer     the byte stream containing the extension data
+     * @param handshakeType  the handshake type of the message that contains this extension
+     * @return  the parsed extension
+     * @throws TlsProtocolException
+     */
+    default Extension parse(ByteBuffer byteBuffer, TlsConstants.HandshakeType handshakeType) throws TlsProtocolException {
+        return apply(byteBuffer, handshakeType);
+    }
 }
 
