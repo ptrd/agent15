@@ -39,10 +39,9 @@ public class ClientHelloPreSharedKeyExtension extends PreSharedKeyExtension {
 
     private static int MINIMUM_EXTENSION_DATA_SIZE = 2 +   2 + 1 + 4 +   2 + 1 + 32;
 
-    private List<PskIdentity> identities;
-    private List<PskBinderEntry> binders;
+    private final List<PskIdentity> identities;
+    private final List<PskBinderEntry> binders;
     private int binderPosition;
-    private byte[] binder;
 
 
     public ClientHelloPreSharedKeyExtension(NewSessionTicket newSessionTicket) {
@@ -55,14 +54,22 @@ public class ClientHelloPreSharedKeyExtension extends PreSharedKeyExtension {
         binders.add(new PskBinderEntry(new byte[TlsEngineImpl.hashLength(newSessionTicket.getCipher())]));
     }
 
-    public ClientHelloPreSharedKeyExtension() {
+    private ClientHelloPreSharedKeyExtension(List<PskIdentity> identities, List<PskBinderEntry> binders, int binderPosition) {
+        this.identities = identities;
+        this.binders = binders;
+        this.binderPosition = binderPosition;
     }
 
-    public ClientHelloPreSharedKeyExtension parse(ByteBuffer buffer) throws DecodeErrorException {
+    /**
+     * Parses a pre-shared key extension (ClientHello variant) from a byte stream.
+     * @param buffer
+     * @throws DecodeErrorException
+     */
+    public static ClientHelloPreSharedKeyExtension parse(ByteBuffer buffer) throws DecodeErrorException {
         int startPosition = buffer.position();
         int extensionDataLength = parseExtensionHeader(buffer, TlsConstants.ExtensionType.pre_shared_key, MINIMUM_EXTENSION_DATA_SIZE);
 
-        identities = new ArrayList<>();
+        List<PskIdentity> identities = new ArrayList<>();
         int remainingIdentitiesLength = buffer.getShort() & 0xffff;
         int remaining = extensionDataLength - 2;
         while (remainingIdentitiesLength > 0) {
@@ -89,8 +96,8 @@ public class ClientHelloPreSharedKeyExtension extends PreSharedKeyExtension {
             throw new DecodeErrorException("Incorrect identities length value");
         }
 
-        binderPosition = buffer.position() - startPosition;
-        binders = new ArrayList<>();
+        int binderPosition = buffer.position() - startPosition;
+        List<PskBinderEntry> binders = new ArrayList<>();
         if (remaining < 2) {
             throw new DecodeErrorException("Incomplete binders");
         }
@@ -126,7 +133,8 @@ public class ClientHelloPreSharedKeyExtension extends PreSharedKeyExtension {
         if (identities.size() == 0) {
             throw new DecodeErrorException("Empty OfferedPsks");
         }
-        return this;
+
+        return new ClientHelloPreSharedKeyExtension(identities, binders, binderPosition);
     }
 
     @Override

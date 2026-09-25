@@ -33,7 +33,7 @@ class ServerPreSharedKeyExtensionTest {
     @Test
     void testParseValidExtension() throws Exception {
         byte[] data = ByteUtils.hexToBytes("0029 0002 0007");
-        ServerPreSharedKeyExtension extension = new ServerPreSharedKeyExtension().parse(ByteBuffer.wrap(data));
+        ServerPreSharedKeyExtension extension = ServerPreSharedKeyExtension.parse(ByteBuffer.wrap(data));
 
         assertThat(extension.getSelectedIdentity()).isEqualTo(7);
     }
@@ -42,14 +42,14 @@ class ServerPreSharedKeyExtensionTest {
     void parsingExtensionWithInvalidLengthFieldShouldThrow() {
         byte[] data = ByteUtils.hexToBytes("0029 0000 0007");
         assertThatThrownBy(
-                () -> new ServerPreSharedKeyExtension().parse(ByteBuffer.wrap(data))
+                () -> ServerPreSharedKeyExtension.parse(ByteBuffer.wrap(data))
         ).isInstanceOf(DecodeErrorException.class);
     }
 
     @Test
     void parseSerializedMessage() throws DecodeErrorException {
         byte[] data = new ServerPreSharedKeyExtension(89).getBytes();
-        ServerPreSharedKeyExtension extension = new ServerPreSharedKeyExtension().parse(ByteBuffer.wrap(data));
+        ServerPreSharedKeyExtension extension = ServerPreSharedKeyExtension.parse(ByteBuffer.wrap(data));
 
         assertThat(extension.getSelectedIdentity()).isEqualTo(89);
     }

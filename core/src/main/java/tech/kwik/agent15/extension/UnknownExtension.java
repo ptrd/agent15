@@ -24,25 +24,35 @@ import java.nio.ByteBuffer;
 
 public class UnknownExtension implements Extension {
 
-    private byte[] data;
-    private int type;
+    private final int type;
+    private final byte[] data;
 
-    public UnknownExtension parse(ByteBuffer buffer) throws DecodeErrorException {
+    private UnknownExtension(int type, byte[] data) {
+        this.type = type;
+        this.data = data;
+    }
+
+    /**
+     * Parses an extension that is not known to this implementation from a byte stream.
+     * @param buffer
+     * @throws DecodeErrorException
+     */
+    public static UnknownExtension parse(ByteBuffer buffer) throws DecodeErrorException {
         if (buffer.remaining() < 4) {
             throw new DecodeErrorException("Extension must be at least 4 bytes long");
         }
 
         buffer.mark();
-        type = buffer.getShort() & 0xffff;
+        int type = buffer.getShort() & 0xffff;
         int length = buffer.getShort() & 0xffff;
         if (buffer.remaining() < length) {
             throw new DecodeErrorException("Invalid extension length");
         }
         buffer.reset();
-        data = new byte[4 + length];
+        byte[] data = new byte[4 + length];
         buffer.get(data);
 
-        return this;
+        return new UnknownExtension(type, data);
     }
 
     public byte[] getData() {

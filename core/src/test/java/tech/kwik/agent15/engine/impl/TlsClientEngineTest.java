@@ -123,7 +123,7 @@ class TlsClientEngineTest {
     void serverHelloShouldContainSupportedVersionExtension() throws Exception {
         // Given
         engine.startHandshake();
-        ServerHello serverHello = new ServerHello(engineCipher, List.of(new ServerPreSharedKeyExtension()));
+        ServerHello serverHello = new ServerHello(engineCipher, List.of(new ServerPreSharedKeyExtension(0)));
 
         assertThatThrownBy(() ->
                 // When
@@ -138,7 +138,7 @@ class TlsClientEngineTest {
         engine.startHandshake();
         SupportedVersionsExtension supportedVersionsExtension = new SupportedVersionsExtension(TlsConstants.HandshakeType.server_hello);
         FieldSetter.setField(supportedVersionsExtension, supportedVersionsExtension.getClass().getDeclaredField("tlsVersion"), (short) 0x0303);
-        ServerHello serverHello = new ServerHello(engineCipher, List.of(new ServerPreSharedKeyExtension(), supportedVersionsExtension));
+        ServerHello serverHello = new ServerHello(engineCipher, List.of(new ServerPreSharedKeyExtension(0), supportedVersionsExtension));
 
         assertThatThrownBy(() ->
                 // When
@@ -222,7 +222,7 @@ class TlsClientEngineTest {
         ServerHello serverHello = new ServerHello(engineCipher, List.of(
                 new SupportedVersionsExtension(TlsConstants.HandshakeType.server_hello),
                 mandatoryKeyShareExtension,
-                new UnknownExtension()));
+                UnknownExtension.parse(ByteBuffer.wrap(ByteUtils.hexToBytes("f0f0 0000")))));
 
         assertThatCode(() ->
                 // When
@@ -482,7 +482,7 @@ class TlsClientEngineTest {
                 // When: an extension the client did not offer (and that is not the cookie extension)
                 engine.received(new HelloRetryRequest(engineCipher, EMPTY_SESSION_ID,
                         List.of(mandatorySupportedVersionExtension, new KeyShareExtension(x25519),
-                                new UnknownExtension().parse(ByteBuffer.wrap(ByteUtils.hexToBytes("f0f000020000"))))),
+                                UnknownExtension.parse(ByteBuffer.wrap(ByteUtils.hexToBytes("f0f000020000"))))),
                         ProtectionKeysType.None))
                 // Then
                 .isInstanceOf(UnsupportedExtensionAlert.class);

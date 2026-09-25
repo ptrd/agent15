@@ -34,7 +34,7 @@ class EarlyDataExtensionTest {
     @Test
     void testNewSessionTicketMessageEarlyDataExtension() throws Exception {
         byte[] data = ByteUtils.hexToBytes("002a 0004 8000 0000");
-        var extension = new EarlyDataExtension(ByteBuffer.wrap(data), TlsConstants.HandshakeType.new_session_ticket);
+        var extension = EarlyDataExtension.parse(ByteBuffer.wrap(data), TlsConstants.HandshakeType.new_session_ticket);
 
         assertThat(extension.getMaxEarlyDataSize()).isEqualTo(2147483648L);
     }
@@ -42,7 +42,7 @@ class EarlyDataExtensionTest {
     @Test
     void clientHelloEarlyDataExtensionShouldByEmpty() throws Exception {
         assertThatThrownBy(() ->
-                new EarlyDataExtension(ByteBuffer.wrap(ByteUtils.hexToBytes("002a 0004 0000")), TlsConstants.HandshakeType.client_hello)
+                EarlyDataExtension.parse(ByteBuffer.wrap(ByteUtils.hexToBytes("002a 0004 0000")), TlsConstants.HandshakeType.client_hello)
         ).isInstanceOf(DecodeErrorException.class);
     }
 

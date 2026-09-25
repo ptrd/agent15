@@ -37,7 +37,7 @@ import static tech.kwik.agent15.extension.ExtensionBlockParser.parseExtensionHea
  */
 public class SignatureAlgorithmsExtension implements Extension {
 
-    private List<TlsConstants.SignatureScheme> algorithms = new ArrayList<>();
+    private final List<TlsConstants.SignatureScheme> algorithms;
 
     public SignatureAlgorithmsExtension() {
         algorithms = Collections.emptyList();
@@ -51,7 +51,12 @@ public class SignatureAlgorithmsExtension implements Extension {
         this.algorithms = List.of(signatureAlgorithms);
     }
 
-    public SignatureAlgorithmsExtension(ByteBuffer buffer) throws DecodeErrorException {
+    /**
+     * Parses a signature algorithms extension from a byte stream.
+     * @param buffer
+     * @throws DecodeErrorException
+     */
+    public static SignatureAlgorithmsExtension parse(ByteBuffer buffer) throws DecodeErrorException {
         int extensionDataLength = parseExtensionHeader(buffer, TlsConstants.ExtensionType.signature_algorithms, 2 + 2);
         int supportedAlgorithmsLength = buffer.getShort() & 0xffff;
         if (extensionDataLength != 2 + supportedAlgorithmsLength) {
@@ -61,10 +66,13 @@ public class SignatureAlgorithmsExtension implements Extension {
             throw new DecodeErrorException("invalid group length");
         }
 
+        List<TlsConstants.SignatureScheme> algorithms = new ArrayList<>();
         for (int i = 0; i < supportedAlgorithmsLength; i += 2) {
             int supportedAlgorithmBytes = buffer.getShort() & 0xffff;
             decodeSignatureScheme(supportedAlgorithmBytes).ifPresent(algorithm -> algorithms.add(algorithm));
         }
+
+        return new SignatureAlgorithmsExtension(algorithms);
     }
 
     @Override

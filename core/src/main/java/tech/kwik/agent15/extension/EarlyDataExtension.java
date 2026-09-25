@@ -31,22 +31,29 @@ import static tech.kwik.agent15.extension.ExtensionBlockParser.parseExtensionHea
  */
 public class EarlyDataExtension implements Extension {
 
-    private Long maxEarlyDataSize;
+    private final Long maxEarlyDataSize;
 
     public EarlyDataExtension() {
+        maxEarlyDataSize = null;
     }
 
     public EarlyDataExtension(long maxEarlyDataSize) {
         this.maxEarlyDataSize = maxEarlyDataSize;
     }
 
-    public EarlyDataExtension(ByteBuffer buffer, TlsConstants.HandshakeType context) throws DecodeErrorException {
+    /**
+     * Parses an early data extension from a byte stream.
+     * @param buffer
+     * @param context  indicates in which handshake message the extension occurs
+     * @throws DecodeErrorException
+     */
+    public static EarlyDataExtension parse(ByteBuffer buffer, TlsConstants.HandshakeType context) throws DecodeErrorException {
         int extensionDataLength = parseExtensionHeader(buffer, TlsConstants.ExtensionType.early_data, 0);
 
         // Only when used in New Session Ticket (message), the EarlyDataIndication value is non-empty.
         if (context == TlsConstants.HandshakeType.new_session_ticket) {
             if (extensionDataLength == 4) {
-                maxEarlyDataSize = buffer.getInt() & 0xffffffffL;
+                return new EarlyDataExtension(buffer.getInt() & 0xffffffffL);
             }
             else {
                 throw new DecodeErrorException("invalid extension data length");
@@ -55,6 +62,8 @@ public class EarlyDataExtension implements Extension {
         else if (extensionDataLength != 0) {
             throw new DecodeErrorException("invalid extension data length");
         }
+
+        return new EarlyDataExtension();
     }
 
     @Override

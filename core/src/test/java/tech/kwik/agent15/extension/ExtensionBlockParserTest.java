@@ -64,8 +64,8 @@ class ExtensionBlockParserTest {
     @Test
     void twoDifferentUnknownExtensionsShouldPassDuplicateCheck() throws Exception {
         // Two unknown extensions with different type values (0x00ff and 0x00fe), each with 2 bytes of data
-        UnknownExtension ext1 = new UnknownExtension().parse(ByteBuffer.wrap(ByteUtils.hexToBytes("00ff 0002 0000")));
-        UnknownExtension ext2 = new UnknownExtension().parse(ByteBuffer.wrap(ByteUtils.hexToBytes("00fe 0002 0000")));
+        UnknownExtension ext1 = UnknownExtension.parse(ByteBuffer.wrap(ByteUtils.hexToBytes("00ff 0002 0000")));
+        UnknownExtension ext2 = UnknownExtension.parse(ByteBuffer.wrap(ByteUtils.hexToBytes("00fe 0002 0000")));
 
         assertThatCode(() -> ExtensionBlockParser.checkForDuplicateExtensions(List.of(ext1, ext2)))
                 .doesNotThrowAnyException();

@@ -31,19 +31,20 @@ import static tech.kwik.agent15.extension.ExtensionBlockParser.parseExtensionHea
  */
 public class ServerPreSharedKeyExtension extends PreSharedKeyExtension {
 
-    private int selectedIdentity;
+    private final int selectedIdentity;
 
     public ServerPreSharedKeyExtension(int selectedIdentity) {
         this.selectedIdentity = selectedIdentity;
     }
 
-    public ServerPreSharedKeyExtension() {
-    }
-
-    public ServerPreSharedKeyExtension parse(ByteBuffer buffer) throws DecodeErrorException {
+    /**
+     * Parses a pre-shared key extension (ServerHello variant) from a byte stream.
+     * @param buffer
+     * @throws DecodeErrorException
+     */
+    public static ServerPreSharedKeyExtension parse(ByteBuffer buffer) throws DecodeErrorException {
         parseExtensionHeader(buffer, TlsConstants.ExtensionType.pre_shared_key, 2);
-        selectedIdentity = buffer.getShort();
-        return this;
+        return new ServerPreSharedKeyExtension(buffer.getShort());
     }
 
     @Override

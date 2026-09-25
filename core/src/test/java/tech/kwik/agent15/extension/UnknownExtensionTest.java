@@ -32,7 +32,7 @@ class UnknownExtensionTest {
     @Test
     void parseLargeUnknownExtension() throws Exception {
         assertThatThrownBy(() ->
-                new UnknownExtension().parse(ByteBuffer.wrap(ByteUtils.hexToBytes("00ba 8000")))
+                UnknownExtension.parse(ByteBuffer.wrap(ByteUtils.hexToBytes("00ba 8000")))
         ).isInstanceOf(DecodeErrorException.class);
     }
 }

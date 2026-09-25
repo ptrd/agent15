@@ -37,7 +37,7 @@ class SupportedGroupsExtensionTest {
     void testParseSingleGroup() throws Exception {
         ByteBuffer buffer = ByteBuffer.wrap(ByteUtils.hexToBytes("000a000400020017"));
 
-        SupportedGroupsExtension supportedGroupsExtension = new SupportedGroupsExtension(buffer);
+        SupportedGroupsExtension supportedGroupsExtension = SupportedGroupsExtension.parse(buffer);
 
         assertThat(supportedGroupsExtension.getNamedGroups()).contains(TlsConstants.NamedGroup.secp256r1);
     }
@@ -46,7 +46,7 @@ class SupportedGroupsExtensionTest {
     void testParseMultipleGroups() throws Exception {
         ByteBuffer buffer = ByteBuffer.wrap(ByteUtils.hexToBytes("000a000800060017001d0100"));
 
-        SupportedGroupsExtension supportedGroupsExtension = new SupportedGroupsExtension(buffer);
+        SupportedGroupsExtension supportedGroupsExtension = SupportedGroupsExtension.parse(buffer);
 
         assertThat(supportedGroupsExtension.getNamedGroups())
                 .contains(TlsConstants.NamedGroup.secp256r1, TlsConstants.NamedGroup.x25519, TlsConstants.NamedGroup.ffdhe2048);
@@ -56,7 +56,7 @@ class SupportedGroupsExtensionTest {
     void testSerializeSingleGroup() throws Exception {
         ByteBuffer buffer = ByteBuffer.wrap(new SupportedGroupsExtension(TlsConstants.NamedGroup.secp384r1).getBytes());
 
-        SupportedGroupsExtension supportedGroupsExtension = new SupportedGroupsExtension(buffer);
+        SupportedGroupsExtension supportedGroupsExtension = SupportedGroupsExtension.parse(buffer);
 
         assertThat(supportedGroupsExtension.getNamedGroups()).contains(TlsConstants.NamedGroup.secp384r1);
     }
@@ -66,7 +66,7 @@ class SupportedGroupsExtensionTest {
         ByteBuffer buffer = ByteBuffer.wrap(new SupportedGroupsExtension(
                 List.of(TlsConstants.NamedGroup.secp256r1, TlsConstants.NamedGroup.x448, TlsConstants.NamedGroup.x25519)).getBytes());
 
-        SupportedGroupsExtension supportedGroupsExtension = new SupportedGroupsExtension(buffer);
+        SupportedGroupsExtension supportedGroupsExtension = SupportedGroupsExtension.parse(buffer);
 
         assertThat(supportedGroupsExtension.getNamedGroups())
                 .containsExactly(TlsConstants.NamedGroup.secp256r1, TlsConstants.NamedGroup.x448, TlsConstants.NamedGroup.x25519);
@@ -108,7 +108,7 @@ class SupportedGroupsExtensionTest {
 
         assertThat(bytes).isEqualTo(ByteUtils.hexToBytes("000a" + "0002" + "0000"));
         assertThatThrownBy(
-                () -> new SupportedGroupsExtension(ByteBuffer.wrap(bytes))
+                () -> SupportedGroupsExtension.parse(ByteBuffer.wrap(bytes))
         ).isInstanceOf(DecodeErrorException.class);
     }
 
@@ -117,7 +117,7 @@ class SupportedGroupsExtensionTest {
         ByteBuffer buffer = ByteBuffer.wrap(ByteUtils.hexToBytes("000a00"));
 
         assertThatThrownBy(
-                () -> new SupportedGroupsExtension(buffer)
+                () -> SupportedGroupsExtension.parse(buffer)
         ).isInstanceOf(DecodeErrorException.class);
     }
 
@@ -126,7 +126,7 @@ class SupportedGroupsExtensionTest {
         ByteBuffer buffer = ByteBuffer.wrap(ByteUtils.hexToBytes("000a000800020017"));
 
         assertThatThrownBy(
-                () -> new SupportedGroupsExtension(buffer)
+                () -> SupportedGroupsExtension.parse(buffer)
         ).isInstanceOf(DecodeErrorException.class);
     }
 
@@ -135,7 +135,7 @@ class SupportedGroupsExtensionTest {
         ByteBuffer buffer = ByteBuffer.wrap(ByteUtils.hexToBytes("000a000300020017"));
 
         assertThatThrownBy(
-                () -> new SupportedGroupsExtension(buffer)
+                () -> SupportedGroupsExtension.parse(buffer)
         ).isInstanceOf(DecodeErrorException.class);
 
     }
@@ -145,7 +145,7 @@ class SupportedGroupsExtensionTest {
         ByteBuffer buffer = ByteBuffer.wrap(ByteUtils.hexToBytes("000a000400010017"));
 
         assertThatThrownBy(
-                () -> new SupportedGroupsExtension(buffer)
+                () -> SupportedGroupsExtension.parse(buffer)
         ).isInstanceOf(DecodeErrorException.class);
 
     }
@@ -155,7 +155,7 @@ class SupportedGroupsExtensionTest {
         ByteBuffer buffer = ByteBuffer.wrap(ByteUtils.hexToBytes("000a000300010017"));
 
         assertThatThrownBy(
-                () -> new SupportedGroupsExtension(buffer)
+                () -> SupportedGroupsExtension.parse(buffer)
         ).isInstanceOf(DecodeErrorException.class);
 
     }
@@ -166,7 +166,7 @@ class SupportedGroupsExtensionTest {
         ByteBuffer buffer = ByteBuffer.wrap(ByteUtils.hexToBytes("000a000800060017001a0100"));
 
         // When
-        SupportedGroupsExtension supportedGroupsExtension = new SupportedGroupsExtension(buffer);
+        SupportedGroupsExtension supportedGroupsExtension = SupportedGroupsExtension.parse(buffer);
 
         // Then
         assertThat(supportedGroupsExtension.getNamedGroups())

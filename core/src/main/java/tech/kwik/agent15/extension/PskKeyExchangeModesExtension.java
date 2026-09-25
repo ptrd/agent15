@@ -46,16 +46,29 @@ public class PskKeyExchangeModesExtension implements Extension {
         }
     }
 
-    public PskKeyExchangeModesExtension(ByteBuffer buffer) throws DecodeErrorException {
+    private PskKeyExchangeModesExtension(List<TlsConstants.PskKeyExchangeMode> keyExchangeModes) {
+        this.keyExchangeModes.addAll(keyExchangeModes);
+    }
+
+    /**
+     * Parses a psk key exchange modes extension from a byte stream.
+     * @param buffer
+     * @throws DecodeErrorException
+     */
+    public static PskKeyExchangeModesExtension parse(ByteBuffer buffer) throws DecodeErrorException {
         int extensionDataLength = parseExtensionHeader(buffer, TlsConstants.ExtensionType.psk_key_exchange_modes, 2);
         int pskKeyExchangeModesLength = buffer.get();
         if (extensionDataLength != 1 + pskKeyExchangeModesLength) {
             throw new DecodeErrorException("inconsistent length");
         }
+
+        List<TlsConstants.PskKeyExchangeMode> keyExchangeModes = new ArrayList<>();
         for (int i = 0; i < pskKeyExchangeModesLength; i++) {
             int modeByte = buffer.get();
-            decodePskKeyExchangeMode(modeByte).ifPresent(m -> keyExchangeModes.add(m));
+            decodePskKeyExchangeMode(modeByte).ifPresent(mode -> keyExchangeModes.add(mode));
         }
+
+        return new PskKeyExchangeModesExtension(keyExchangeModes);
     }
 
 

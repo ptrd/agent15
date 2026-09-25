@@ -37,7 +37,7 @@ class KeyShareExtensionTest {
         String rawData = "0033" + "0047" + "0045" + "0017" + "0041" + "045d58e52e3deee2e8b78ec51e2d0cedb5080c8244bd3f651219cc48f3d3d404399d6748ab3eaaca0e32b927fc5e8107628e636b614cab332d8637c1d61caccdda";
         ByteBuffer buffer = ByteBuffer.wrap(ByteUtils.hexToBytes(rawData));
 
-        KeyShareExtension keyShareExtension = new KeyShareExtension(buffer, TlsConstants.HandshakeType.client_hello);
+        KeyShareExtension keyShareExtension = KeyShareExtension.parse(buffer, TlsConstants.HandshakeType.client_hello);
 
         assertThat(keyShareExtension.getKeyShareEntries()).hasSize(1);
         assertThat(keyShareExtension.getKeyShareEntries().get(0).getNamedGroup()).isEqualTo(TlsConstants.NamedGroup.secp256r1);
@@ -51,7 +51,7 @@ class KeyShareExtensionTest {
         + "00170041045d58e52e3deee2e8b78ec51e2d0cedb5080c8244bd3f651219cc48f3d3d404399d6748ab3eaaca0e32b927fc5e8107628e636b614cab332d8637c1d61caccdda";
         ByteBuffer buffer = ByteBuffer.wrap(ByteUtils.hexToBytes(rawData));
 
-        KeyShareExtension keyShareExtension = new KeyShareExtension(buffer, TlsConstants.HandshakeType.client_hello);
+        KeyShareExtension keyShareExtension = KeyShareExtension.parse(buffer, TlsConstants.HandshakeType.client_hello);
 
         assertThat(keyShareExtension.getKeyShareEntries()).hasSize(2);
         for (int i = 0; i < 2; i++) {
@@ -67,7 +67,7 @@ class KeyShareExtensionTest {
         + "00170041045d58e52e3deee2e8b78ec51e2d0cedb5080c8244bd3f651219cc48f3d3d404399d6748ab3eaaca0e32b927fc5e8107628e636b614cab332d8637c1d61caccdda";
         ByteBuffer buffer = ByteBuffer.wrap(ByteUtils.hexToBytes(rawData));
 
-        KeyShareExtension keyShareExtension = new KeyShareExtension(buffer, TlsConstants.HandshakeType.client_hello);
+        KeyShareExtension keyShareExtension = KeyShareExtension.parse(buffer, TlsConstants.HandshakeType.client_hello);
 
         assertThat(keyShareExtension.getKeyShareEntries()).hasSize(1);
     }
@@ -77,7 +77,7 @@ class KeyShareExtensionTest {
         String rawData = "0033" + "0002" + "0000";
         ByteBuffer buffer = ByteBuffer.wrap(ByteUtils.hexToBytes(rawData));
 
-        KeyShareExtension keyShareExtension = new KeyShareExtension(buffer, TlsConstants.HandshakeType.client_hello);
+        KeyShareExtension keyShareExtension = KeyShareExtension.parse(buffer, TlsConstants.HandshakeType.client_hello);
 
         assertThat(keyShareExtension.getKeyShareEntries()).hasSize(0);
     }
@@ -88,7 +88,7 @@ class KeyShareExtensionTest {
                 + "004104ace3b035eba5dd75860925b2c9b206656f2d1590f8c596d96a2a91adb442b378240002c8ef8360ba6104033c02eb3ab9ebcce036c735892697dda158f91c786e002b00020304";
         ByteBuffer buffer = ByteBuffer.wrap(ByteUtils.hexToBytes(rawData));
 
-        KeyShareExtension keyShareExtension = new KeyShareExtension(buffer, TlsConstants.HandshakeType.server_hello);
+        KeyShareExtension keyShareExtension = KeyShareExtension.parse(buffer, TlsConstants.HandshakeType.server_hello);
 
         assertThat(keyShareExtension.getKeyShareEntries()).hasSize(1);
         assertThat(keyShareExtension.getKeyShareEntries().get(0).getNamedGroup()).isEqualTo(TlsConstants.NamedGroup.secp256r1);
@@ -100,7 +100,7 @@ class KeyShareExtensionTest {
         String rawData = "003300020017";
         ByteBuffer buffer = ByteBuffer.wrap(ByteUtils.hexToBytes(rawData));
 
-        KeyShareExtension keyShareExtension = new KeyShareExtension(buffer, TlsConstants.HandshakeType.server_hello, true);
+        KeyShareExtension keyShareExtension = KeyShareExtension.parse(buffer, TlsConstants.HandshakeType.server_hello, true);
 
         assertThat(keyShareExtension.getKeyShareEntries()).hasSize(1);
         assertThat(keyShareExtension.getKeyShareEntries().get(0).getNamedGroup()).isEqualTo(TlsConstants.NamedGroup.secp256r1);
@@ -120,7 +120,7 @@ class KeyShareExtensionTest {
     void serializedHelloRetryRequestKeyShareExtensionCanBeParsedBack() throws Exception {
         byte[] serialized = new KeyShareExtension(TlsConstants.NamedGroup.x25519).getBytes();
 
-        KeyShareExtension parsed = new KeyShareExtension(ByteBuffer.wrap(serialized),
+        KeyShareExtension parsed = KeyShareExtension.parse(ByteBuffer.wrap(serialized),
                 TlsConstants.HandshakeType.server_hello, true);
 
         assertThat(parsed.getKeyShareEntries()).hasSize(1);
@@ -134,7 +134,7 @@ class KeyShareExtensionTest {
         ByteBuffer buffer = ByteBuffer.wrap(ByteUtils.hexToBytes("003300"));
 
         assertThatThrownBy(
-                () -> new KeyShareExtension(buffer, TlsConstants.HandshakeType.client_hello)
+                () -> KeyShareExtension.parse(buffer, TlsConstants.HandshakeType.client_hello)
         ).isInstanceOf(DecodeErrorException.class);
     }
 
@@ -143,7 +143,7 @@ class KeyShareExtensionTest {
         ByteBuffer buffer = ByteBuffer.wrap(ByteUtils.hexToBytes("00330000"));
 
         assertThatThrownBy(
-                () -> new KeyShareExtension(buffer, TlsConstants.HandshakeType.client_hello)
+                () -> KeyShareExtension.parse(buffer, TlsConstants.HandshakeType.client_hello)
         ).isInstanceOf(DecodeErrorException.class);
     }
 
@@ -152,7 +152,7 @@ class KeyShareExtensionTest {
         ByteBuffer buffer = ByteBuffer.wrap(ByteUtils.hexToBytes("00330047004500170041045d58e52e3deee2e8b78ec51e2d"));
 
         assertThatThrownBy(
-                () -> new KeyShareExtension(buffer, TlsConstants.HandshakeType.client_hello)
+                () -> KeyShareExtension.parse(buffer, TlsConstants.HandshakeType.client_hello)
         ).isInstanceOf(DecodeErrorException.class);
     }
 
@@ -163,7 +163,7 @@ class KeyShareExtensionTest {
         ByteBuffer buffer = ByteBuffer.wrap(ByteUtils.hexToBytes(rawData));
 
         assertThatThrownBy(
-                () -> new KeyShareExtension(buffer, TlsConstants.HandshakeType.client_hello)
+                () -> KeyShareExtension.parse(buffer, TlsConstants.HandshakeType.client_hello)
         ).isInstanceOf(DecodeErrorException.class);
     }
 
@@ -174,7 +174,7 @@ class KeyShareExtensionTest {
         ByteBuffer buffer = ByteBuffer.wrap(ByteUtils.hexToBytes(rawData));
 
         assertThatThrownBy(
-                () -> new KeyShareExtension(buffer, TlsConstants.HandshakeType.client_hello)
+                () -> KeyShareExtension.parse(buffer, TlsConstants.HandshakeType.client_hello)
         ).isInstanceOf(DecodeErrorException.class);
     }
 
@@ -186,7 +186,7 @@ class KeyShareExtensionTest {
         ByteBuffer buffer = ByteBuffer.wrap(ByteUtils.hexToBytes(rawData));
 
         assertThatThrownBy(
-                () -> new KeyShareExtension(buffer, TlsConstants.HandshakeType.client_hello)
+                () -> KeyShareExtension.parse(buffer, TlsConstants.HandshakeType.client_hello)
         ).isInstanceOf(DecodeErrorException.class);
     }
 
@@ -198,7 +198,7 @@ class KeyShareExtensionTest {
         ByteBuffer buffer = ByteBuffer.wrap(ByteUtils.hexToBytes(rawData));
 
         // When
-        List<KeyShareExtension.KeyShareEntry> keyShareEntries = new KeyShareExtension(buffer, TlsConstants.HandshakeType.client_hello).getKeyShareEntries();
+        List<KeyShareExtension.KeyShareEntry> keyShareEntries = KeyShareExtension.parse(buffer, TlsConstants.HandshakeType.client_hello).getKeyShareEntries();
 
         // Then
         assertThat(keyShareEntries)
@@ -216,7 +216,7 @@ class KeyShareExtensionTest {
         ByteBuffer buffer = ByteBuffer.wrap(ByteUtils.hexToBytes(rawData));
 
         // When
-        List<KeyShareExtension.KeyShareEntry> keyShareEntries = new KeyShareExtension(buffer, TlsConstants.HandshakeType.client_hello).getKeyShareEntries();
+        List<KeyShareExtension.KeyShareEntry> keyShareEntries = KeyShareExtension.parse(buffer, TlsConstants.HandshakeType.client_hello).getKeyShareEntries();
 
         // Then
         assertThat(keyShareEntries)
@@ -231,7 +231,7 @@ class KeyShareExtensionTest {
         ByteBuffer buffer = ByteBuffer.wrap(ByteUtils.hexToBytes(rawData));
 
         assertThatThrownBy(
-                () -> new KeyShareExtension(buffer, TlsConstants.HandshakeType.client_hello)
+                () -> KeyShareExtension.parse(buffer, TlsConstants.HandshakeType.client_hello)
         ).isInstanceOf(DecodeErrorException.class);
     }
 
@@ -242,7 +242,7 @@ class KeyShareExtensionTest {
         ByteBuffer buffer = ByteBuffer.wrap(ByteUtils.hexToBytes(rawData));
 
         assertThatThrownBy(
-                () -> new KeyShareExtension(buffer, TlsConstants.HandshakeType.client_hello)
+                () -> KeyShareExtension.parse(buffer, TlsConstants.HandshakeType.client_hello)
         ).isInstanceOf(DecodeErrorException.class);
     }
 
@@ -314,7 +314,7 @@ class KeyShareExtensionTest {
                 new KeyShareExtension.KeyShareEntry(TlsConstants.NamedGroup.secp256r1, ByteUtils.hexToBytes("08090a0b"))),
                 TlsConstants.HandshakeType.client_hello);
 
-        KeyShareExtension parsed = new KeyShareExtension(ByteBuffer.wrap(keyShareExtension.getBytes()), TlsConstants.HandshakeType.client_hello);
+        KeyShareExtension parsed = KeyShareExtension.parse(ByteBuffer.wrap(keyShareExtension.getBytes()), TlsConstants.HandshakeType.client_hello);
 
         // The entries must keep the order in which they were given: that order expresses the client's preference.
         assertThat(parsed.getKeyShareEntries())

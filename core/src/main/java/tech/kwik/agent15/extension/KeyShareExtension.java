@@ -36,9 +36,9 @@ import static tech.kwik.agent15.extension.ExtensionBlockParser.parseExtensionHea
  */
 public class KeyShareExtension implements Extension {
 
-    private TlsConstants.HandshakeType handshakeType;
-    private boolean helloRetryRequestType;
-    private List<KeyShareEntry> keyShareEntries = new ArrayList<>();
+    private final TlsConstants.HandshakeType handshakeType;
+    private final boolean helloRetryRequestType;
+    private final List<KeyShareEntry> keyShareEntries;
 
 
     public KeyShareExtension(byte[] keyExchangeData, TlsConstants.NamedGroup ecCurve, TlsConstants.HandshakeType handshakeType) {
@@ -55,6 +55,10 @@ public class KeyShareExtension implements Extension {
      * @param handshakeType    the message this extension will be part of
      */
     public KeyShareExtension(List<KeyShareEntry> keyShareEntries, TlsConstants.HandshakeType handshakeType) {
+        this(checkKeyShareEntries(keyShareEntries), handshakeType, false);
+    }
+
+    private static List<KeyShareEntry> checkKeyShareEntries(List<KeyShareEntry> keyShareEntries) {
         if (keyShareEntries.isEmpty()) {
             throw new IllegalArgumentException("at least one key share entry is required");
         }
@@ -62,8 +66,7 @@ public class KeyShareExtension implements Extension {
         if (distinctGroups != keyShareEntries.size()) {
             throw new IllegalArgumentException("key share entries must not contain multiple entries for the same group");
         }
-        this.keyShareEntries.addAll(keyShareEntries);
-        this.handshakeType = handshakeType;
+        return keyShareEntries;
     }
 
     /**
@@ -74,23 +77,40 @@ public class KeyShareExtension implements Extension {
      *  } KeyShareHelloRetryRequest;"
      */
     public KeyShareExtension(TlsConstants.NamedGroup selectedGroup) {
-        keyShareEntries.add(new KeyShareEntry(selectedGroup, null));
-        this.handshakeType = TlsConstants.HandshakeType.server_hello;
-        this.helloRetryRequestType = true;
+        this(List.of(new KeyShareEntry(selectedGroup, null)), TlsConstants.HandshakeType.server_hello, true);
     }
 
-    public KeyShareExtension(ByteBuffer buffer, TlsConstants.HandshakeType handshakeType) throws TlsProtocolException {
-        this(buffer, handshakeType, false);
-    }
-
-    public KeyShareExtension(ByteBuffer buffer, TlsConstants.HandshakeType handshakeType, boolean helloRetryRequestType) throws TlsProtocolException {
+    private KeyShareExtension(List<KeyShareEntry> keyShareEntries, TlsConstants.HandshakeType handshakeType, boolean helloRetryRequestType) {
+        this.keyShareEntries = new ArrayList<>(keyShareEntries);
         this.handshakeType = handshakeType;
         this.helloRetryRequestType = helloRetryRequestType;
+    }
+
+    /**
+     * Parses a key share extension from a byte stream.
+     * @param buffer
+     * @param handshakeType  indicates in which handshake message the extension occurs
+     * @throws TlsProtocolException
+     */
+    public static KeyShareExtension parse(ByteBuffer buffer, TlsConstants.HandshakeType handshakeType) throws TlsProtocolException {
+        return parse(buffer, handshakeType, false);
+    }
+
+    /**
+     * Parses a key share extension from a byte stream.
+     * @param buffer
+     * @param handshakeType          indicates in which handshake message the extension occurs
+     * @param helloRetryRequestType  whether the extension is part of a HelloRetryRequest (and thus carries the
+     *                               selected group only)
+     * @throws TlsProtocolException
+     */
+    public static KeyShareExtension parse(ByteBuffer buffer, TlsConstants.HandshakeType handshakeType, boolean helloRetryRequestType) throws TlsProtocolException {
         int extensionDataLength = parseExtensionHeader(buffer, TlsConstants.ExtensionType.key_share, 1);
         if (extensionDataLength < 2) {
             throw new DecodeErrorException("extension underflow");
         }
 
+        List<KeyShareEntry> keyShareEntries = new ArrayList<>();
         if (handshakeType == TlsConstants.HandshakeType.client_hello) {
             int keyShareEntriesSize = buffer.getShort()& 0xffff;
             if (extensionDataLength != 2 + keyShareEntriesSize) {
@@ -98,7 +118,7 @@ public class KeyShareExtension implements Extension {
             }
             int remaining = keyShareEntriesSize;
             while (remaining > 0) {
-                remaining -= parseKeyShareEntry(buffer, helloRetryRequestType);
+                remaining -= parseKeyShareEntry(buffer, helloRetryRequestType, keyShareEntries);
             }
             if (remaining != 0) {
                 throw new DecodeErrorException("inconsistent length");
@@ -106,7 +126,7 @@ public class KeyShareExtension implements Extension {
         }
         else if (handshakeType == TlsConstants.HandshakeType.server_hello) {
             int remaining = extensionDataLength;
-            remaining -= parseKeyShareEntry(buffer, helloRetryRequestType);
+            remaining -= parseKeyShareEntry(buffer, helloRetryRequestType, keyShareEntries);
             if (remaining != 0) {
                 throw new DecodeErrorException("inconsistent length");
             }
@@ -114,9 +134,11 @@ public class KeyShareExtension implements Extension {
         else {
             throw new IllegalArgumentException();
         }
+
+        return new KeyShareExtension(keyShareEntries, handshakeType, helloRetryRequestType);
     }
 
-    protected int parseKeyShareEntry(ByteBuffer buffer, boolean namedGroupOnly) throws TlsProtocolException {
+    private static int parseKeyShareEntry(ByteBuffer buffer, boolean namedGroupOnly, List<KeyShareEntry> keyShareEntries) throws TlsProtocolException {
         int startPosition = buffer.position();
         if (namedGroupOnly && buffer.remaining() < 2 || !namedGroupOnly && buffer.remaining() < 4 ) {
             throw new DecodeErrorException("extension underflow");

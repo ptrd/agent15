@@ -89,31 +89,31 @@ public class ExtensionBlockParser {
             if (extensionType == TlsConstants.ExtensionType.server_name.value) {
                 // "| server_name [RFC6066]                            |      CH, EE |"
                 check(context, client_hello, encrypted_extensions);
-                extensions.add(new ServerNameExtension(buffer));
+                extensions.add(ServerNameExtension.parse(buffer));
             }
             else if (extensionType == TlsConstants.ExtensionType.supported_groups.value) {
                 // "| supported_groups [RFC7919]                       |      CH, EE |"
                 check(context, client_hello, encrypted_extensions);
-                extensions.add(new SupportedGroupsExtension(buffer));
+                extensions.add(SupportedGroupsExtension.parse(buffer));
             }
             else if (extensionType == TlsConstants.ExtensionType.signature_algorithms.value) {
                 // "| signature_algorithms (RFC 8446)                  |      CH, CR |"
                 check(context, client_hello, certificate_request);
-                extensions.add(new SignatureAlgorithmsExtension(buffer));
+                extensions.add(SignatureAlgorithmsExtension.parse(buffer));
             }
             else if (extensionType == TlsConstants.ExtensionType.application_layer_protocol_negotiation.value) {
                 // "| application_layer_protocol_negotiation [RFC7301] |      CH, EE |"
                 check(context, client_hello, encrypted_extensions);
-                extensions.add(new ApplicationLayerProtocolNegotiationExtension(buffer));
+                extensions.add(ApplicationLayerProtocolNegotiationExtension.parse(buffer));
             }
             else if (extensionType == TlsConstants.ExtensionType.pre_shared_key.value) {
                 // "| pre_shared_key (RFC 8446)                        |      CH, SH |"
                 check(context, client_hello, server_hello);
                 if (context == server_hello) {
-                    extensions.add(new ServerPreSharedKeyExtension().parse(buffer));
+                    extensions.add(ServerPreSharedKeyExtension.parse(buffer));
                 }
                 else if (context == client_hello) {
-                    extensions.add(new ClientHelloPreSharedKeyExtension().parse(buffer));
+                    extensions.add(ClientHelloPreSharedKeyExtension.parse(buffer));
                 }
                 else {
                     // https://datatracker.ietf.org/doc/html/rfc8446#section-4.2
@@ -125,12 +125,12 @@ public class ExtensionBlockParser {
             else if (extensionType == TlsConstants.ExtensionType.early_data.value) {
                 // "| early_data (RFC 8446)                            | CH, EE, NST |"
                 check(context, client_hello, encrypted_extensions, new_session_ticket);
-                extensions.add(new EarlyDataExtension(buffer, context));
+                extensions.add(EarlyDataExtension.parse(buffer, context));
             }
             else if (extensionType == TlsConstants.ExtensionType.supported_versions.value) {
                 // "| supported_versions (RFC 8446)                    | CH, SH, HRR |"
                 check(context, client_hello, server_hello);
-                extensions.add(new SupportedVersionsExtension(buffer, context));
+                extensions.add(SupportedVersionsExtension.parse(buffer, context));
             }
             else if (extensionType == TlsConstants.ExtensionType.cookie.value) {
                 // "| cookie (RFC 8446)                                |     CH, HRR |"
@@ -139,22 +139,22 @@ public class ExtensionBlockParser {
                     // A cookie is allowed in a HelloRetryRequest, but not in an ordinary ServerHello.
                     throw new IllegalParameterAlert("Extension not allowed in " + context);
                 }
-                extensions.add(new CookieExtension(buffer));
+                extensions.add(CookieExtension.parse(buffer));
             }
             else if (extensionType == TlsConstants.ExtensionType.psk_key_exchange_modes.value) {
                 // " | psk_key_exchange_modes (RFC 8446)                |          CH |"
                 check(context, client_hello);
-                extensions.add(new PskKeyExchangeModesExtension(buffer));
+                extensions.add(PskKeyExchangeModesExtension.parse(buffer));
             }
             else if (extensionType == TlsConstants.ExtensionType.certificate_authorities.value) {
                 // "| certificate_authorities (RFC 8446)               |      CH, CR |"
                 check(context, client_hello, certificate_request);
-                extensions.add(new CertificateAuthoritiesExtension(buffer));
+                extensions.add(CertificateAuthoritiesExtension.parse(buffer));
             }
             else if (extensionType == TlsConstants.ExtensionType.key_share.value) {
                 // "| key_share (RFC 8446)                             | CH, SH, HRR |"
                 check(context, client_hello, server_hello);
-                extensions.add(new KeyShareExtension(buffer, context, helloRetryRequest));
+                extensions.add(KeyShareExtension.parse(buffer, context, helloRetryRequest));
             }
             else {
                 Extension extension = null;
@@ -166,7 +166,7 @@ public class ExtensionBlockParser {
                 }
                 else {
                     Logger.debug("Unsupported extension, type is: " + extensionType);
-                    extensions.add(new UnknownExtension().parse(buffer));
+                    extensions.add(UnknownExtension.parse(buffer));
                 }
             }
             if (buffer.position() - extensionStartPosition != 4 + extensionLength) {

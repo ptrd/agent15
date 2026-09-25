@@ -36,7 +36,7 @@ class SignatureAlgorithmsExtensionTest {
     void testParseMultipleAlgorithms() throws Exception {
         ByteBuffer buffer = ByteBuffer.wrap(ByteUtils.hexToBytes("000d00140012040308040401050308050501080606010201"));
 
-        SignatureAlgorithmsExtension signatureAlgorithmsExtension = new SignatureAlgorithmsExtension(buffer);
+        SignatureAlgorithmsExtension signatureAlgorithmsExtension = SignatureAlgorithmsExtension.parse(buffer);
 
         assertThat(signatureAlgorithmsExtension.getSignatureAlgorithms())
                 .containsExactly(TlsConstants.SignatureScheme.ecdsa_secp256r1_sha256,
@@ -55,7 +55,7 @@ class SignatureAlgorithmsExtensionTest {
     void testSerializeSingleAlgorithm() throws Exception {
         ByteBuffer buffer = ByteBuffer.wrap(new SignatureAlgorithmsExtension(TlsConstants.SignatureScheme.rsa_pss_rsae_sha256).getBytes());
 
-        SignatureAlgorithmsExtension signatureAlgorithmsExtension = new SignatureAlgorithmsExtension(buffer);
+        SignatureAlgorithmsExtension signatureAlgorithmsExtension = SignatureAlgorithmsExtension.parse(buffer);
 
         assertThat(signatureAlgorithmsExtension.getSignatureAlgorithms()).contains(TlsConstants.SignatureScheme.rsa_pss_rsae_sha256);
     }
@@ -64,7 +64,7 @@ class SignatureAlgorithmsExtensionTest {
     void testSerializeMultipleAlgorithm() throws Exception {
         ByteBuffer buffer = ByteBuffer.wrap(new SignatureAlgorithmsExtension(TlsConstants.SignatureScheme.rsa_pss_rsae_sha256, TlsConstants.SignatureScheme.ecdsa_secp256r1_sha256).getBytes());
 
-        SignatureAlgorithmsExtension signatureAlgorithmsExtension = new SignatureAlgorithmsExtension(buffer);
+        SignatureAlgorithmsExtension signatureAlgorithmsExtension = SignatureAlgorithmsExtension.parse(buffer);
 
         assertThat(signatureAlgorithmsExtension.getSignatureAlgorithms()).containsExactly(TlsConstants.SignatureScheme.rsa_pss_rsae_sha256, TlsConstants.SignatureScheme.ecdsa_secp256r1_sha256);
     }
@@ -74,7 +74,7 @@ class SignatureAlgorithmsExtensionTest {
         ByteBuffer buffer = ByteBuffer.wrap(ByteUtils.hexToBytes("000d00"));
 
         assertThatThrownBy(
-                () -> new SignatureAlgorithmsExtension(buffer)
+                () -> SignatureAlgorithmsExtension.parse(buffer)
         ).isInstanceOf(DecodeErrorException.class);
     }
 
@@ -84,7 +84,7 @@ class SignatureAlgorithmsExtensionTest {
         ByteBuffer buffer = ByteBuffer.wrap(ByteUtils.hexToBytes("000d0014001204030804040105030805050108"));
 
         assertThatThrownBy(
-                () -> new SignatureAlgorithmsExtension(buffer)
+                () -> SignatureAlgorithmsExtension.parse(buffer)
         ).isInstanceOf(DecodeErrorException.class);
     }
 
@@ -93,7 +93,7 @@ class SignatureAlgorithmsExtensionTest {
         ByteBuffer buffer = ByteBuffer.wrap(ByteUtils.hexToBytes("000d00080004040308040401"));
 
         assertThatThrownBy(
-                () -> new SignatureAlgorithmsExtension(buffer)
+                () -> SignatureAlgorithmsExtension.parse(buffer)
         ).isInstanceOf(DecodeErrorException.class);
 
     }
@@ -103,7 +103,7 @@ class SignatureAlgorithmsExtensionTest {
         ByteBuffer buffer = ByteBuffer.wrap(ByteUtils.hexToBytes("000d00070005030308040401"));
 
         assertThatThrownBy(
-                () -> new SignatureAlgorithmsExtension(buffer)
+                () -> SignatureAlgorithmsExtension.parse(buffer)
         ).isInstanceOf(DecodeErrorException.class);
 
     }
@@ -118,7 +118,7 @@ class SignatureAlgorithmsExtensionTest {
         ByteBuffer buffer = ByteBuffer.wrap(ByteUtils.hexToBytes("000d 0016 0014 040308040401050308050501080606010201 0301".replace(" ", "")));
 
         assertThatCode(
-                () -> new SignatureAlgorithmsExtension(buffer)
+                () -> SignatureAlgorithmsExtension.parse(buffer)
         ).doesNotThrowAnyException();
     }
 }

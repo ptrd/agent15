@@ -33,13 +33,19 @@ import static tech.kwik.agent15.extension.ExtensionBlockParser.parseExtensionHea
  */
 public class ServerNameExtension implements Extension {
 
-    private String serverName;
+    private final String serverName;
 
     public ServerNameExtension(String serverName) {
         this.serverName = serverName;
     }
 
-    public ServerNameExtension(ByteBuffer buffer) throws DecodeErrorException {
+    /**
+     * Parses a server name extension from a byte stream.
+     * @param buffer
+     * @throws DecodeErrorException
+     */
+    public static ServerNameExtension parse(ByteBuffer buffer) throws DecodeErrorException {
+        String serverName = null;
         int extensionDataLength = parseExtensionHeader(buffer, TlsConstants.ExtensionType.server_name, 0);
         if (extensionDataLength > 0) {
             if (extensionDataLength < 2) {
@@ -52,8 +58,12 @@ public class ServerNameExtension implements Extension {
 
             int remainingListLength = serverNameListLength;
             while (remainingListLength > 0) {
-                int read = parseServerName(buffer);
-                remainingListLength -= read;
+                int startPosition = buffer.position();
+                String hostName = parseServerName(buffer);
+                if (hostName != null) {
+                    serverName = hostName;
+                }
+                remainingListLength -= buffer.position() - startPosition;
             }
             if (remainingListLength < 0) {
                 throw new DecodeErrorException("inconsistent length");
@@ -66,9 +76,17 @@ public class ServerNameExtension implements Extension {
             // The "extension_data" field of this extension SHALL be empty."
             serverName = null;
         }
+
+        return new ServerNameExtension(serverName);
     }
 
-    private int parseServerName(ByteBuffer buffer) throws DecodeErrorException {
+    /**
+     * Parses one entry of the server name list.
+     * @param buffer
+     * @return  the host name, or null if the entry is not of type host_name
+     * @throws DecodeErrorException
+     */
+    private static String parseServerName(ByteBuffer buffer) throws DecodeErrorException {
         checkMinRemaining(buffer,1);
         int nameType = buffer.get();
         switch (nameType) {
@@ -80,8 +98,7 @@ public class ServerNameExtension implements Extension {
                 byte[] hostNameBytes = new byte[hostNameLength];
                 buffer.get(hostNameBytes);
                 // "The hostname is represented as a byte string using ASCII encoding without a trailing dot. "
-                serverName = new String(hostNameBytes, Charset.forName("ASCII"));
-                return 1 + 2 + hostNameLength;
+                return new String(hostNameBytes, Charset.forName("ASCII"));
             default:
                 // Unsupported type, RFC 6066 only defines hostname
                 // https://datatracker.ietf.org/doc/html/rfc6066#section-3
@@ -94,7 +111,7 @@ public class ServerNameExtension implements Extension {
                     throw new DecodeErrorException("extension underflow");
                 }
                 buffer.get(new byte[dataLength]);
-                return 1 + 2 + dataLength;
+                return null;
         }
     }
 
@@ -120,7 +137,7 @@ public class ServerNameExtension implements Extension {
         return serverName;
     }
 
-    private void checkMinRemaining(Buffer buffer, int min) throws DecodeErrorException {
+    private static void checkMinRemaining(Buffer buffer, int min) throws DecodeErrorException {
         if (buffer.remaining() < min) {
             throw new DecodeErrorException("extension underflow");
         }

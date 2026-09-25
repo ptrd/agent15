@@ -34,7 +34,7 @@ class ServerNameExtensionTest {
         //                                                        type    ext sz    list sz enum   length   hostname
         ByteBuffer buffer = ByteBuffer.wrap(ByteUtils.hexToBytes("0000" + "000e" + "000c" + "00" + "0009" + "6c6f63616c686f7374"));
 
-        ServerNameExtension serverNameExtension = new ServerNameExtension(buffer);
+        ServerNameExtension serverNameExtension = ServerNameExtension.parse(buffer);
 
         assertThat(serverNameExtension.getHostName()).isEqualToIgnoringCase("localhost");
     }
@@ -43,7 +43,7 @@ class ServerNameExtensionTest {
     void serializeServerNameExtension() throws Exception {
         byte[] serializedData = new ServerNameExtension("localhost").getBytes();
 
-        ServerNameExtension serverNameExtension = new ServerNameExtension(ByteBuffer.wrap(serializedData));
+        ServerNameExtension serverNameExtension = ServerNameExtension.parse(ByteBuffer.wrap(serializedData));
 
         assertThat(serverNameExtension.getHostName()).isEqualToIgnoringCase("localhost");
         assertThat(serializedData).startsWith(0x00, 0x00, 0x00, 0x0e, 0x00, 0x0c, 0x00, 0x00, 0x09);
@@ -54,7 +54,7 @@ class ServerNameExtensionTest {
         ByteBuffer buffer = ByteBuffer.wrap(ByteUtils.hexToBytes("0000" + "000e" + "000c" + "00" + "0009"));
 
         assertThatThrownBy(() ->
-                new ServerNameExtension(buffer)
+                ServerNameExtension.parse(buffer)
         ).isInstanceOf(DecodeErrorException.class);
     }
 
@@ -63,7 +63,7 @@ class ServerNameExtensionTest {
         ByteBuffer buffer = ByteBuffer.wrap(ByteUtils.hexToBytes("0000" + "000e" + "000c" + "00" + "0009" + "6c6f63616c686f73"));
 
         assertThatThrownBy(() ->
-                new ServerNameExtension(buffer)
+                ServerNameExtension.parse(buffer)
         ).isInstanceOf(DecodeErrorException.class);
     }
 
@@ -72,7 +72,7 @@ class ServerNameExtensionTest {
         ByteBuffer buffer = ByteBuffer.wrap(ByteUtils.hexToBytes("0000" + "0003" + "0001" + "00"));
 
         assertThatThrownBy(() ->
-                new ServerNameExtension(buffer)
+                ServerNameExtension.parse(buffer)
         ).isInstanceOf(DecodeErrorException.class);
     }
 
@@ -81,7 +81,7 @@ class ServerNameExtensionTest {
         ByteBuffer buffer = ByteBuffer.wrap(ByteUtils.hexToBytes("0000" + "000e" + "000c" + "00" + "000a" + "6c6f63616c686f737475"));
 
         assertThatThrownBy(() ->
-                new ServerNameExtension(buffer)
+                ServerNameExtension.parse(buffer)
         ).isInstanceOf(DecodeErrorException.class);
     }
 
@@ -90,7 +90,7 @@ class ServerNameExtensionTest {
         ByteBuffer buffer = ByteBuffer.wrap(ByteUtils.hexToBytes("0000" + "000e" + "000b" + "00" + "0009" + "6c6f63616c686f7374"));
 
         assertThatThrownBy(() ->
-                new ServerNameExtension(buffer)
+                ServerNameExtension.parse(buffer)
         ).isInstanceOf(DecodeErrorException.class);
     }
 
@@ -99,7 +99,7 @@ class ServerNameExtensionTest {
         ByteBuffer buffer = ByteBuffer.wrap(ByteUtils.hexToBytes("0000" + "000e" + "000c" + "00" + "0007" + "6c6f63616c686f7374"));
 
         assertThatThrownBy(() ->
-                new ServerNameExtension(buffer)
+                ServerNameExtension.parse(buffer)
         ).isInstanceOf(DecodeErrorException.class);
     }
 
@@ -107,7 +107,7 @@ class ServerNameExtensionTest {
     void parseEmptyExtension() throws Exception {
         ByteBuffer buffer = ByteBuffer.wrap(ByteUtils.hexToBytes("00000000"));
 
-        ServerNameExtension serverNameExtension = new ServerNameExtension(buffer);
+        ServerNameExtension serverNameExtension = ServerNameExtension.parse(buffer);
 
         assertThat(serverNameExtension.getHostName()).isNull();
     }
@@ -118,7 +118,7 @@ class ServerNameExtensionTest {
         ByteBuffer buffer = ByteBuffer.wrap(ByteUtils.hexToBytes("0000" + "000e" + "000c" + "00" + "0009" + "6c6f63616c686f7374"
                 + "cafebabe"));
 
-        ServerNameExtension serverNameExtension = new ServerNameExtension(buffer);
+        ServerNameExtension serverNameExtension = ServerNameExtension.parse(buffer);
 
         assertThat(serverNameExtension.getHostName()).isEqualToIgnoringCase("localhost");
     }
@@ -131,7 +131,7 @@ class ServerNameExtensionTest {
                         // enum name sz  name
                         + "00" + "0009" + "6c6f63616c686f7374"));
 
-        ServerNameExtension serverNameExtension = new ServerNameExtension(buffer);
+        ServerNameExtension serverNameExtension = ServerNameExtension.parse(buffer);
 
         assertThat(serverNameExtension.getHostName()).isNotNull();
     }
@@ -141,7 +141,7 @@ class ServerNameExtensionTest {
         ByteBuffer buffer = ByteBuffer.wrap(ByteUtils.hexToBytes("0000000100"));
 
         assertThatThrownBy(() ->
-                new ServerNameExtension(buffer)
+                ServerNameExtension.parse(buffer)
         ).isInstanceOf(DecodeErrorException.class);
     }
 
@@ -150,7 +150,7 @@ class ServerNameExtensionTest {
         ByteBuffer buffer = ByteBuffer.wrap(ByteUtils.hexToBytes("0000" + "000e" + "000c" + "00" + "8009" + "6c6f63616c686f7374"));
 
         assertThatThrownBy(() ->
-                new ServerNameExtension(buffer)
+                ServerNameExtension.parse(buffer)
         ).isInstanceOf(DecodeErrorException.class);
     }
 }

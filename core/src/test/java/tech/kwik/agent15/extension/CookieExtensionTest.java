@@ -34,7 +34,7 @@ class CookieExtensionTest {
         //                                                 type  length cookie length  cookie
         ByteBuffer buffer = ByteBuffer.wrap(ByteUtils.hexToBytes("002c" + "0006" + "0004" + "cafebabe"));
 
-        CookieExtension cookieExtension = new CookieExtension(buffer);
+        CookieExtension cookieExtension = CookieExtension.parse(buffer);
 
         assertThat(cookieExtension.getCookie()).isEqualTo(ByteUtils.hexToBytes("cafebabe"));
         assertThat(buffer.remaining()).isEqualTo(0);
@@ -53,7 +53,7 @@ class CookieExtensionTest {
     void serializedCookieExtensionCanBeParsedBack() throws Exception {
         byte[] cookie = ByteUtils.hexToBytes("f00dbaadf00dbaad");
 
-        CookieExtension parsed = new CookieExtension(ByteBuffer.wrap(new CookieExtension(cookie).getBytes()));
+        CookieExtension parsed = CookieExtension.parse(ByteBuffer.wrap(new CookieExtension(cookie).getBytes()));
 
         assertThat(parsed.getCookie()).isEqualTo(cookie);
     }
@@ -63,7 +63,7 @@ class CookieExtensionTest {
         // Extension data length (0x0006) does not match the cookie length (0x0003) plus the 2 length bytes.
         ByteBuffer buffer = ByteBuffer.wrap(ByteUtils.hexToBytes("002c" + "0006" + "0003" + "cafebabe"));
 
-        assertThatThrownBy(() -> new CookieExtension(buffer))
+        assertThatThrownBy(() -> CookieExtension.parse(buffer))
                 .isInstanceOf(DecodeErrorException.class);
     }
 
@@ -71,7 +71,7 @@ class CookieExtensionTest {
     void parseTruncatedCookieExtensionShouldThrow() throws Exception {
         ByteBuffer buffer = ByteBuffer.wrap(ByteUtils.hexToBytes("002c" + "0006" + "0004" + "cafe"));
 
-        assertThatThrownBy(() -> new CookieExtension(buffer))
+        assertThatThrownBy(() -> CookieExtension.parse(buffer))
                 .isInstanceOf(DecodeErrorException.class);
     }
 
@@ -81,7 +81,7 @@ class CookieExtensionTest {
         // "opaque cookie<1..2^16-1>;"
         ByteBuffer buffer = ByteBuffer.wrap(ByteUtils.hexToBytes("002c" + "0002" + "0000"));
 
-        assertThatThrownBy(() -> new CookieExtension(buffer))
+        assertThatThrownBy(() -> CookieExtension.parse(buffer))
                 .isInstanceOf(DecodeErrorException.class);
     }
 

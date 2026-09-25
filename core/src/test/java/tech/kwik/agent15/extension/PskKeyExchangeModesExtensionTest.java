@@ -35,7 +35,7 @@ class PskKeyExchangeModesExtensionTest {
     void testParseSinglePskMode() throws Exception {
         ByteBuffer buffer = ByteBuffer.wrap(ByteUtils.hexToBytes("002d00020101"));
 
-        PskKeyExchangeModesExtension pskKeyExchangeModesExtension = new PskKeyExchangeModesExtension(buffer);
+        PskKeyExchangeModesExtension pskKeyExchangeModesExtension = PskKeyExchangeModesExtension.parse(buffer);
 
         assertThat(pskKeyExchangeModesExtension.getKeyExchangeModes()).containsExactly(TlsConstants.PskKeyExchangeMode.psk_dhe_ke);
     }
@@ -44,7 +44,7 @@ class PskKeyExchangeModesExtensionTest {
     void testParseMultiplePskModes() throws Exception {
         ByteBuffer buffer = ByteBuffer.wrap(ByteUtils.hexToBytes("002d0003020001"));
 
-        PskKeyExchangeModesExtension pskKeyExchangeModesExtension = new PskKeyExchangeModesExtension(buffer);
+        PskKeyExchangeModesExtension pskKeyExchangeModesExtension = PskKeyExchangeModesExtension.parse(buffer);
 
         assertThat(pskKeyExchangeModesExtension.getKeyExchangeModes())
                 .containsExactlyInAnyOrder(TlsConstants.PskKeyExchangeMode.psk_ke, TlsConstants.PskKeyExchangeMode.psk_dhe_ke);
@@ -54,7 +54,7 @@ class PskKeyExchangeModesExtensionTest {
     void testSerializeSinglePskMode() throws Exception {
         ByteBuffer buffer = ByteBuffer.wrap(new PskKeyExchangeModesExtension(TlsConstants.PskKeyExchangeMode.psk_dhe_ke).getBytes());
 
-        PskKeyExchangeModesExtension pskKeyExchangeModesExtension = new PskKeyExchangeModesExtension(buffer);
+        PskKeyExchangeModesExtension pskKeyExchangeModesExtension = PskKeyExchangeModesExtension.parse(buffer);
 
         assertThat(pskKeyExchangeModesExtension.getKeyExchangeModes()).containsExactly(TlsConstants.PskKeyExchangeMode.psk_dhe_ke);
     }
@@ -63,7 +63,7 @@ class PskKeyExchangeModesExtensionTest {
     void testSerializeMultiplePskModes() throws Exception {
         ByteBuffer buffer = ByteBuffer.wrap(new PskKeyExchangeModesExtension(TlsConstants.PskKeyExchangeMode.psk_ke, TlsConstants.PskKeyExchangeMode.psk_dhe_ke).getBytes());
 
-        PskKeyExchangeModesExtension pskKeyExchangeModesExtension = new PskKeyExchangeModesExtension(buffer);
+        PskKeyExchangeModesExtension pskKeyExchangeModesExtension = PskKeyExchangeModesExtension.parse(buffer);
 
         assertThat(pskKeyExchangeModesExtension.getKeyExchangeModes())
                 .containsExactlyInAnyOrder(TlsConstants.PskKeyExchangeMode.psk_dhe_ke, TlsConstants.PskKeyExchangeMode.psk_ke);
@@ -74,7 +74,7 @@ class PskKeyExchangeModesExtensionTest {
         ByteBuffer buffer = ByteBuffer.wrap(ByteUtils.hexToBytes("002d"));
 
         assertThatThrownBy(
-                () -> new PskKeyExchangeModesExtension(buffer)
+                () -> PskKeyExchangeModesExtension.parse(buffer)
         ).isInstanceOf(DecodeErrorException.class);
     }
 
@@ -83,7 +83,7 @@ class PskKeyExchangeModesExtensionTest {
         ByteBuffer buffer = ByteBuffer.wrap(ByteUtils.hexToBytes("002d000201"));
 
         assertThatThrownBy(
-                () -> new PskKeyExchangeModesExtension(buffer)
+                () -> PskKeyExchangeModesExtension.parse(buffer)
         ).isInstanceOf(DecodeErrorException.class);
     }
 
@@ -92,7 +92,7 @@ class PskKeyExchangeModesExtensionTest {
         ByteBuffer buffer = ByteBuffer.wrap(ByteUtils.hexToBytes("002d000201"));
 
         assertThatThrownBy(
-                () -> new PskKeyExchangeModesExtension(buffer)
+                () -> PskKeyExchangeModesExtension.parse(buffer)
         ).isInstanceOf(DecodeErrorException.class);
     }
 
@@ -100,7 +100,7 @@ class PskKeyExchangeModesExtensionTest {
     void unknownCodePointForModeShouldBeIgnored() throws Exception {
         ByteBuffer buffer = ByteBuffer.wrap(ByteUtils.hexToBytes("002d0003020201"));
 
-        PskKeyExchangeModesExtension pskKeyExchangeModesExtension = new PskKeyExchangeModesExtension(buffer);
+        PskKeyExchangeModesExtension pskKeyExchangeModesExtension = PskKeyExchangeModesExtension.parse(buffer);
 
         assertThat(pskKeyExchangeModesExtension.getKeyExchangeModes())
                 .containsExactlyInAnyOrder(TlsConstants.PskKeyExchangeMode.psk_dhe_ke);

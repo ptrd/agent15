@@ -35,7 +35,7 @@ class CertificateAuthoritiesExtensionTest {
     void parseValidExtension() throws Exception {
         var buffer = ByteBuffer.wrap(ByteUtils.hexToBytes("002f001a0018001630143112301006035504030c096c6f63616c686f7374"));
 
-        var extension = new CertificateAuthoritiesExtension(buffer);
+        var extension = CertificateAuthoritiesExtension.parse(buffer);
         assertThat(extension.getAuthorities()).hasSize(1);
         assertThat(extension.getAuthorities().get(0).equals(new X500Principal("CN=Localhost")));
     }
@@ -43,7 +43,7 @@ class CertificateAuthoritiesExtensionTest {
     @Test
     void serializeExtension() throws Exception {
         var originalExtension = new CertificateAuthoritiesExtension(new X500Principal("CN=Localhost"));
-        var parsedExtension = new CertificateAuthoritiesExtension(ByteBuffer.wrap(originalExtension.getBytes()));
+        var parsedExtension = CertificateAuthoritiesExtension.parse(ByteBuffer.wrap(originalExtension.getBytes()));
         assertThat(parsedExtension.getAuthorities()).hasSize(1);
         assertThat(parsedExtension.getAuthorities().get(0).equals(new X500Principal("CN=Localhost")));
     }
@@ -53,7 +53,7 @@ class CertificateAuthoritiesExtensionTest {
         var buffer = ByteBuffer.wrap(ByteUtils.hexToBytes("002f00100018001630143112301006035504030c096c6f63616c686f7374"));
 
         assertThatThrownBy(() ->
-                new CertificateAuthoritiesExtension(buffer)
+                CertificateAuthoritiesExtension.parse(buffer)
         ).isInstanceOf(DecodeErrorException.class);
     }
 
@@ -62,7 +62,7 @@ class CertificateAuthoritiesExtensionTest {
         var buffer = ByteBuffer.wrap(ByteUtils.hexToBytes("002f001a0018001430143112301006035504030c096c6f63616c686f7374"));
 
         assertThatThrownBy(() ->
-                new CertificateAuthoritiesExtension(buffer)
+                CertificateAuthoritiesExtension.parse(buffer)
         ).isInstanceOf(DecodeErrorException.class);
     }
 
@@ -71,7 +71,7 @@ class CertificateAuthoritiesExtensionTest {
         var buffer = ByteBuffer.wrap(ByteUtils.hexToBytes("002f001a0028001630143112301006035504030c096c6f63616c686f7374"));
 
         assertThatThrownBy(() ->
-                new CertificateAuthoritiesExtension(buffer)
+                CertificateAuthoritiesExtension.parse(buffer)
         ).isInstanceOf(DecodeErrorException.class);
     }
 
@@ -79,7 +79,7 @@ class CertificateAuthoritiesExtensionTest {
     void possibleNegativeDnLength() throws Exception {
         var buffer = ByteBuffer.wrap(ByteUtils.hexToBytes("002f 001a 0018 f016 30143112301006035504030c096c6f63616c686f7374"));
         assertThatThrownBy(() ->
-                new CertificateAuthoritiesExtension(buffer)
+                CertificateAuthoritiesExtension.parse(buffer)
         ).isInstanceOf(DecodeErrorException.class);
     }
 }

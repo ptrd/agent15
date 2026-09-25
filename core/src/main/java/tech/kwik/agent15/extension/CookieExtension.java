@@ -52,7 +52,12 @@ public class CookieExtension implements Extension {
         this.cookie = cookie;
     }
 
-    public CookieExtension(ByteBuffer buffer) throws DecodeErrorException {
+    /**
+     * Parses a cookie extension from a byte stream.
+     * @param buffer
+     * @throws DecodeErrorException
+     */
+    public static CookieExtension parse(ByteBuffer buffer) throws DecodeErrorException {
         int extensionDataLength = parseExtensionHeader(buffer, TlsConstants.ExtensionType.cookie, 2 + 1);
         int cookieLength = buffer.getShort() & 0xffff;
         if (extensionDataLength != 2 + cookieLength) {
@@ -63,8 +68,10 @@ public class CookieExtension implements Extension {
         if (cookieLength < 1) {
             throw new DecodeErrorException("cookie must not be empty");
         }
-        cookie = new byte[cookieLength];
+        byte[] cookie = new byte[cookieLength];
         buffer.get(cookie);
+
+        return new CookieExtension(cookie);
     }
 
     @Override

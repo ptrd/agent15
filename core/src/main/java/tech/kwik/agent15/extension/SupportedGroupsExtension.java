@@ -44,7 +44,12 @@ public class SupportedGroupsExtension implements Extension {
         this.namedGroups.addAll(namedGroups);
     }
 
-    public SupportedGroupsExtension(ByteBuffer buffer) throws DecodeErrorException {
+    /**
+     * Parses a supported groups extension from a byte stream.
+     * @param buffer
+     * @throws DecodeErrorException
+     */
+    public static SupportedGroupsExtension parse(ByteBuffer buffer) throws DecodeErrorException {
         int extensionDataLength = parseExtensionHeader(buffer, TlsConstants.ExtensionType.supported_groups, 2 + 2);
         int namedGroupsLength = buffer.getShort() & 0xffff;
         if (extensionDataLength != 2 + namedGroupsLength) {
@@ -54,10 +59,13 @@ public class SupportedGroupsExtension implements Extension {
             throw new DecodeErrorException("invalid group length");
         }
 
+        List<TlsConstants.NamedGroup> namedGroups = new ArrayList<>();
         for (int i = 0; i < namedGroupsLength; i += 2) {
             int namedGroupBytes = buffer.getShort() & 0xffff;
-            decodeNamedGroup(namedGroupBytes).ifPresent(algorithm -> namedGroups.add(algorithm));
+            decodeNamedGroup(namedGroupBytes).ifPresent(namedGroup -> namedGroups.add(namedGroup));
         }
+
+        return new SupportedGroupsExtension(namedGroups);
     }
 
     @Override

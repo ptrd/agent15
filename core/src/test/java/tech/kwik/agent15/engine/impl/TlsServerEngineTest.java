@@ -456,7 +456,7 @@ public class TlsServerEngineTest {
         ByteBuffer versionExtBuffer = ByteBuffer.wrap(new byte[] {
                 0x00, 0x2b, 0x00, 0x03, 0x02, 0x03, 0x03
         });
-        clientHello.getExtensions().add(new SupportedVersionsExtension(versionExtBuffer, HandshakeType.client_hello));
+        clientHello.getExtensions().add(SupportedVersionsExtension.parse(versionExtBuffer, HandshakeType.client_hello));
 
         assertThatThrownBy(() ->
                 // When
@@ -1044,7 +1044,7 @@ public class TlsServerEngineTest {
             buffer.putShort(group.value);
         }
         buffer.flip();
-        return new SupportedGroupsExtension(buffer);
+        return SupportedGroupsExtension.parse(buffer);
     }
 
     private KeyShareExtension createKeyShareExtension(NamedGroup... groups) throws Exception {
@@ -1059,7 +1059,7 @@ public class TlsServerEngineTest {
             buffer.put(KEY_EXCHANGE_DATA);
         }
         buffer.flip();
-        return new KeyShareExtension(buffer, HandshakeType.client_hello);
+        return KeyShareExtension.parse(buffer, HandshakeType.client_hello);
     }
 
     private ClientHello createDefaultClientHello() {

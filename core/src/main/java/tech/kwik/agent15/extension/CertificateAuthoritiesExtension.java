@@ -39,7 +39,16 @@ public class CertificateAuthoritiesExtension implements Extension {
         authorities.add(x500Principal);
     }
 
-    public CertificateAuthoritiesExtension(ByteBuffer buffer) throws DecodeErrorException {
+    private CertificateAuthoritiesExtension(List<X500Principal> authorities) {
+        this.authorities.addAll(authorities);
+    }
+
+    /**
+     * Parses a certificate authorities extension from a byte stream.
+     * @param buffer
+     * @throws DecodeErrorException
+     */
+    public static CertificateAuthoritiesExtension parse(ByteBuffer buffer) throws DecodeErrorException {
         int extensionDataLength = parseExtensionHeader(buffer, TlsConstants.ExtensionType.certificate_authorities, 2);
 
         int authoritiesLength = buffer.getShort() & 0xffff;
@@ -47,6 +56,7 @@ public class CertificateAuthoritiesExtension implements Extension {
             throw new DecodeErrorException("inconsistent length fields");
         }
 
+        List<X500Principal> authorities = new ArrayList<>();
         int remaining = authoritiesLength;
         while (remaining > 0) {
             if (remaining < 2) {
@@ -75,6 +85,8 @@ public class CertificateAuthoritiesExtension implements Extension {
                 throw new DecodeErrorException("inconsistent length fields");
             }
         }
+
+        return new CertificateAuthoritiesExtension(authorities);
     }
 
     @Override

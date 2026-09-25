@@ -49,7 +49,12 @@ public class ApplicationLayerProtocolNegotiationExtension implements Extension {
         this.protocols = protocols;
     }
 
-    public ApplicationLayerProtocolNegotiationExtension(ByteBuffer buffer) throws DecodeErrorException {
+    /**
+     * Parses an application layer protocol negotiation extension from a byte stream.
+     * @param buffer
+     * @throws DecodeErrorException
+     */
+    public static ApplicationLayerProtocolNegotiationExtension parse(ByteBuffer buffer) throws DecodeErrorException {
         int extensionDataLength = parseExtensionHeader(buffer, TlsConstants.ExtensionType.application_layer_protocol_negotiation, 3);
 
         int protocolsLength = buffer.getShort() & 0xffff;
@@ -57,7 +62,7 @@ public class ApplicationLayerProtocolNegotiationExtension implements Extension {
             throw new DecodeErrorException("inconsistent lengths");
         }
 
-        protocols = new ArrayList<>();
+        List<String> protocols = new ArrayList<>();
         while (protocolsLength > 0) {
             int protocolNameLength = buffer.get() & 0xff;
             if (protocolNameLength > protocolsLength - 1) {
@@ -67,6 +72,15 @@ public class ApplicationLayerProtocolNegotiationExtension implements Extension {
             buffer.get(protocolBytes);
             protocols.add(new String(protocolBytes));
             protocolsLength -= (1 + protocolNameLength);
+        }
+
+        try {
+            return new ApplicationLayerProtocolNegotiationExtension(protocols);
+        }
+        catch (IllegalArgumentException invalidProtocolName) {
+            // https://datatracker.ietf.org/doc/html/rfc7301#section-3.1
+            // "opaque ProtocolName<1..2^8-1>;", so an empty protocol name is not allowed.
+            throw new DecodeErrorException("invalid protocol name");
         }
     }
 

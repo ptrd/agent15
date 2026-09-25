@@ -33,16 +33,26 @@ import static tech.kwik.agent15.extension.ExtensionBlockParser.parseExtensionHea
 public class SupportedVersionsExtension implements Extension {
 
     private final TlsConstants.HandshakeType handshakeType;
-    private short tlsVersion;
+    private final short tlsVersion;
 
     public SupportedVersionsExtension(TlsConstants.HandshakeType handshakeType) {
-        this.handshakeType = handshakeType;
-        tlsVersion = 0x0304;
+        this(handshakeType, (short) 0x0304);
     }
 
-    public SupportedVersionsExtension(ByteBuffer buffer, TlsConstants.HandshakeType handshakeType) throws TlsProtocolException {
+    private SupportedVersionsExtension(TlsConstants.HandshakeType handshakeType, short tlsVersion) {
         this.handshakeType = handshakeType;
+        this.tlsVersion = tlsVersion;
+    }
+
+    /**
+     * Parses a supported versions extension from a byte stream.
+     * @param buffer
+     * @param handshakeType  indicates in which handshake message the extension occurs
+     * @throws TlsProtocolException
+     */
+    public static SupportedVersionsExtension parse(ByteBuffer buffer, TlsConstants.HandshakeType handshakeType) throws TlsProtocolException {
         int extensionDataLength = parseExtensionHeader(buffer, TlsConstants.ExtensionType.supported_versions, 2);
+        short tlsVersion = 0;
 
         if (handshakeType == TlsConstants.HandshakeType.client_hello) {
             int versionsLength = buffer.get() & 0xff;
@@ -68,6 +78,8 @@ public class SupportedVersionsExtension implements Extension {
         else {
             throw new IllegalArgumentException();
         }
+
+        return new SupportedVersionsExtension(handshakeType, tlsVersion);
     }
 
     public byte[] getBytes() {

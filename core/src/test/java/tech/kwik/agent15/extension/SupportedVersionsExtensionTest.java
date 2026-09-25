@@ -35,7 +35,7 @@ class SupportedVersionsExtensionTest {
     void testParseVersionExtensionInServerHello() throws Exception {
         ByteBuffer buffer = ByteBuffer.wrap(ByteUtils.hexToBytes("002b00020304"));
 
-        SupportedVersionsExtension supportedVersionsExtension = new SupportedVersionsExtension(buffer, TlsConstants.HandshakeType.server_hello);
+        SupportedVersionsExtension supportedVersionsExtension = SupportedVersionsExtension.parse(buffer, TlsConstants.HandshakeType.server_hello);
 
         assertThat(supportedVersionsExtension.getTlsVersion()).isEqualTo((short) 0x0304);
     }
@@ -44,7 +44,7 @@ class SupportedVersionsExtensionTest {
     void testParseVersionExtensionInClientHello() throws Exception {
         ByteBuffer buffer = ByteBuffer.wrap(ByteUtils.hexToBytes("002b0003020304"));
 
-        SupportedVersionsExtension supportedVersionsExtension = new SupportedVersionsExtension(buffer, TlsConstants.HandshakeType.client_hello);
+        SupportedVersionsExtension supportedVersionsExtension = SupportedVersionsExtension.parse(buffer, TlsConstants.HandshakeType.client_hello);
 
         assertThat(supportedVersionsExtension.getTlsVersion()).isEqualTo((short) 0x0304);
     }
@@ -54,7 +54,7 @@ class SupportedVersionsExtensionTest {
         // Extension type 0x002b, data length 0x0005, versions length 0x04, version 0x0303 (TLS 1.2) and version 0x0304 (TLS 1.3)
         ByteBuffer buffer = ByteBuffer.wrap(ByteUtils.hexToBytes("002b00050403030304"));
 
-        SupportedVersionsExtension extension = new SupportedVersionsExtension(buffer, TlsConstants.HandshakeType.client_hello);
+        SupportedVersionsExtension extension = SupportedVersionsExtension.parse(buffer, TlsConstants.HandshakeType.client_hello);
 
         assertThat(extension.getTlsVersion()).isEqualTo((short) 0x0304);
         assertThat(extension.containsTls13()).isTrue();
@@ -65,7 +65,7 @@ class SupportedVersionsExtensionTest {
         // Extension type 0x002b, data length 0x0003, versions length 0x02, version 0x0303 (TLS 1.2)
         ByteBuffer buffer = ByteBuffer.wrap(ByteUtils.hexToBytes("002b0003020303"));
 
-        SupportedVersionsExtension extension = new SupportedVersionsExtension(buffer, TlsConstants.HandshakeType.client_hello);
+        SupportedVersionsExtension extension = SupportedVersionsExtension.parse(buffer, TlsConstants.HandshakeType.client_hello);
 
         assertThat(extension.getTlsVersion()).isEqualTo((short) 0);
         assertThat(extension.containsTls13()).isFalse();
@@ -75,7 +75,7 @@ class SupportedVersionsExtensionTest {
     void testSerializeVersionExtensionInClientHello() throws Exception {
         ByteBuffer buffer = ByteBuffer.wrap(new SupportedVersionsExtension(TlsConstants.HandshakeType.client_hello).getBytes());
 
-        SupportedVersionsExtension supportedVersionsExtension = new SupportedVersionsExtension(buffer, TlsConstants.HandshakeType.client_hello);
+        SupportedVersionsExtension supportedVersionsExtension = SupportedVersionsExtension.parse(buffer, TlsConstants.HandshakeType.client_hello);
 
         assertThat(supportedVersionsExtension.getTlsVersion()).isEqualTo((short) 0x0304);
     }
@@ -84,7 +84,7 @@ class SupportedVersionsExtensionTest {
     void testSerializeVersionExtensionInServerHello() throws Exception {
         ByteBuffer buffer = ByteBuffer.wrap(new SupportedVersionsExtension(TlsConstants.HandshakeType.server_hello).getBytes());
 
-        SupportedVersionsExtension supportedVersionsExtension = new SupportedVersionsExtension(buffer, TlsConstants.HandshakeType.server_hello);
+        SupportedVersionsExtension supportedVersionsExtension = SupportedVersionsExtension.parse(buffer, TlsConstants.HandshakeType.server_hello);
 
         assertThat(supportedVersionsExtension.getTlsVersion()).isEqualTo((short) 0x0304);
     }
@@ -94,7 +94,7 @@ class SupportedVersionsExtensionTest {
         ByteBuffer buffer = ByteBuffer.wrap(ByteUtils.hexToBytes("002b00"));
 
         assertThatThrownBy(
-                () -> new SupportedVersionsExtension(buffer, TlsConstants.HandshakeType.client_hello)
+                () -> SupportedVersionsExtension.parse(buffer, TlsConstants.HandshakeType.client_hello)
         ).isInstanceOf(DecodeErrorException.class);
     }
 
@@ -103,7 +103,7 @@ class SupportedVersionsExtensionTest {
         ByteBuffer buffer = ByteBuffer.wrap(ByteUtils.hexToBytes("002b00030203"));
 
         assertThatThrownBy(
-                () -> new SupportedVersionsExtension(buffer, TlsConstants.HandshakeType.client_hello)
+                () -> SupportedVersionsExtension.parse(buffer, TlsConstants.HandshakeType.client_hello)
         ).isInstanceOf(DecodeErrorException.class);
     }
 
@@ -112,7 +112,7 @@ class SupportedVersionsExtensionTest {
         ByteBuffer buffer = ByteBuffer.wrap(ByteUtils.hexToBytes("002b00020103"));
 
         assertThatThrownBy(
-                () -> new SupportedVersionsExtension(buffer, TlsConstants.HandshakeType.client_hello)
+                () -> SupportedVersionsExtension.parse(buffer, TlsConstants.HandshakeType.client_hello)
         ).isInstanceOf(DecodeErrorException.class);
     }
 
@@ -121,7 +121,7 @@ class SupportedVersionsExtensionTest {
         ByteBuffer buffer = ByteBuffer.wrap(ByteUtils.hexToBytes("002b000103"));
 
         assertThatThrownBy(
-                () -> new SupportedVersionsExtension(buffer, TlsConstants.HandshakeType.server_hello)
+                () -> SupportedVersionsExtension.parse(buffer, TlsConstants.HandshakeType.server_hello)
         ).isInstanceOf(DecodeErrorException.class);
     }
 
@@ -130,7 +130,7 @@ class SupportedVersionsExtensionTest {
         ByteBuffer buffer = ByteBuffer.wrap(ByteUtils.hexToBytes("002b00030403040303"));
 
         assertThatThrownBy(
-                () -> new SupportedVersionsExtension(buffer, TlsConstants.HandshakeType.client_hello)
+                () -> SupportedVersionsExtension.parse(buffer, TlsConstants.HandshakeType.client_hello)
         ).isInstanceOf(DecodeErrorException.class);
     }
 
@@ -139,7 +139,7 @@ class SupportedVersionsExtensionTest {
         ByteBuffer buffer = ByteBuffer.wrap(ByteUtils.hexToBytes("002b000403040303"));
 
         assertThatThrownBy(
-                () -> new SupportedVersionsExtension(buffer, TlsConstants.HandshakeType.server_hello)
+                () -> SupportedVersionsExtension.parse(buffer, TlsConstants.HandshakeType.server_hello)
         ).isInstanceOf(DecodeErrorException.class);
     }
 }

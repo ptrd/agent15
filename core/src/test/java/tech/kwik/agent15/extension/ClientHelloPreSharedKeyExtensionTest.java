@@ -30,7 +30,7 @@ class ClientHelloPreSharedKeyExtensionTest {
         var extension = new ClientHelloPreSharedKeyExtension(new NewSessionTicket(new byte[32],
                 new NewSessionTicketMessage(3600, 0xca, new byte[]{ 0x00 }, new byte[]{ 0x00, 0x01, 0x02, 0x03 }), TlsConstants.CipherSuite.TLS_AES_128_GCM_SHA256));
         byte[] data = extension.getBytes();
-        var parsedExtension = new ClientHelloPreSharedKeyExtension().parse(ByteBuffer.wrap(data));
+        var parsedExtension = ClientHelloPreSharedKeyExtension.parse(ByteBuffer.wrap(data));
         assertThat(parsedExtension.getIdentities()).hasSize(1);
         assertThat(parsedExtension.getIdentities().get(0).getIdentity()).isEqualTo(new byte[]{ 0x00, 0x01, 0x02, 0x03 });
         assertThat(parsedExtension.getIdentities().get(0).getObfuscatedTicketAge()).isEqualTo(0xca);
@@ -41,7 +41,7 @@ class ClientHelloPreSharedKeyExtensionTest {
     @Test
     void parseCorrectExtensionData() throws Exception {
         String rawBytes = "0029 003b 0016 0010 000102030405060708090a0b0c0d0e0f ffffffff 0021 20 000102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0f";
-        var parsedExtension = new ClientHelloPreSharedKeyExtension().parse(ByteBuffer.wrap(ByteUtils.hexToBytes(rawBytes)));
+        var parsedExtension = ClientHelloPreSharedKeyExtension.parse(ByteBuffer.wrap(ByteUtils.hexToBytes(rawBytes)));
         assertThat(parsedExtension.getIdentities()).hasSize(1);
         assertThat(parsedExtension.getIdentities().get(0).getObfuscatedTicketAge()).isEqualTo(0xffffffffL);
         assertThat(parsedExtension.getBinders()).hasSize(1);
@@ -51,7 +51,7 @@ class ClientHelloPreSharedKeyExtensionTest {
     void parseIncompleteExtension() throws Exception {
         String rawBytes = "0029 003b 0016 0010 000102030405060708090a0b0c0d0e0f ffffffff 0021 20 000102030405060708090a0b0c0d0e0f";
         assertThatThrownBy(() ->
-                        new ClientHelloPreSharedKeyExtension().parse(ByteBuffer.wrap(ByteUtils.hexToBytes(rawBytes)))
+                        ClientHelloPreSharedKeyExtension.parse(ByteBuffer.wrap(ByteUtils.hexToBytes(rawBytes)))
         ).isInstanceOf(DecodeErrorException.class);
     }
 
@@ -60,7 +60,7 @@ class ClientHelloPreSharedKeyExtensionTest {
         // if there is only one PskIdentify, the identities length field must be 6 larger then the identity length field: 4 bytes ticket_age and 2 bytes for the identify length itself
         String rawBytes = "0029 003b 0016 0011 000102030405060708090a0b0c0d0e0f ffffffff 0021 20 000102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0f";
         assertThatThrownBy(() ->
-                        new ClientHelloPreSharedKeyExtension().parse(ByteBuffer.wrap(ByteUtils.hexToBytes(rawBytes)))
+                        ClientHelloPreSharedKeyExtension.parse(ByteBuffer.wrap(ByteUtils.hexToBytes(rawBytes)))
         ).isInstanceOf(DecodeErrorException.class);
     }
 
@@ -69,7 +69,7 @@ class ClientHelloPreSharedKeyExtensionTest {
         // if there is only one PskIdentify, the identities length field must be 6 larger then the identity length field: 4 bytes ticket_age and 2 bytes for the identify length itself
         String rawBytes = "0029 003b 0016 000f 000102030405060708090a0b0c0d0e0f ffffffff 0021 20 000102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0f";
         assertThatThrownBy(() ->
-                        new ClientHelloPreSharedKeyExtension().parse(ByteBuffer.wrap(ByteUtils.hexToBytes(rawBytes)))
+                        ClientHelloPreSharedKeyExtension.parse(ByteBuffer.wrap(ByteUtils.hexToBytes(rawBytes)))
         ).isInstanceOf(DecodeErrorException.class);
     }
 
@@ -78,7 +78,7 @@ class ClientHelloPreSharedKeyExtensionTest {
         // length field claims 18, but it is only 16
         String rawBytes = "0029 003b 0018 0012 000102030405060708090a0b0c0d0e0f ffffffff 0021 20 000102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0f";
         assertThatThrownBy(() ->
-                        new ClientHelloPreSharedKeyExtension().parse(ByteBuffer.wrap(ByteUtils.hexToBytes(rawBytes)))
+                        ClientHelloPreSharedKeyExtension.parse(ByteBuffer.wrap(ByteUtils.hexToBytes(rawBytes)))
         ).isInstanceOf(DecodeErrorException.class);
     }
 
@@ -87,7 +87,7 @@ class ClientHelloPreSharedKeyExtensionTest {
         // identity length: 40, psk-identity length (including age field): 46
         String rawBytes = "0029 0048 0046 0040 000102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0f ffffffff";
         assertThatThrownBy(() ->
-                        new ClientHelloPreSharedKeyExtension().parse(ByteBuffer.wrap(ByteUtils.hexToBytes(rawBytes)))
+                        ClientHelloPreSharedKeyExtension.parse(ByteBuffer.wrap(ByteUtils.hexToBytes(rawBytes)))
         ).isInstanceOf(DecodeErrorException.class);
     }
 
@@ -96,7 +96,7 @@ class ClientHelloPreSharedKeyExtensionTest {
         // identity length: 40, psk-identity length (including age field): 46
         String rawBytes = "0029 004a 0046 0040 000102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0f ffffffff 0000";
         assertThatThrownBy(() ->
-                        new ClientHelloPreSharedKeyExtension().parse(ByteBuffer.wrap(ByteUtils.hexToBytes(rawBytes)))
+                        ClientHelloPreSharedKeyExtension.parse(ByteBuffer.wrap(ByteUtils.hexToBytes(rawBytes)))
         ).isInstanceOf(DecodeErrorException.class);
     }
 
@@ -105,7 +105,7 @@ class ClientHelloPreSharedKeyExtensionTest {
         // i.e. extension length field does not completely cover the binders, it should be 2 + 0x46 + 0x23 = 0x6b
         String rawBytes = "0029 0061 0046 0040 000102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0f ffffffff 0021 20 000102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0f";
         assertThatThrownBy(() ->
-                        new ClientHelloPreSharedKeyExtension().parse(ByteBuffer.wrap(ByteUtils.hexToBytes(rawBytes)))
+                        ClientHelloPreSharedKeyExtension.parse(ByteBuffer.wrap(ByteUtils.hexToBytes(rawBytes)))
         ).isInstanceOf(DecodeErrorException.class);
     }
 
@@ -113,7 +113,7 @@ class ClientHelloPreSharedKeyExtensionTest {
     void parseIncorrectBinderLength() throws Exception {
         String rawBytes = "0029 006a 0046 0040 000102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0f ffffffff 0021 20 000102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e";
         assertThatThrownBy(() ->
-                        new ClientHelloPreSharedKeyExtension().parse(ByteBuffer.wrap(ByteUtils.hexToBytes(rawBytes)))
+                        ClientHelloPreSharedKeyExtension.parse(ByteBuffer.wrap(ByteUtils.hexToBytes(rawBytes)))
         ).isInstanceOf(DecodeErrorException.class);
     }
 
@@ -121,7 +121,7 @@ class ClientHelloPreSharedKeyExtensionTest {
     void parseInconsistentBinderLengths() throws Exception {
         String rawBytes = "0029 006b 0046 0040 000102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0f ffffffff 0020 20 000102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0f";
         assertThatThrownBy(() ->
-                        new ClientHelloPreSharedKeyExtension().parse(ByteBuffer.wrap(ByteUtils.hexToBytes(rawBytes)))
+                        ClientHelloPreSharedKeyExtension.parse(ByteBuffer.wrap(ByteUtils.hexToBytes(rawBytes)))
         ).isInstanceOf(DecodeErrorException.class);
     }
 }

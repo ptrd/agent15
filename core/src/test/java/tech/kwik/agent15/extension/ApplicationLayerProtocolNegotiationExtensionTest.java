@@ -67,7 +67,7 @@ class ApplicationLayerProtocolNegotiationExtensionTest {
     @Test
     void parseALPNExtensionSingleProtocol() throws Exception {
         var data = ByteUtils.hexToBytes("0010 000b 0009 08 68 74 74 70 2f 31 2e 31");
-        var extension = new ApplicationLayerProtocolNegotiationExtension(ByteBuffer.wrap(data));
+        var extension = ApplicationLayerProtocolNegotiationExtension.parse(ByteBuffer.wrap(data));
 
         assertThat(extension.getProtocols()).contains("http/1.1");
     }
@@ -75,7 +75,7 @@ class ApplicationLayerProtocolNegotiationExtensionTest {
     @Test
     void parseALPNExtensionMultipleProtocols() throws Exception {
         var data = ByteUtils.hexToBytes("0010 000e 000c 02 68 32 08 68 74 74 70 2f 31 2e 31");
-        var extension = new ApplicationLayerProtocolNegotiationExtension(ByteBuffer.wrap(data));
+        var extension = ApplicationLayerProtocolNegotiationExtension.parse(ByteBuffer.wrap(data));
 
         assertThat(extension.getProtocols()).contains("http/1.1", "h2");
     }
@@ -85,7 +85,7 @@ class ApplicationLayerProtocolNegotiationExtensionTest {
         var data = ByteUtils.hexToBytes("0010 000b 000a 08 68 74 74 70 2f 31 2e 31 31");
 
         assertThatThrownBy(() ->
-                new ApplicationLayerProtocolNegotiationExtension(ByteBuffer.wrap(data))
+                ApplicationLayerProtocolNegotiationExtension.parse(ByteBuffer.wrap(data))
         ).isInstanceOf(DecodeErrorException.class);
     }
 
@@ -94,7 +94,7 @@ class ApplicationLayerProtocolNegotiationExtensionTest {
         var data = ByteUtils.hexToBytes("0010 000b 0009 09 68 74 74 70 2f 31 2e 31");
 
         assertThatThrownBy(() ->
-                new ApplicationLayerProtocolNegotiationExtension(ByteBuffer.wrap(data))
+                ApplicationLayerProtocolNegotiationExtension.parse(ByteBuffer.wrap(data))
         ).isInstanceOf(DecodeErrorException.class);
     }
 
@@ -103,7 +103,7 @@ class ApplicationLayerProtocolNegotiationExtensionTest {
         var data = ByteUtils.hexToBytes("0010 000e 000c 02 68 32 09 68 74 74 70 2f 31 2e 31");
 
         assertThatThrownBy(() ->
-                new ApplicationLayerProtocolNegotiationExtension(ByteBuffer.wrap(data))
+                ApplicationLayerProtocolNegotiationExtension.parse(ByteBuffer.wrap(data))
         ).isInstanceOf(DecodeErrorException.class);
     }
 
@@ -112,7 +112,7 @@ class ApplicationLayerProtocolNegotiationExtensionTest {
         var data = ByteUtils.hexToBytes("0010 000b 0009 07 68 74 74 70 2f 31 2e 31");
 
         assertThatThrownBy(() ->
-                new ApplicationLayerProtocolNegotiationExtension(ByteBuffer.wrap(data))
+                ApplicationLayerProtocolNegotiationExtension.parse(ByteBuffer.wrap(data))
         ).isInstanceOf(DecodeErrorException.class);
     }
 }
