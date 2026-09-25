@@ -28,6 +28,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import static tech.kwik.agent15.extension.ExtensionBlockParser.parseExtensionHeader;
+
 /**
  * The TLS "key_share" extension contains the endpoint's cryptographic parameters.
  * See https://tools.ietf.org/html/rfc8446#section-4.2.8

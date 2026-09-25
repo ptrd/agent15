@@ -23,6 +23,8 @@ import tech.kwik.agent15.alert.DecodeErrorException;
 
 import java.nio.ByteBuffer;
 
+import static tech.kwik.agent15.extension.ExtensionBlockParser.parseExtensionHeader;
+
 /**
  * The TLS cookie extension.
  *

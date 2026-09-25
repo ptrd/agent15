@@ -177,6 +177,51 @@ public class ExtensionBlockParser {
         return extensions;
     }
 
+    /**
+     * Parses the header (type and length) of a single extension.
+     *
+     * @param buffer
+     * @param expectedType  the type the extension is expected to have; a mismatch indicates a programming error
+     * @param minimumExtensionSize  the minimum size of the extension data
+     * @return the length of the extension data
+     * @throws DecodeErrorException  when the extension is malformed
+     */
+    public static int parseExtensionHeader(ByteBuffer buffer, TlsConstants.ExtensionType expectedType, int minimumExtensionSize) throws DecodeErrorException {
+        return parseExtensionHeader(buffer, expectedType.value, minimumExtensionSize, expectedType + " extension");
+    }
+
+    /**
+     * Parses the header (type and length) of a single extension, for extension types that are not defined by
+     * {@link TlsConstants.ExtensionType} (e.g. the QUIC transport parameters extension).
+     *
+     * @param buffer
+     * @param expectedType  the type the extension is expected to have; a mismatch indicates a programming error
+     * @param minimumExtensionSize  the minimum size of the extension data
+     * @return the length of the extension data
+     * @throws DecodeErrorException  when the extension is malformed
+     */
+    public static int parseExtensionHeader(ByteBuffer buffer, int expectedType, int minimumExtensionSize) throws DecodeErrorException {
+        return parseExtensionHeader(buffer, expectedType, minimumExtensionSize, "extension of type " + expectedType);
+    }
+
+    private static int parseExtensionHeader(ByteBuffer buffer, int expectedType, int minimumExtensionSize, String extensionDescription) throws DecodeErrorException {
+        if (buffer.limit() - buffer.position() < 4) {
+            throw new DecodeErrorException("extension underflow");
+        }
+        int extensionType = buffer.getShort() & 0xffff;
+        if (extensionType != expectedType) {
+            throw new IllegalStateException();  // i.e. programming error
+        }
+        int extensionDataLength = buffer.getShort() & 0xffff;
+        if (extensionDataLength < minimumExtensionSize) {
+            throw new DecodeErrorException(extensionDescription + " can't be less than " + minimumExtensionSize + " bytes");
+        }
+        if (buffer.limit() - buffer.position() < extensionDataLength) {
+            throw new DecodeErrorException("extension underflow");
+        }
+        return extensionDataLength;
+    }
+
     private static void check(TlsConstants.HandshakeType context, TlsConstants.HandshakeType... allowedHandshakeTypes) throws IllegalParameterAlert {
         // https://datatracker.ietf.org/doc/html/rfc8446#section-4.2
         // "If an implementation receives an extension which it recognizes and which is not specified for

@@ -27,6 +27,7 @@ import java.util.Collections;
 import java.util.List;
 
 import static tech.kwik.agent15.TlsConstants.decodeSignatureScheme;
+import static tech.kwik.agent15.extension.ExtensionBlockParser.parseExtensionHeader;
 
 /**
  * The TLS signature algorithms extension.

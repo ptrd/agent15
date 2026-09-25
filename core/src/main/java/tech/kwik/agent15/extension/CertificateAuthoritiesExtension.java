@@ -26,6 +26,8 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 
+import static tech.kwik.agent15.extension.ExtensionBlockParser.parseExtensionHeader;
+
 /**
  * https://tools.ietf.org/html/rfc8446#section-4.2.4
  */

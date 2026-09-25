@@ -25,6 +25,8 @@ import java.nio.Buffer;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 
+import static tech.kwik.agent15.extension.ExtensionBlockParser.parseExtensionHeader;
+
 /**
  * TLS server name extension: RFC 6066
  * https://tools.ietf.org/html/rfc6066#section-3

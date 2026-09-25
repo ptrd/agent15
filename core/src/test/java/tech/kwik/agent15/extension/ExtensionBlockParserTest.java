@@ -79,4 +79,14 @@ class ExtensionBlockParserTest {
 
         assertThat(ExtensionBlockParser.findPositionLastExtension(ByteBuffer.wrap(rawData))).isEqualTo(2);
     }
+
+    @Test
+    void largeExtensionDataLengthIsParsedAsUnsignedValue() throws Exception {
+        byte[] data = new byte[4 + 0x8000];
+        System.arraycopy(ByteUtils.hexToBytes("0000 8000"), 0, data, 0, 4);
+
+        int extensionDataLength = ExtensionBlockParser.parseExtensionHeader(ByteBuffer.wrap(data), 0x00, 4);
+
+        assertThat(extensionDataLength).isEqualTo(0x8000);
+    }
 }

@@ -26,6 +26,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static tech.kwik.agent15.TlsConstants.decodePskKeyExchangeMode;
+import static tech.kwik.agent15.extension.ExtensionBlockParser.parseExtensionHeader;
 
 /**
  * TLS Pre-Shared Key Exchange Modes extension.

@@ -24,6 +24,8 @@ import tech.kwik.agent15.TlsProtocolException;
 
 import java.nio.ByteBuffer;
 
+import static tech.kwik.agent15.extension.ExtensionBlockParser.parseExtensionHeader;
+
 /**
  * The TLS supported versions extension.
  * See https://tools.ietf.org/html/rfc8446#section-4.2.1

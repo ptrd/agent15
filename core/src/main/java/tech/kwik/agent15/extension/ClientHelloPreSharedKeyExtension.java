@@ -29,6 +29,8 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
+import static tech.kwik.agent15.extension.ExtensionBlockParser.parseExtensionHeader;
+
 /**
  * TLS Pre-Shared Key Extension, ClientHello variant.
  * see https://datatracker.ietf.org/doc/html/rfc8446#section-4.2.11

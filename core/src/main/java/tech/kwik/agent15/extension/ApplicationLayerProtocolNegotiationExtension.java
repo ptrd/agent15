@@ -26,6 +26,8 @@ import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.List;
 
+import static tech.kwik.agent15.extension.ExtensionBlockParser.parseExtensionHeader;
+
 public class ApplicationLayerProtocolNegotiationExtension extends Extension {
 
     private final List<String> protocols;
@@ -48,7 +50,7 @@ public class ApplicationLayerProtocolNegotiationExtension extends Extension {
     }
 
     public ApplicationLayerProtocolNegotiationExtension(ByteBuffer buffer) throws DecodeErrorException {
-        int extensionDataLength = parseExtensionHeader(buffer, TlsConstants.ExtensionType.application_layer_protocol_negotiation.value, 3);
+        int extensionDataLength = parseExtensionHeader(buffer, TlsConstants.ExtensionType.application_layer_protocol_negotiation, 3);
 
         int protocolsLength = buffer.getShort() & 0xffff;
         if (protocolsLength != extensionDataLength - 2) {

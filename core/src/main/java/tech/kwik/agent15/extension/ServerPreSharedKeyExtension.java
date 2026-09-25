@@ -23,6 +23,8 @@ import tech.kwik.agent15.alert.DecodeErrorException;
 
 import java.nio.ByteBuffer;
 
+import static tech.kwik.agent15.extension.ExtensionBlockParser.parseExtensionHeader;
+
 /**
  * TLS Pre-Shared Key Extension, ServerHello variant.
  * see https://datatracker.ietf.org/doc/html/rfc8446#section-4.2.11

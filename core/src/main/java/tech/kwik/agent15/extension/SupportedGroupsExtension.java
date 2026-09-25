@@ -26,6 +26,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static tech.kwik.agent15.TlsConstants.decodeNamedGroup;
+import static tech.kwik.agent15.extension.ExtensionBlockParser.parseExtensionHeader;
 
 /**
  * The TLS supported groups extension.
