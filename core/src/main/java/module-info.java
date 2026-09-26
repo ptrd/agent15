@@ -1,17 +1,21 @@
 /**
  * Agent15 is a Java implementation of the handshake protocol of TLS 1.3
- * (<a href="https://datatracker.ietf.org/doc/html/rfc8446#section-4">RFC 8446, section 4</a>).
+ * (<a href="https://datatracker.ietf.org/doc/html/rfc8446#section-4">RFC 8446, section 4</a>), running on Java 11.
  * It was developed for, and is used by, QUIC implementations: QUIC uses TLS 1.3 for encryption, but only the
  * handshake layer, not the record layer (see <a href="https://www.rfc-editor.org/rfc/rfc9001.html#name-protocol-overview">RFC 9001, section 3</a>).
  *
  * <h2>What is implemented</h2>
  * Agent15 implements all of the handshake protocol needed to set up and maintain a QUIC connection, including
+ * <a href="https://www.rfc-editor.org/info/rfc8446/#section-2.1">HelloRetryRequest</a>,
  * <a href="https://datatracker.ietf.org/doc/html/rfc8446#section-2.2">session resumption</a> and
  * <a href="https://datatracker.ietf.org/doc/html/rfc8446#section-2.3">0-RTT</a>.
  * Because it targets QUIC, it implements only the handshake layer, not the TLS record layer. A few handshake messages
  * are intentionally not implemented, as they are not used with QUIC: {@code EndOfEarlyData} and {@code KeyUpdate}.
  * Unsupported extensions do not cause parsing to fail; the parser represents them with an {@code UnknownExtension}
  * object.
+ * <p>
+ * Agent15 also implements <a href="https://www.rfc-editor.org/info/rfc10024/">RFC 10024</a>: Post-Quantum Traditional
+ * (PQ/T) Hybrid Key Agreement Mechanisms for TLS 1.3.
  *
  * <h2>Supported cryptography</h2>
  * Cipher suites: {@code TLS_AES_128_GCM_SHA256}, {@code TLS_AES_256_GCM_SHA384}, {@code TLS_CHACHA20_POLY1305_SHA256}.
@@ -19,12 +23,15 @@
  * Signature algorithms: {@code rsa_pkcs1_sha256} (certificates only), {@code rsa_pss_rsae_sha256},
  * {@code rsa_pss_rsae_sha384}, {@code rsa_pss_rsae_sha512}, {@code ecdsa_secp256r1_sha256}.
  * <br>
- * Named groups (key exchange): {@code secp256r1}, {@code secp384r1}, {@code secp521r1}, {@code x25519},
- * {@code x448}, and, when the {@code tech.kwik.agent15.pqc} module is present, the hybrid groups
- * {@code X25519MLKEM768}, {@code SecP256r1MLKEM768} and {@code SecP384r1MLKEM1024}. A server can restrict the set it
- * offers with {@code TlsServerEngine.addSupportedGroups}; a client can offer a key share for more than one group with
- * the {@code TlsClientEngine.startHandshake} method that takes a list of key share groups, which avoids the extra round
- * trip of a HelloRetryRequest when the server does not support the client's first choice.
+ * Named groups (key exchange): {@code secp256r1}, {@code secp384r1}, {@code secp521r1}, {@code x25519} and
+ * {@code x448}, and the post-quantum hybrid key exchanges {@code X25519MLKEM768}, {@code SecP256r1MLKEM768} and
+ * {@code SecP384r1MLKEM1024}. The latter are provided by a separate module, {@code agent15-pqc}
+ * ({@code tech.kwik.agent15.pqc}), that requires a Java 25 <em>runtime</em>; they are available exactly when that
+ * module is present.
+ * <br>
+ * A client can offer a key share for more than one group with the {@code TlsClientEngine.startHandshake} method that
+ * takes a list of key share groups, which avoids the extra round trip of a HelloRetryRequest when the server does not
+ * support the client's first choice.
  *
  * <h2>Getting started</h2>
  * The public API lives in the {@link tech.kwik.agent15.engine} package.
@@ -36,7 +43,11 @@
  *   received should be passed to the engine's {@code received} method.</li>
  *   <li><b>Server:</b> instantiate a {@code TlsServerEngine} with a {@code ServerMessageSender}, a
  *   {@code TlsStatusEventHandler}, and the server certificate and its private key. As with the client, any TLS message
- *   received should be passed to the engine, which takes care of sending the necessary messages back to the client.</li>
+ *   received should be passed to the engine, which takes care of sending the necessary messages back to the client.
+ *   Which named groups the server offers for key exchange can be configured with
+ *   {@code TlsServerEngine.setSupportedGroups}; by default it offers all groups its key exchange factories can
+ *   provide, which is what makes the hybrid post-quantum groups available as soon as the {@code agent15-pqc} module is
+ *   on the class path.</li>
  * </ul>
  * QUIC's transport-parameters extension is supported by injecting a custom extension parser through the engine API.
  * Session resumption uses a PSK obtained from a {@code NewSessionTicket} message; the server keeps session tickets in an

@@ -1,12 +1,12 @@
-![Agent15](https://bitbucket.org/pjtr/agent15/raw/master/docs/media/Logo_Agent15_rectangle.png)
+![Agent15](https://raw.githubusercontent.com/ptrd/agent15/refs/heads/master/docs/media/Logo_Agent15_rectangle.png)
 
 # A (partial) TLS 1.3 implementation in Java
 
 [![Maven Central](https://img.shields.io/maven-central/v/tech.kwik/agent15.svg?label=Maven%20Central)](https://central.sonatype.com/artifact/tech.kwik/agent15)
 [![Javadoc](https://img.shields.io/badge/Javadoc-online-blue.svg)](https://ptrd.github.io/agent15/javadoc)
 
-Agent15 is an open source implementation of the [handshake protocol](https://datatracker.ietf.org/doc/html/rfc8446#section-4) of TLS 1.3. 
-It was developed for, and is used by [Kwik](https://bitbucket.org/pjtr/kwik/src/master/), a 100% pure Java implementation of the QUIC protocol. 
+Agent15 is an open source implementation of the [handshake protocol](https://datatracker.ietf.org/doc/html/rfc8446#section-4) of TLS 1.3 ([RFC 8446](https://www.rfc-editor.org/info/rfc8446/)), running on Java 11.
+It was developed for, and is used by [Kwik](https://github.com/ptrd/kwik/), a 100% pure Java implementation of the QUIC protocol. 
 QUIC uses TLS 1.3 for encryption, but only the handshake layer, not the record layer (see [RFC 9001, sec 3](https://www.rfc-editor.org/rfc/rfc9001.html#name-protocol-overview)).
 
 Agent15 is created and maintained by Peter Doornbosch. The latest greatest can always be found on [GitHub](https://github.com/ptrd/agent15).
@@ -14,23 +14,21 @@ Agent15 is created and maintained by Peter Doornbosch. The latest greatest can a
 ## Status
 
 Agent15 implements all of the handshake protocol that is needed to setup and maintain a QUIC connection, including
+[HelloRetryRequest](https://www.rfc-editor.org/info/rfc8446/#section-2.1),
 [session resumption](https://datatracker.ietf.org/doc/html/rfc8446#section-2.2) 
 and
 [0-RTT](https://datatracker.ietf.org/doc/html/rfc8446#section-2.3).
 
-Which named groups the server offers for key exchange can be configured with `TlsServerEngine.addSupportedGroups`;
-by default it offers all groups its key exchange factory can provide, which is what makes the hybrid post-quantum
-groups available as soon as the `agent15-pqc` module is on the class path.
-
-Not all TLS 1.3 handshake messages are implemented because there are some that are not used in QUIC:
+Not all TLS 1.3 handshake messages are implemented because there are some that are not used in the QUIC protocol:
 
 - EndOfEarlyData: see https://www.rfc-editor.org/rfc/rfc9001.html#name-removing-the-endofearlydata
 - KeyUpdateRequest: see https://www.rfc-editor.org/rfc/rfc9001.html#name-key-update
 
-Also, not all extensions are supported, see the [source](https://bitbucket.org/pjtr/agent15/src/master/src/main/java/tech/kwik/agent15/extension/) 
-for an overview of which extensions are supported. 
+Not all extensions listed in [RFC 8446](https://www.rfc-editor.org/info/rfc8446/) are supported, see the [source](https://github.com/ptrd/agent15/tree/master/core/src/main/java/tech/kwik/agent15/extension/) for an overview of which extensions are supported. 
 However, the message parser will create an `UnknownExtension` object for unsupported extensions, so parsing will not fail 
-(as it does for unsupported handshake message types).
+(as it would for the unsupported handshake message types).
+
+Agent15 also implements [RFC 10024](https://www.rfc-editor.org/info/rfc10024/): Post-Quantum Traditional (PQ/T) Hybrid Key Agreement Mechanisms for TLS 1.3.
 
 #### QUIC extension support
 
@@ -55,20 +53,17 @@ The following digital signatures are supported:
 - rsa_pss_rsae_sha512
 - ecdsa_secp256r1_sha256
 
-The following elliptic curves are supported:
+For key exchange, the following elliptic curves ("named groups") are supported:
 
-- secp256r1
-- X25519
+- secp256r1, secp384r1 and secp521r1
+- X25519, X448
 
-Coming soon (see https://github.com/ptrd/agent15/tree/support-hybrid-key-exchange):
-
-- secp384r1 and secp521r1
-- X448
-
-and post-quantum hybrid key exchanges:
+and the post-quantum hybrid key exchanges:
 
 - X25519MLKEM768
 - SecP256r1MLKEM768 and SecP384r1MLKEM1024
+
+Post quantum cryptography is provided by means of a separate module, `agent15-pqc`, that requires Java 25 _runtime_.
 
 ### Features
 
@@ -83,7 +78,7 @@ Maven coordinates:
     <dependency>
         <groupId>tech.kwik</groupId>
         <artifactId>agent15</artifactId>
-        <version>3.3</version>
+        <version>4.0</version>
     </dependency>
 
 
@@ -100,6 +95,10 @@ Server: instantiate a `TlsServerEngine`. In addition to a `ServerMessageSender` 
 analogous purpose as in the client case, the server certificate and its private key need to be provided as well. 
 As with the client, any TLS message received should be passed to the engine, which will take care of sending all necessary 
 messages back to the client.
+
+Which named groups the server offers for key exchange can be configured with `TlsServerEngine.setSupportedGroups`;
+by default it offers all groups its key exchange factory can provide, which is what makes the hybrid post-quantum
+groups available as soon as the `agent15-pqc` module is on the class path.
 
 #### Building
 

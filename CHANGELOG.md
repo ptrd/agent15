@@ -1,5 +1,80 @@
 # Releases
 
+## 4.0 (2026-09-27)
+
+Provides support for post-quantum (hybrid) key exchange and HelloRetryRequest. 
+Support for post-quantum is provided by the new `agent15-pqc` module that requires Java 25. 
+The core module runs on Java 11 as before.
+
+Contains quite some breaking changes, but unless you depend directly on the handshake message or extension classes, 
+the only relevant ones are:
+-  new method `send(HelloRetryRequest)` in `ServerMessageSender`; implementations must add it,
+- `Extension` is now an interface instead of an abstract class.
+
+### Post-quantum key exchange
+
+- Added the three hybrid key agreement mechanisms of RFC 10024: `X25519MLKEM768`, `SecP256r1MLKEM768` and
+  `SecP384r1MLKEM1024` (new `TlsConstants.NamedGroup` values).
+- These are based on ML-KEM, for which `java.security.KEM` (Java 25) is used, whilst agent15 targets Java 11.
+  The project is therefore split into two modules: `tech.kwik:agent15` (the TLS handshake implementation, Java 11) and
+  `tech.kwik:agent15-pqc` (the hybrid key exchange, Java 25). The hybrid groups are available exactly when
+  `agent15-pqc.jar` is present; core loads it as a `KeyExchangeFactory` service (`ServiceLoader`), so no code change
+  is needed to use them, just the extra dependency.
+- Added support for the classical groups secp384r1, secp521r1 and x448 (the hybrid groups build on them);
+  before, only secp256r1 and x25519 actually worked.
+- A client can offer a key share for more than one named group, with the new
+  `TlsClientEngine.startHandshake(List<NamedGroup> keyShareGroups, List<NamedGroup> supportedGroups, List<SignatureScheme>)`.
+  This avoids the extra round trip of a HelloRetryRequest when the server does not support the client's first choice,
+  which is especially useful when offering a hybrid group next to a classical one.
+- Added `TlsServerEngine.setSupportedGroups` to configure which groups the server offers for key exchange; when it is
+  not used, the server offers all groups its key exchange factories provide (thus including the hybrid groups when
+  `agent15-pqc` is present).
+- All key exchange logic has moved out of the engines, `TlsState` and `KeyShareExtension` into `KeyExchange`
+  implementations, which are created by a `KeyExchangeFactory` (both new interfaces in `tech.kwik.agent15.engine`).
+- **Breaking**: `KeyShareExtension` and its nested `KeyShareEntry` now work with the raw key exchange data
+  (`byte[]`) instead of a `java.security.PublicKey`, because a hybrid key share is not a public key. The constructors
+  taking an (`EC`)`PublicKey` are replaced by one taking a `byte[]`, `KeyShareEntry.getKey()` by
+  `getKeyExchangeData()`, and the `ECKeyShareEntry` subclass and the `reverse(byte[])` helper are gone.
+
+### HelloRetryRequest
+
+- Added support for HelloRetryRequest (RFC 8446, section 4.1.4) on both sides.
+  The server never sends a cookie, as it keeps its state between the two ClientHello messages.
+- Added the `HelloRetryRequest` handshake message and the `CookieExtension` (RFC 8446, section 4.2.2), which was parsed
+  as an `UnknownExtension` before. Note that a cookie in a ServerHello (as opposed to a HelloRetryRequest) is now
+  rejected with an `illegal_parameter` alert.
+- The server now checks the rules that RFC 8446, section 4.2.8 imposes on the client's key shares, which it MAY do: a
+  ClientHello with two key shares for the same group, with a key share for a group that is not in its supported groups,
+  or with key shares in another order than its supported groups, is rejected with an `illegal_parameter` alert.
+- **Breaking**: `ServerMessageSender` has a new method `send(HelloRetryRequest)`; implementations must add it.
+- **Breaking**: `ServerHello.parse` returns a `HandshakeMessage`, because a message of type server_hello can also be a
+  hello retry request. `MessageProcessor.received(HelloRetryRequest, ProtectionKeysType)` is a default method (that
+  raises an `unexpected_message` alert), so implementations of that interface do not have to change.
+
+### Breaking changes in the public interfaces
+
+- `TlsClientEngine` has a new method `received(HelloRetryRequest, ProtectionKeysType)` and `TlsServerEngine` a new
+  method `setSupportedGroups(List<NamedGroup>)`; only classes that implement these interfaces themselves are affected.
+- `BinderCalculator.computePskBinder` takes the preceding transcript as an extra parameter, which is needed for
+  computing the binder of a second ClientHello; the single argument method remains available as a default method, but
+  implementations must now implement `computePskBinder(byte[] transcriptPrefix, byte[] partialClientHello)`.
+- `Extension` is an interface instead of an abstract class; custom extensions must use `implements` instead of
+  `extends`. Its `protected` helper method `parseExtensionHeader` moved to `ExtensionBlockParser` (as a public static
+  method), which is the new home for extension (block) parsing.
+- `ExtensionParser.apply` is deprecated in favour of the new `parse` method (which by default delegates to `apply`);
+  `apply` will be removed in a future release.
+
+### Other breaking changes in handshake messages and extensions
+
+- All parsing constructors and instance `parse` methods of handshake messages and extensions are replaced by static
+  `parse` methods, e.g. `new ClientHello(buffer, parser)` becomes `ClientHello.parse(buffer, parser)` and
+  `new ServerHello().parse(buffer, length)` becomes `ServerHello.parse(buffer, length)`.
+- `ClientHello`: the constructors that take a single named group and key share are replaced by the one taking a
+  `List<KeyShareExtension.KeyShareEntry>`, and the supported groups are no longer derived from the key share group, so
+  they must always be given; the convenience constructors taking an `ECPublicKey` are gone.
+- `ClientHelloPreSharedKeyExtension.calculateBinder` takes the preceding transcript as an extra parameter.
+- `HandshakeMessage.checkForDuplicateExtensions` moved to `ExtensionBlockParser`.
+
 ## 3.3 (2026-06-19)
 
 Security hardening and protocol correctness fixes.
