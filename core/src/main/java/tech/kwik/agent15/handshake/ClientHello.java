@@ -24,6 +24,7 @@ import tech.kwik.agent15.TlsProtocolException;
 import tech.kwik.agent15.alert.DecodeErrorException;
 import tech.kwik.agent15.alert.IllegalParameterAlert;
 import tech.kwik.agent15.extension.*;
+import tech.kwik.agent15.util.ListUtils;
 
 import java.nio.ByteBuffer;
 import java.security.SecureRandom;
@@ -45,7 +46,6 @@ public class ClientHello extends HandshakeMessage {
         both
     };
 
-    private static final int MAX_CLIENT_HELLO_SIZE = 3000;
     public static final List<TlsConstants.CipherSuite> SUPPORTED_CIPHERS = List.of(TlsConstants.CipherSuite.TLS_AES_128_GCM_SHA256);
     private static final int MINIMAL_MESSAGE_LENGTH = 1 + 3 + 2 + 32 + 1 + 2 + 2 + 2 + 2;
     private static final List<TlsConstants.SignatureScheme> SUPPORTED_SIGNATURES = List.of(TlsConstants.SignatureScheme.rsa_pss_rsae_sha256);
@@ -99,7 +99,8 @@ public class ClientHello extends HandshakeMessage {
             throw new DecodeErrorException("legacy session id length out of bounds: " + sessionIdLength);
         }
         if (sessionIdLength > 0) {
-            buffer.get(new byte[sessionIdLength]);
+            sessionId = new byte[sessionIdLength];
+            buffer.get(sessionId);
         }
 
         int cipherSuitesLength = buffer.getShort() & 0xffff;
@@ -150,22 +151,74 @@ public class ClientHello extends HandshakeMessage {
     }
 
     /**
+     * Creates a (first) ClientHello that offers a key share for each of the given groups.
+     * https://datatracker.ietf.org/doc/html/rfc8446#section-4.2.8
+     * "Clients MAY send an empty client_shares vector in order to request group selection from the server, at the cost
+     *  of an additional round trip"; this implementation always sends at least one key share.
+     *
      * @param serverName
-     * @param keyShare
+     * @param keyShares               the key shares to offer, in descending order of preference; must not be empty and
+     *                                each of its groups must occur in supportedGroups, in the same order.
      * @param compatibilityMode
      * @param supportedCiphers
      * @param supportedSignatures
-     * @param ecCurve
+     * @param supportedGroups
      * @param extraExtensions
-     * @param binderCalculator              can be null when no ClientHelloPreSharedKeyExtension is present, must be non-null when ClientHelloPreSharedKeyExtension is present.
+     * @param binderCalculator        can be null when no ClientHelloPreSharedKeyExtension is present, must be non-null when ClientHelloPreSharedKeyExtension is present.
      * @param pskKeyEstablishmentMode
      */
-    public ClientHello(String serverName, byte[] keyShare, boolean compatibilityMode, List<TlsConstants.CipherSuite> supportedCiphers,
-                       List<TlsConstants.SignatureScheme> supportedSignatures, TlsConstants.NamedGroup ecCurve,
-                       List<Extension> extraExtensions, BinderCalculator binderCalculator, PskKeyEstablishmentMode pskKeyEstablishmentMode) {
-        this.cipherSuites = supportedCiphers;
+    public ClientHello(String serverName, List<KeyShareExtension.KeyShareEntry> keyShares, boolean compatibilityMode,
+                       List<TlsConstants.CipherSuite> supportedCiphers, List<TlsConstants.SignatureScheme> supportedSignatures,
+                       List<TlsConstants.NamedGroup> supportedGroups, List<Extension> extraExtensions, BinderCalculator binderCalculator, PskKeyEstablishmentMode pskKeyEstablishmentMode) {
+        this(generateClientRandom(), generateSessionId(compatibilityMode), supportedCiphers,
+                assembleExtensions(serverName, keyShares, supportedSignatures, supportedGroups, extraExtensions,
+                        pskKeyEstablishmentMode),
+                binderCalculator);
+    }
 
-        ByteBuffer buffer = ByteBuffer.allocate(MAX_CLIENT_HELLO_SIZE);
+    /**
+     * Creates a ClientHello message from its constituent parts. In contrast to the other constructors, this one does
+     * not add any extension by itself: the given extensions are serialized as they are, in the order given. This is
+     * what makes it possible to create the second ClientHello that must be sent in response to a HelloRetryRequest,
+     * which must be identical to the first one except for a limited set of changes, see
+     * https://datatracker.ietf.org/doc/html/rfc8446#section-4.1.2.
+     *
+     * @param clientRandom      the client random; 32 bytes
+     * @param sessionId         the legacy session id; empty when not using compatibility mode
+     * @param cipherSuites      the symmetric cipher options supported, in descending order of preference
+     * @param extensions        the extensions, in the order in which they must be serialized
+     * @param binderCalculator  can be null when no ClientHelloPreSharedKeyExtension is present, must be non-null when ClientHelloPreSharedKeyExtension is present.
+     */
+    public ClientHello(byte[] clientRandom, byte[] sessionId, List<TlsConstants.CipherSuite> cipherSuites,
+                       List<Extension> extensions, BinderCalculator binderCalculator) {
+        this(clientRandom, sessionId, cipherSuites, extensions, new byte[0], binderCalculator);
+    }
+
+    /**
+     * Creates a ClientHello message from its constituent parts, with a transcript prefix for computing the binder of a
+     * pre-shared key extension. This is what the second ClientHello (the one sent in response to a HelloRetryRequest)
+     * needs, see https://datatracker.ietf.org/doc/html/rfc8446#section-4.2.11.2.
+     *
+     * @param clientRandom      the client random; 32 bytes
+     * @param sessionId         the legacy session id; empty when not using compatibility mode
+     * @param cipherSuites      the symmetric cipher options supported, in descending order of preference
+     * @param extensions        the extensions, in the order in which they must be serialized
+     * @param transcriptPrefix  the transcript that precedes this client hello; empty for a first client hello
+     * @param binderCalculator  can be null when no ClientHelloPreSharedKeyExtension is present, must be non-null when ClientHelloPreSharedKeyExtension is present.
+     */
+    public ClientHello(byte[] clientRandom, byte[] sessionId, List<TlsConstants.CipherSuite> cipherSuites,
+                       List<Extension> extensions, byte[] transcriptPrefix, BinderCalculator binderCalculator) {
+        this.clientRandom = clientRandom;
+        this.sessionId = sessionId;
+        this.cipherSuites = cipherSuites;
+        this.extensions = extensions;
+
+        int extensionsLength = extensions.stream().mapToInt(ext -> ext.getBytes().length).sum();
+        // Message type (1) + length (3) + legacy version (2) + client random (32) + legacy session id length (1) +
+        // legacy session id + cipher suites length (2) + cipher suites + legacy compression methods (2) +
+        // extensions length (2) + extensions.
+        int messageSize = 1 + 3 + 2 + 32 + 1 + sessionId.length + 2 + 2 * cipherSuites.size() + 2 + 2 + extensionsLength;
+        ByteBuffer buffer = ByteBuffer.allocate(messageSize);
 
         // HandshakeType client_hello(1),
         buffer.put((byte) 1);
@@ -179,23 +232,14 @@ public class ClientHello extends HandshakeMessage {
         buffer.put((byte) 0x03);
 
         // client random 32 bytes
-        clientRandom = new byte[32];
-        secureRandom.nextBytes(clientRandom);
         buffer.put(clientRandom);
 
-        if (compatibilityMode) {
-            sessionId = new byte[32];
-            secureRandom.nextBytes(sessionId);
-        }
-        else {
-            sessionId = new byte[0];
-        }
         buffer.put((byte) sessionId.length);
         if (sessionId.length > 0)
             buffer.put(sessionId);
 
-        buffer.putShort((short) (supportedCiphers.size() * 2));
-        for (TlsConstants.CipherSuite cipher: supportedCiphers) {
+        buffer.putShort((short) (cipherSuites.size() * 2));
+        for (TlsConstants.CipherSuite cipher: cipherSuites) {
             buffer.putShort(cipher.value);
         }
 
@@ -206,23 +250,7 @@ public class ClientHello extends HandshakeMessage {
                 (byte) 0x01, (byte) 0x00
         });
 
-        Extension[] defaultExtensions = new Extension[] {
-                new ServerNameExtension(serverName),
-                new SupportedVersionsExtension(TlsConstants.HandshakeType.client_hello),
-                new SupportedGroupsExtension(ecCurve),
-                new SignatureAlgorithmsExtension(supportedSignatures),
-                new KeyShareExtension(keyShare, ecCurve, TlsConstants.HandshakeType.client_hello),
-        };
-
-        extensions = new ArrayList<>();
-        extensions.addAll(List.of(defaultExtensions));
-        if (pskKeyEstablishmentMode != PskKeyEstablishmentMode.none) {
-            extensions.add(createPskKeyExchangeModesExtension(pskKeyEstablishmentMode));
-        }
-        extensions.addAll(extraExtensions);
-
         ClientHelloPreSharedKeyExtension pskExtension = null;
-        int extensionsLength = extensions.stream().mapToInt(ext -> ext.getBytes().length).sum();
         buffer.putShort((short) extensionsLength);
         int pskExtensionStartPosition = -1;
         for (Extension extension: extensions) {
@@ -246,7 +274,7 @@ public class ClientHello extends HandshakeMessage {
             if (binderCalculator == null) {
                 throw new IllegalArgumentException("BinderCalculator cannot be null when ClientHelloPreSharedKeyExtension is present");
             }
-            pskExtension.calculateBinder(data, pskExtensionStartPosition, binderCalculator);
+            pskExtension.calculateBinder(data, pskExtensionStartPosition, transcriptPrefix, binderCalculator);
             buffer.position(pskExtensionStartPosition);
             buffer.put(pskExtension.getBytes());
             buffer.rewind();
@@ -254,7 +282,65 @@ public class ClientHello extends HandshakeMessage {
         }
     }
 
-    private PskKeyExchangeModesExtension createPskKeyExchangeModesExtension(PskKeyEstablishmentMode pskKeyEstablishmentMode) {
+    private static byte[] generateClientRandom() {
+        // https://datatracker.ietf.org/doc/html/rfc8446#section-4.1.2
+        // "random: 32 bytes generated by a secure random number generator."
+        byte[] clientRandom = new byte[32];
+        secureRandom.nextBytes(clientRandom);
+        return clientRandom;
+    }
+
+    private static byte[] generateSessionId(boolean compatibilityMode) {
+        // https://datatracker.ietf.org/doc/html/rfc8446#section-4.1.2
+        // "In compatibility mode (see Appendix D.4), this field MUST be non-empty, so a client not offering a
+        //  pre-TLS 1.3 session MUST generate a new 32-byte value."
+        if (compatibilityMode) {
+            byte[] sessionId = new byte[32];
+            secureRandom.nextBytes(sessionId);
+            return sessionId;
+        }
+        else {
+            return new byte[0];
+        }
+    }
+
+    /**
+     * Assembles the extensions of a (first) ClientHello: the extensions that are always sent, followed by the
+     * extensions provided by the caller.
+     */
+    private static List<Extension> assembleExtensions(String serverName, List<KeyShareExtension.KeyShareEntry> keyShares,
+                                                      List<TlsConstants.SignatureScheme> supportedSignatures,
+                                                      List<TlsConstants.NamedGroup> supportedGroups,
+                                                      List<Extension> extraExtensions,
+                                                      PskKeyEstablishmentMode pskKeyEstablishmentMode) {
+        if (keyShares.isEmpty()) {
+            throw new IllegalArgumentException("at least one key share is required");
+        }
+        // https://datatracker.ietf.org/doc/html/rfc8446#section-4.2.8
+        // "Each KeyShareEntry value MUST correspond to a group offered in the "supported_groups" extension and MUST
+        //  appear in the same order."
+        if (! ListUtils.isSubSequence(keyShares.stream().map(KeyShareExtension.KeyShareEntry::getNamedGroup).collect(Collectors.toList()), supportedGroups)) {
+            throw new IllegalArgumentException("the key share groups must occur in supportedGroups, in the same order");
+        }
+
+        Extension[] defaultExtensions = new Extension[] {
+                new ServerNameExtension(serverName),
+                new SupportedVersionsExtension(TlsConstants.HandshakeType.client_hello),
+                new SupportedGroupsExtension(supportedGroups),
+                new SignatureAlgorithmsExtension(supportedSignatures),
+                new KeyShareExtension(keyShares, TlsConstants.HandshakeType.client_hello),
+        };
+
+        List<Extension> extensions = new ArrayList<>();
+        extensions.addAll(List.of(defaultExtensions));
+        if (pskKeyEstablishmentMode != PskKeyEstablishmentMode.none) {
+            extensions.add(createPskKeyExchangeModesExtension(pskKeyEstablishmentMode));
+        }
+        extensions.addAll(extraExtensions);
+        return extensions;
+    }
+
+    private static PskKeyExchangeModesExtension createPskKeyExchangeModesExtension(PskKeyEstablishmentMode pskKeyEstablishmentMode) {
         switch (pskKeyEstablishmentMode) {
             case PSKonly:
                 return new PskKeyExchangeModesExtension(TlsConstants.PskKeyExchangeMode.psk_ke);

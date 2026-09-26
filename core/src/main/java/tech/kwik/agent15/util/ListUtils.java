@@ -1,5 +1,5 @@
 /*
- * Copyright © 2019, 2020, 2021, 2022, 2023, 2024, 2025, 2026 Peter Doornbosch
+ * Copyright © 2026 Peter Doornbosch
  *
  * This file is part of Agent15, an implementation of TLS 1.3 in Java.
  *
@@ -16,26 +16,25 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-package tech.kwik.agent15.engine;
+package tech.kwik.agent15.util;
 
-import tech.kwik.agent15.handshake.*;
+import java.util.List;
 
-import java.io.IOException;
+public class ListUtils {
 
-public interface ServerMessageSender {
-
-    void send(ServerHello sh) throws IOException;
-
-    void send(HelloRetryRequest hrr) throws IOException;
-
-    void send(EncryptedExtensions ee) throws IOException;
-
-    void send(CertificateMessage cm) throws IOException;
-
-    void send(CertificateVerifyMessage cv) throws IOException;
-
-    void send(FinishedMessage finished) throws IOException;
-
-    void send(NewSessionTicketMessage ticket) throws IOException;
+    /**
+     * Returns whether the first list is a sub sequence of the second: all its elements occur in the second list, in the
+     * same (relative) order.
+     */
+    public static <T> boolean isSubSequence(List<T> candidate, List<T> sequence) {
+        int index = 0;
+        for (T element: candidate) {
+            int position = sequence.subList(index, sequence.size()).indexOf(element);
+            if (position < 0) {
+                return false;
+            }
+            index += position + 1;
+        }
+        return true;
+    }
 }
-

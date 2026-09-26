@@ -158,12 +158,20 @@ public class ClientHelloPreSharedKeyExtension extends PreSharedKeyExtension {
         return data;
     }
 
-    public void calculateBinder(byte[] clientHello, int pskExtensionStartPosition, BinderCalculator calculator) {
+    /**
+     * Computes the binder for the given client hello.
+     * @param clientHello                the serialized client hello
+     * @param pskExtensionStartPosition  the position of this extension in the serialized client hello
+     * @param transcriptPrefix           the transcript that precedes the client hello; empty for a first client hello,
+     *                                   see https://datatracker.ietf.org/doc/html/rfc8446#section-4.2.11.2
+     * @param calculator                 computes the binder value
+     */
+    public void calculateBinder(byte[] clientHello, int pskExtensionStartPosition, byte[] transcriptPrefix, BinderCalculator calculator) {
         int partialHelloSize = pskExtensionStartPosition + binderPosition;
         byte[] partialHello = new byte[partialHelloSize];
         ByteBuffer.wrap(clientHello).get(partialHello);
 
-        binders.set(0, new PskBinderEntry(calculator.computePskBinder(partialHello)));
+        binders.set(0, new PskBinderEntry(calculator.computePskBinder(transcriptPrefix, partialHello)));
     }
 
     public List<PskIdentity> getIdentities() {

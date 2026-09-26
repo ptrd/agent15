@@ -18,12 +18,14 @@ Agent15 implements all of the handshake protocol that is needed to setup and mai
 and
 [0-RTT](https://datatracker.ietf.org/doc/html/rfc8446#section-2.3).
 
-Not all TLS 1.3 handshake messages are implemented (yet); some because they are not used at all in QUIC and others 
-because the Kwik project does not use them. The messages that are not implemented are:
+Which named groups the server offers for key exchange can be configured with `TlsServerEngine.addSupportedGroups`;
+by default it offers all groups its key exchange factory can provide, which is what makes the hybrid post-quantum
+groups available as soon as the `agent15-pqc` module is on the class path.
 
-- HelloRetryRequest
-- EndOfEarlyData: not used by QUIC, see https://www.rfc-editor.org/rfc/rfc9001.html#name-removing-the-endofearlydata
-- KeyUpdateRequest: not used by QUIC, see https://www.rfc-editor.org/rfc/rfc9001.html#name-key-update
+Not all TLS 1.3 handshake messages are implemented because there are some that are not used in QUIC:
+
+- EndOfEarlyData: see https://www.rfc-editor.org/rfc/rfc9001.html#name-removing-the-endofearlydata
+- KeyUpdateRequest: see https://www.rfc-editor.org/rfc/rfc9001.html#name-key-update
 
 Also, not all extensions are supported, see the [source](https://bitbucket.org/pjtr/agent15/src/master/src/main/java/tech/kwik/agent15/extension/) 
 for an overview of which extensions are supported. 
@@ -86,6 +88,8 @@ Maven coordinates:
 
 
 Client: instantiate a `TlsClientEngine` with a `ClientMessageSender` and a `TlsStatusEventHandler` and call `startHandshake()` on it.
+The `startHandshake` method that takes a list of key share groups makes the client offer a key share for each of them,
+which avoids the extra round trip of a HelloRetryRequest when the server does not support the client's first choice.
 The `ClientMessageSender` is the callback to let the client actually send the handshake messages. 
 The `TlsStatusEventHandler` enables to client to react TLS events that are needed for the QUIC handshake,
 e.g. when the early secrets or the handshake secrets are known (QUIC computes its own secrets based on the TLS secrets).

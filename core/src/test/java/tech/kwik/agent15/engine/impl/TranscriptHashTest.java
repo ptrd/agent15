@@ -25,15 +25,25 @@ import tech.kwik.agent15.handshake.CertificateMessage;
 import tech.kwik.agent15.handshake.ClientHello;
 import tech.kwik.agent15.handshake.EncryptedExtensions;
 import tech.kwik.agent15.handshake.FinishedMessage;
+import tech.kwik.agent15.handshake.HelloRetryRequest;
 import tech.kwik.agent15.handshake.ServerHello;
 
+import java.nio.ByteBuffer;
 import java.security.MessageDigest;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 class TranscriptHashTest {
+
+    // Message types that occur both as a client and as a server message, and thus have two positions in the transcript.
+    private static final List<TlsConstants.HandshakeType> AMBIGUOUS_TYPES = List.of(
+            TlsConstants.HandshakeType.certificate,
+            TlsConstants.HandshakeType.certificate_verify,
+            TlsConstants.HandshakeType.finished);
 
     private TranscriptHash transcriptHash;
 
@@ -111,18 +121,147 @@ class TranscriptHashTest {
     }
 
     @Test
-    void correspondingHandshakeTypesHaveSameOrdinal() {
-        for (TranscriptHash.ExtendedHandshakeType extendedType : TranscriptHash.ExtendedHandshakeType.values()) {
-            TlsConstants.HandshakeType handshakeType;
-            try {
-                handshakeType = TlsConstants.HandshakeType.valueOf(extendedType.name());
-            } catch (IllegalArgumentException noCorrespondingValue) {
+    void afterHelloRetryRequestFirstClientHelloIsReplacedBySyntheticMessage() throws Exception {
+        // Given
+        ClientHello ch1 = mockClientHello(new byte[] { 0x01 });
+        HelloRetryRequest hrr = mock(HelloRetryRequest.class);
+        when(hrr.getBytes()).thenReturn(new byte[] { 0x11 });
+        ClientHello ch2 = mockClientHello(new byte[] { 0x21 });
+        ServerHello sh = mockServerHello(new byte[] { 0x02 });
+
+        // When
+        transcriptHash.record(ch1);
+        transcriptHash.recordHelloRetryRequest(ch1, hrr);
+        transcriptHash.record(ch2);
+        transcriptHash.record(sh);
+
+        // Then
+        byte[] expected = computeHash(syntheticMessageHash(new byte[] { 0x01 }),
+                new byte[] { 0x11 }, new byte[] { 0x21 }, new byte[] { 0x02 });
+        assertThat(transcriptHash.getHash(TlsConstants.HandshakeType.server_hello)).isEqualTo(expected);
+    }
+
+    @Test
+    void hashComputedBeforeHelloRetryRequestDoesNotAffectHashComputedAfterwards() throws Exception {
+        // Given
+        ClientHello ch1 = mockClientHello(new byte[] { 0x01 });
+        transcriptHash.record(ch1);
+        byte[] hashOfFirstClientHello = transcriptHash.getHash(TlsConstants.HandshakeType.client_hello);
+
+        // When
+        HelloRetryRequest hrr = mock(HelloRetryRequest.class);
+        when(hrr.getBytes()).thenReturn(new byte[] { 0x11 });
+        transcriptHash.recordHelloRetryRequest(ch1, hrr);
+        transcriptHash.record(mockClientHello(new byte[] { 0x21 }));
+
+        // Then
+        byte[] expected = computeHash(syntheticMessageHash(new byte[] { 0x01 }), new byte[] { 0x11 }, new byte[] { 0x21 });
+        assertThat(transcriptHash.getHash(TlsConstants.HandshakeType.client_hello))
+                .isEqualTo(expected)
+                .isNotEqualTo(hashOfFirstClientHello);
+    }
+
+    @Test
+    void helloRetryRequestPrefixIsSyntheticMessageFollowedByHelloRetryRequest() throws Exception {
+        // Given
+        ClientHello ch1 = mockClientHello(new byte[] { 0x01 });
+        HelloRetryRequest hrr = mock(HelloRetryRequest.class);
+        when(hrr.getBytes()).thenReturn(new byte[] { 0x11, 0x12 });
+
+        // When
+        transcriptHash.recordHelloRetryRequest(ch1, hrr);
+
+        // Then
+        byte[] syntheticMessage = syntheticMessageHash(new byte[] { 0x01 });
+        byte[] expected = ByteBuffer.allocate(syntheticMessage.length + 2)
+                .put(syntheticMessage)
+                .put(new byte[] { 0x11, 0x12 })
+                .array();
+        assertThat(transcriptHash.getHelloRetryRequestPrefix()).isEqualTo(expected);
+    }
+
+    @Test
+    void withoutHelloRetryRequestThePrefixIsEmpty() {
+        transcriptHash.record(mockClientHello(new byte[] { 0x01 }));
+
+        assertThat(transcriptHash.getHelloRetryRequestPrefix()).isEmpty();
+    }
+
+    @Test
+    void unambiguousHandshakeTypesMapOnExtendedTypeWithSameValue() {
+        for (TlsConstants.HandshakeType handshakeType : TlsConstants.HandshakeType.values()) {
+            if (AMBIGUOUS_TYPES.contains(handshakeType) || handshakeType == TlsConstants.HandshakeType.message_hash) {
                 continue;
             }
-            assertThat(extendedType.ordinal())
-                    .as("ordinal of %s", extendedType.name())
-                    .isEqualTo(handshakeType.ordinal());
+            assertThat(TranscriptHash.convert(handshakeType).value)
+                    .as("mapping of %s", handshakeType)
+                    .isEqualTo(handshakeType.value);
         }
+    }
+
+    @Test
+    void ambiguousHandshakeTypesCannotBeMappedWithoutClientOrServerIndication() {
+        for (TlsConstants.HandshakeType handshakeType : AMBIGUOUS_TYPES) {
+            assertThatThrownBy(() -> TranscriptHash.convert(handshakeType))
+                    .as("mapping of %s", handshakeType)
+                    .isInstanceOf(IllegalArgumentException.class);
+        }
+    }
+
+    @Test
+    void ambiguousHandshakeTypesMapOnClientOrServerVariant() {
+        for (TlsConstants.HandshakeType handshakeType : AMBIGUOUS_TYPES) {
+            assertThat(TranscriptHash.convert(handshakeType, true).name())
+                    .as("client variant of %s", handshakeType)
+                    .isEqualTo("client_" + handshakeType.name());
+            assertThat(TranscriptHash.convert(handshakeType, false).name())
+                    .as("server variant of %s", handshakeType)
+                    .isEqualTo("server_" + handshakeType.name());
+        }
+    }
+
+    @Test
+    void messageHashTypeHasNoPositionOfItsOwnInTheTranscript() {
+        // The synthetic message_hash message replaces the first client hello, see
+        // https://datatracker.ietf.org/doc/html/rfc8446#section-4.4.1; it is not a message that can be recorded as such.
+        assertThatThrownBy(() -> TranscriptHash.convert(TlsConstants.HandshakeType.message_hash))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void recordingAnAmbiguousMessageTypeIsNotAllowed() {
+        CertificateMessage cm = mock(CertificateMessage.class);
+        when(cm.getType()).thenReturn(TlsConstants.HandshakeType.certificate);
+
+        assertThatThrownBy(() -> transcriptHash.record(cm))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    private ClientHello mockClientHello(byte[] bytes) {
+        ClientHello ch = mock(ClientHello.class);
+        when(ch.getType()).thenReturn(TlsConstants.HandshakeType.client_hello);
+        when(ch.getBytes()).thenReturn(bytes);
+        return ch;
+    }
+
+    private ServerHello mockServerHello(byte[] bytes) {
+        ServerHello sh = mock(ServerHello.class);
+        when(sh.getType()).thenReturn(TlsConstants.HandshakeType.server_hello);
+        when(sh.getBytes()).thenReturn(bytes);
+        return sh;
+    }
+
+    /**
+     * Creates the synthetic message that replaces the first client hello in the transcript, see
+     * https://datatracker.ietf.org/doc/html/rfc8446#section-4.4.1: the message_hash handshake type, a uint24 length
+     * and the hash of the first client hello.
+     */
+    private byte[] syntheticMessageHash(byte[] clientHello1) throws Exception {
+        byte[] hash = computeHash(clientHello1);
+        return ByteBuffer.allocate(4 + hash.length)
+                .put(new byte[] { (byte) 0xfe, 0x00, 0x00, (byte) hash.length })
+                .put(hash)
+                .array();
     }
 
     private byte[] computeHash(byte[]... elements) throws Exception {

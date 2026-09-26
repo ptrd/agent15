@@ -24,6 +24,8 @@ import tech.kwik.agent15.util.ByteUtils;
 import org.junit.jupiter.api.Test;
 
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -57,6 +59,57 @@ class SupportedGroupsExtensionTest {
         SupportedGroupsExtension supportedGroupsExtension = new SupportedGroupsExtension(buffer);
 
         assertThat(supportedGroupsExtension.getNamedGroups()).contains(TlsConstants.NamedGroup.secp384r1);
+    }
+
+    @Test
+    void testSerializeMultipleGroups() throws Exception {
+        ByteBuffer buffer = ByteBuffer.wrap(new SupportedGroupsExtension(
+                List.of(TlsConstants.NamedGroup.secp256r1, TlsConstants.NamedGroup.x448, TlsConstants.NamedGroup.x25519)).getBytes());
+
+        SupportedGroupsExtension supportedGroupsExtension = new SupportedGroupsExtension(buffer);
+
+        assertThat(supportedGroupsExtension.getNamedGroups())
+                .containsExactly(TlsConstants.NamedGroup.secp256r1, TlsConstants.NamedGroup.x448, TlsConstants.NamedGroup.x25519);
+    }
+
+    @Test
+    void serializingMultipleGroupsProducesCorrectEncoding() {
+        //                                                                      17     1e     1d
+        byte[] bytes = new SupportedGroupsExtension(
+                List.of(TlsConstants.NamedGroup.secp256r1, TlsConstants.NamedGroup.x448, TlsConstants.NamedGroup.x25519)).getBytes();
+
+        //                                        type   ext len  groups len  secp256r1  x448   x25519
+        assertThat(bytes).isEqualTo(ByteUtils.hexToBytes("000a" + "0008" +  "0006"  +  "0017" + "001e" + "001d"));
+    }
+
+    @Test
+    void serializingListWithSingleGroupIsEquivalentToSingleGroupConstructor() {
+        byte[] fromList = new SupportedGroupsExtension(List.of(TlsConstants.NamedGroup.secp384r1)).getBytes();
+        byte[] fromSingle = new SupportedGroupsExtension(TlsConstants.NamedGroup.secp384r1).getBytes();
+
+        assertThat(fromList).isEqualTo(fromSingle);
+    }
+
+    @Test
+    void listPassedToConstructorIsCopied() {
+        List<TlsConstants.NamedGroup> groups = new ArrayList<>(List.of(TlsConstants.NamedGroup.secp256r1));
+
+        SupportedGroupsExtension supportedGroupsExtension = new SupportedGroupsExtension(groups);
+        groups.add(TlsConstants.NamedGroup.x25519);
+
+        assertThat(supportedGroupsExtension.getNamedGroups()).containsExactly(TlsConstants.NamedGroup.secp256r1);
+    }
+
+    @Test
+    void serializeEmptyGroupListLeadsToExtensionThatCannotBeParsed() {
+        // RFC 8446 requires the NamedGroupList to contain at least one group, so an empty list yields an extension
+        // that is too short to be parsed back.
+        byte[] bytes = new SupportedGroupsExtension(List.<TlsConstants.NamedGroup>of()).getBytes();
+
+        assertThat(bytes).isEqualTo(ByteUtils.hexToBytes("000a" + "0002" + "0000"));
+        assertThatThrownBy(
+                () -> new SupportedGroupsExtension(ByteBuffer.wrap(bytes))
+        ).isInstanceOf(DecodeErrorException.class);
     }
 
     @Test

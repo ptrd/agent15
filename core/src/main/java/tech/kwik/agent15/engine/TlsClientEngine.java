@@ -96,20 +96,36 @@ public interface TlsClientEngine extends TlsEngine {
 
     /**
      * Start TLS handshake with given parameters
-     * @param ecCurve            the EC named group to use both for the DHE key generation (and thus for the key share
+     * @param namedGroup         the named group to use both for the DHE key generation (and thus for the key share
      *                           extension) and (as the only supported group) in the supported group extension.
      * @throws IOException
      */
-    void startHandshake(TlsConstants.NamedGroup ecCurve) throws IOException;
+    void startHandshake(TlsConstants.NamedGroup namedGroup) throws IOException;
 
     /**
      * Start TLS handshake with given parameters
-     * @param ecCurve            the EC named group to use both for the DHE key generation (and thus for the key share
+     * @param namedGroup         the named group to use both for the DHE key generation (and thus for the key share
      *                           extension) and (as the only supported group) in the supported group extension.
      * @param signatureSchemes   the signature algorithms this peer (the client) is willing to accept
      * @throws IOException
      */
-    void startHandshake(TlsConstants.NamedGroup ecCurve, List<TlsConstants.SignatureScheme> signatureSchemes) throws IOException;
+    void startHandshake(TlsConstants.NamedGroup namedGroup, List<TlsConstants.SignatureScheme> signatureSchemes) throws IOException;
+
+    /**
+     * Start TLS handshake with given parameters, offering a key share for each of the given named groups. Offering more
+     * than one key share avoids the extra round trip of a HelloRetryRequest when the server does not support the
+     * client's first choice.
+     *
+     * @param keyShareGroups   the named groups to generate a key share for (and thus to include in the key share
+     *                         extension), in descending order of preference; must not be empty and each of these groups
+     *                         must occur in the given supported groups, in the same order
+     *                         (see https://datatracker.ietf.org/doc/html/rfc8446#section-4.2.8).
+     * @param supportedGroups  the named groups to advertise in the supported groups extension; the order determines
+     *                         the client's preference. Must contain all given keyShareGroups.
+     * @param signatureSchemes the signature algorithms this peer (the client) is willing to accept
+     * @throws IOException
+     */
+    void startHandshake(List<TlsConstants.NamedGroup> keyShareGroups, List<TlsConstants.NamedGroup> supportedGroups, List<TlsConstants.SignatureScheme> signatureSchemes) throws IOException;
 
     /**
      * Returns whether the handshake has (successfully) finished.
@@ -145,6 +161,8 @@ public interface TlsClientEngine extends TlsEngine {
     void setCompatibilityMode(boolean compatibilityMode);
 
     void received(ServerHello serverHello, ProtectionKeysType protectedBy) throws TlsProtocolException;
+
+    void received(HelloRetryRequest helloRetryRequest, ProtectionKeysType protectedBy) throws TlsProtocolException, IOException;
 
     void received(EncryptedExtensions encryptedExtensions, ProtectionKeysType protectedBy) throws TlsProtocolException;
 

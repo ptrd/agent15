@@ -66,6 +66,20 @@ public abstract class HandshakeMessage {
     }
 
     static List<Extension> parseExtensions(ByteBuffer buffer, TlsConstants.HandshakeType context, ExtensionParser customExtensionParser) throws TlsProtocolException {
+        return parseExtensions(buffer, context, customExtensionParser, false);
+    }
+
+    /**
+     * Parses the extensions in a handshake message.
+     *
+     * @param buffer
+     * @param context  indicates in which handshake message the extensions occur
+     * @param customExtensionParser   parser for custom extensions
+     * @param helloRetryRequest  whether the extensions are those of a HelloRetryRequest
+     * @return
+     * @throws TlsProtocolException
+     */
+    static List<Extension> parseExtensions(ByteBuffer buffer, TlsConstants.HandshakeType context, ExtensionParser customExtensionParser, boolean helloRetryRequest) throws TlsProtocolException {
         if (buffer.remaining() < 2) {
             throw new DecodeErrorException("Extension field must be at least 2 bytes long");
         }
@@ -137,6 +151,15 @@ public abstract class HandshakeMessage {
                 check(context, client_hello, server_hello);
                 extensions.add(new SupportedVersionsExtension(buffer, context));
             }
+            else if (extensionType == TlsConstants.ExtensionType.cookie.value) {
+                // "| cookie (RFC 8446)                                |     CH, HRR |"
+                check(context, client_hello, server_hello);
+                if (context == server_hello && !helloRetryRequest) {
+                    // A cookie is allowed in a HelloRetryRequest, but not in an ordinary ServerHello.
+                    throw new IllegalParameterAlert("Extension not allowed in " + context);
+                }
+                extensions.add(new CookieExtension(buffer));
+            }
             else if (extensionType == TlsConstants.ExtensionType.psk_key_exchange_modes.value) {
                 // " | psk_key_exchange_modes (RFC 8446)                |          CH |"
                 check(context, client_hello);
@@ -150,7 +173,7 @@ public abstract class HandshakeMessage {
             else if (extensionType == TlsConstants.ExtensionType.key_share.value) {
                 // "| key_share (RFC 8446)                             | CH, SH, HRR |"
                 check(context, client_hello, server_hello);
-                extensions.add(new KeyShareExtension(buffer, context));
+                extensions.add(new KeyShareExtension(buffer, context, helloRetryRequest));
             }
             else {
                 Extension extension = null;

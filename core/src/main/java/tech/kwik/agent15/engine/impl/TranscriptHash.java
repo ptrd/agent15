@@ -21,9 +21,9 @@ package tech.kwik.agent15.engine.impl;
 import tech.kwik.agent15.TlsConstants;
 import tech.kwik.agent15.handshake.HandshakeMessage;
 
+import java.nio.ByteBuffer;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -38,18 +38,20 @@ public class TranscriptHash {
         server_hello(2),
         new_session_ticket(4),
         end_of_early_data(5),
+        hello_retry_request(6),
         encrypted_extensions(8),
         certificate(11),
         certificate_request(13),
         certificate_verify(15),
         finished(20),
         key_update(24),
-        server_certificate(249),
-        server_certificate_verify(250),
-        server_finished(251),
-        client_certificate(252),
-        client_certificate_verify(253),
-        client_finished(254)
+        server_certificate(244),
+        server_certificate_verify(245),
+        server_finished(246),
+        client_certificate(247),
+        client_certificate_verify(248),
+        client_finished(249),
+        message_hash(254),
         ;
 
         public final byte value;
@@ -68,6 +70,10 @@ public class TranscriptHash {
     //   server CertificateVerify, server Finished, EndOfEarlyData, client
     //   Certificate, client CertificateVerify, client Finished."
     private static ExtendedHandshakeType[] hashedMessages = {
+            // The first two are only present when a hello retry request was received; in that case, the client_hello
+            // entry holds the second client hello.
+            ExtendedHandshakeType.message_hash,
+            ExtendedHandshakeType.hello_retry_request,
             ExtendedHandshakeType.client_hello,
             ExtendedHandshakeType.server_hello,
             ExtendedHandshakeType.encrypted_extensions,
@@ -134,11 +140,8 @@ public class TranscriptHash {
      * @param msg
      */
     public void record(HandshakeMessage msg) {
-        List<TlsConstants.HandshakeType> ambigousTypes = List.of(TlsConstants.HandshakeType.certificate,
-                TlsConstants.HandshakeType.certificate_verify, TlsConstants.HandshakeType.finished);
-        if (ambigousTypes.contains(msg.getType())) {
-            throw new IllegalArgumentException();
-        }
+        // Note that convert() rejects the message types that occur both as client and as server message; for those,
+        // recordClient or recordServer must be used.
         msgData.put(convert(msg.getType()), msg.getBytes());
     }
 
@@ -168,6 +171,62 @@ public class TranscriptHash {
         msgData.put(convert(msg.getType(), false), msg.getBytes());
     }
 
+    /**
+     * Record the client hello / hello retry request exchange that precedes the second client hello.
+     * https://datatracker.ietf.org/doc/html/rfc8446#section-4.4.1
+     * "As an exception to this general rule, when the server responds to a ClientHello with a HelloRetryRequest, the
+     *  value of ClientHello1 is replaced with a special synthetic handshake message of handshake type "message_hash"
+     *  containing Hash(ClientHello1). I.e.,
+     *    Transcript-Hash(ClientHello1, HelloRetryRequest, ... Mn) =
+     *        Hash(message_hash || 00 00 Hash.length || Hash(ClientHello1) || HelloRetryRequest || ... || Mn)"
+     * where the first four bytes are the handshake message header: the message_hash type followed by the message
+     * length as a uint24.
+     * After calling this method, the second client hello should be recorded with the ordinary <code>record</code>
+     * method; it takes the position of the first one, which is represented by the synthetic message from here on.
+     *
+     * @param clientHello1        the first client hello, the one that triggered the hello retry request
+     * @param helloRetryRequest   the hello retry request
+     */
+    public void recordHelloRetryRequest(HandshakeMessage clientHello1, HandshakeMessage helloRetryRequest) {
+        hashFunction.reset();
+        byte[] clientHello1Hash = hashFunction.digest(clientHello1.getBytes());
+
+        ByteBuffer syntheticMessage = ByteBuffer.allocate(4 + clientHello1Hash.length);
+        syntheticMessage.put(TlsConstants.HandshakeType.message_hash.value);
+        syntheticMessage.put((byte) 0x00);
+        syntheticMessage.put((byte) 0x00);
+        syntheticMessage.put((byte) clientHello1Hash.length);
+        syntheticMessage.put(clientHello1Hash);
+
+        msgData.put(ExtendedHandshakeType.message_hash, syntheticMessage.array());
+        msgData.put(ExtendedHandshakeType.hello_retry_request, helloRetryRequest.getBytes());
+        // The first client hello is no longer part of the transcript as such; its place is taken by the synthetic
+        // message, and the client_hello position is now reserved for the second client hello.
+        msgData.remove(ExtendedHandshakeType.client_hello);
+        // Messages are normally recorded in transcript order, so a hash that was computed before remains valid when a
+        // later message is added. Recording a hello retry request is the exception: it inserts messages at the very
+        // start of the transcript and replaces the client hello, so any hash computed up to now is invalidated.
+        hashes.clear();
+    }
+
+    /**
+     * Returns the part of the transcript that precedes the second client hello: the synthetic message that replaces
+     * the first client hello, followed by the hello retry request. This is the prefix over which the binders in the
+     * second client hello must be computed, see https://datatracker.ietf.org/doc/html/rfc8446#section-4.2.11.2.
+     * @return  the prefix, or an empty array when no hello retry request was recorded.
+     */
+    public byte[] getHelloRetryRequestPrefix() {
+        byte[] syntheticMessage = msgData.get(ExtendedHandshakeType.message_hash);
+        byte[] helloRetryRequest = msgData.get(ExtendedHandshakeType.hello_retry_request);
+        if (syntheticMessage == null || helloRetryRequest == null) {
+            return new byte[0];
+        }
+        ByteBuffer prefix = ByteBuffer.allocate(syntheticMessage.length + helloRetryRequest.length);
+        prefix.put(syntheticMessage);
+        prefix.put(helloRetryRequest);
+        return prefix.array();
+    }
+
     private byte[] getHash(ExtendedHandshakeType type) {
         if (! hashes.containsKey(type)) {
             computeHash(type);
@@ -187,25 +246,50 @@ public class TranscriptHash {
         hashes.put(requestedType, hashFunction.digest());
     }
 
-    private ExtendedHandshakeType convert(TlsConstants.HandshakeType type) {
-        List<TlsConstants.HandshakeType> ambigousTypes = List.of(TlsConstants.HandshakeType.certificate,
-                TlsConstants.HandshakeType.certificate_verify, TlsConstants.HandshakeType.finished);
-        if (ambigousTypes.contains(type)) {
-            throw new IllegalArgumentException("cannot convert ambiguous type " + type);
+    /**
+     * Maps a handshake message type on its position in the transcript hash computation. Message types that occur both
+     * as a client and as a server message cannot be mapped by this method, as these variants have a different position
+     * in the transcript hash computation; use <code>convert(type, boolean)</code> for those.
+     */
+    static ExtendedHandshakeType convert(TlsConstants.HandshakeType type) {
+        switch (type) {
+            case client_hello:
+                return ExtendedHandshakeType.client_hello;
+            case server_hello:
+                return ExtendedHandshakeType.server_hello;
+            case new_session_ticket:
+                return ExtendedHandshakeType.new_session_ticket;
+            case end_of_early_data:
+                return ExtendedHandshakeType.end_of_early_data;
+            case encrypted_extensions:
+                return ExtendedHandshakeType.encrypted_extensions;
+            case certificate_request:
+                return ExtendedHandshakeType.certificate_request;
+            case key_update:
+                return ExtendedHandshakeType.key_update;
+            case certificate:
+            case certificate_verify:
+            case finished:
+                throw new IllegalArgumentException("cannot convert ambiguous type " + type);
+            default:
+                throw new IllegalArgumentException("no transcript hash position defined for type " + type);
         }
-        return ExtendedHandshakeType.values()[type.ordinal()];
     }
 
-    private ExtendedHandshakeType convert(TlsConstants.HandshakeType type, boolean client) {
-        if (type == TlsConstants.HandshakeType.finished) {
-            return client? ExtendedHandshakeType.client_finished: ExtendedHandshakeType.server_finished;
+    /**
+     * Maps a handshake message type on its position in the transcript hash computation, where the <code>client</code>
+     * parameter indicates whether it concerns the client or the server variant of the message type.
+     */
+    static ExtendedHandshakeType convert(TlsConstants.HandshakeType type, boolean client) {
+        switch (type) {
+            case certificate:
+                return client? ExtendedHandshakeType.client_certificate: ExtendedHandshakeType.server_certificate;
+            case certificate_verify:
+                return client? ExtendedHandshakeType.client_certificate_verify: ExtendedHandshakeType.server_certificate_verify;
+            case finished:
+                return client? ExtendedHandshakeType.client_finished: ExtendedHandshakeType.server_finished;
+            default:
+                return convert(type);
         }
-        else if (type == TlsConstants.HandshakeType.certificate) {
-            return client? ExtendedHandshakeType.client_certificate: ExtendedHandshakeType.server_certificate;
-        }
-        else if (type == TlsConstants.HandshakeType.certificate_verify) {
-            return client? ExtendedHandshakeType.client_certificate_verify: ExtendedHandshakeType.server_certificate_verify;
-        }
-        return ExtendedHandshakeType.values()[type.ordinal()];
     }
 }

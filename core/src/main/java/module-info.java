@@ -9,9 +9,9 @@
  * <a href="https://datatracker.ietf.org/doc/html/rfc8446#section-2.2">session resumption</a> and
  * <a href="https://datatracker.ietf.org/doc/html/rfc8446#section-2.3">0-RTT</a>.
  * Because it targets QUIC, it implements only the handshake layer, not the TLS record layer. A few handshake messages
- * are intentionally not implemented, as they are not used with QUIC: {@code HelloRetryRequest}, {@code EndOfEarlyData}
- * and {@code KeyUpdate}. Unsupported extensions do not cause parsing to fail; the parser represents them with an
- * {@code UnknownExtension} object.
+ * are intentionally not implemented, as they are not used with QUIC: {@code EndOfEarlyData} and {@code KeyUpdate}.
+ * Unsupported extensions do not cause parsing to fail; the parser represents them with an {@code UnknownExtension}
+ * object.
  *
  * <h2>Supported cryptography</h2>
  * Cipher suites: {@code TLS_AES_128_GCM_SHA256}, {@code TLS_AES_256_GCM_SHA384}, {@code TLS_CHACHA20_POLY1305_SHA256}.
@@ -19,7 +19,12 @@
  * Signature algorithms: {@code rsa_pkcs1_sha256} (certificates only), {@code rsa_pss_rsae_sha256},
  * {@code rsa_pss_rsae_sha384}, {@code rsa_pss_rsae_sha512}, {@code ecdsa_secp256r1_sha256}.
  * <br>
- * Named groups (key exchange): {@code secp256r1}, {@code X25519}.
+ * Named groups (key exchange): {@code secp256r1}, {@code secp384r1}, {@code secp521r1}, {@code x25519},
+ * {@code x448}, and, when the {@code tech.kwik.agent15.pqc} module is present, the hybrid groups
+ * {@code X25519MLKEM768}, {@code SecP256r1MLKEM768} and {@code SecP384r1MLKEM1024}. A server can restrict the set it
+ * offers with {@code TlsServerEngine.addSupportedGroups}; a client can offer a key share for more than one group with
+ * the {@code TlsClientEngine.startHandshake} method that takes a list of key share groups, which avoids the extra round
+ * trip of a HelloRetryRequest when the server does not support the client's first choice.
  *
  * <h2>Getting started</h2>
  * The public API lives in the {@link tech.kwik.agent15.engine} package.

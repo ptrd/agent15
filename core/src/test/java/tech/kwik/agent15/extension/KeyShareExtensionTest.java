@@ -108,6 +108,28 @@ class KeyShareExtensionTest {
     }
 
     @Test
+    void serializeHelloRetryRequestKeyShareExtension() {
+        byte[] serialized = new KeyShareExtension(TlsConstants.NamedGroup.secp256r1).getBytes();
+
+        // In a HelloRetryRequest, the extension carries the selected group only, see
+        // https://datatracker.ietf.org/doc/html/rfc8446#section-4.2.8.
+        assertThat(serialized).isEqualTo(ByteUtils.hexToBytes("003300020017"));
+    }
+
+    @Test
+    void serializedHelloRetryRequestKeyShareExtensionCanBeParsedBack() throws Exception {
+        byte[] serialized = new KeyShareExtension(TlsConstants.NamedGroup.x25519).getBytes();
+
+        KeyShareExtension parsed = new KeyShareExtension(ByteBuffer.wrap(serialized),
+                TlsConstants.HandshakeType.server_hello, true);
+
+        assertThat(parsed.getKeyShareEntries()).hasSize(1);
+        assertThat(parsed.getKeyShareEntries().get(0).getNamedGroup()).isEqualTo(TlsConstants.NamedGroup.x25519);
+        assertThat(parsed.getKeyShareEntries().get(0).getKeyExchangeData()).isNull();
+        assertThat(parsed.getBytes()).isEqualTo(serialized);
+    }
+
+    @Test
     void parsingDataMissingExtensionLengthThrows() {
         ByteBuffer buffer = ByteBuffer.wrap(ByteUtils.hexToBytes("003300"));
 
@@ -269,5 +291,56 @@ class KeyShareExtensionTest {
         assertThat(serialized).hasSize(10 + rawKeyExchangeData.length);
         int extensionDataLength = ByteBuffer.wrap(serialized).getShort(2) & 0xffff;
         assertThat(serialized).hasSize(4 + extensionDataLength);
+    }
+
+    @Test
+    void serializeClientKeyShareWithMultipleEntries() throws Exception {
+        KeyShareExtension keyShareExtension = new KeyShareExtension(List.of(
+                new KeyShareExtension.KeyShareEntry(TlsConstants.NamedGroup.x25519, ByteUtils.hexToBytes("0001020304050607")),
+                new KeyShareExtension.KeyShareEntry(TlsConstants.NamedGroup.secp256r1, ByteUtils.hexToBytes("08090a0b"))),
+                TlsConstants.HandshakeType.client_hello);
+
+        byte[] serialized = keyShareExtension.getBytes();
+
+        assertThat(serialized).isEqualTo(ByteUtils.hexToBytes("0033" + "0016" + "0014"
+                + "001d" + "0008" + "0001020304050607"
+                + "0017" + "0004" + "08090a0b"));
+    }
+
+    @Test
+    void serializedMultipleEntriesKeyShareCanBeParsedBack() throws Exception {
+        KeyShareExtension keyShareExtension = new KeyShareExtension(List.of(
+                new KeyShareExtension.KeyShareEntry(TlsConstants.NamedGroup.x25519, ByteUtils.hexToBytes("0001020304050607")),
+                new KeyShareExtension.KeyShareEntry(TlsConstants.NamedGroup.secp256r1, ByteUtils.hexToBytes("08090a0b"))),
+                TlsConstants.HandshakeType.client_hello);
+
+        KeyShareExtension parsed = new KeyShareExtension(ByteBuffer.wrap(keyShareExtension.getBytes()), TlsConstants.HandshakeType.client_hello);
+
+        // The entries must keep the order in which they were given: that order expresses the client's preference.
+        assertThat(parsed.getKeyShareEntries())
+                .extracting(KeyShareExtension.KeyShareEntry::getNamedGroup)
+                .containsExactly(TlsConstants.NamedGroup.x25519, TlsConstants.NamedGroup.secp256r1);
+        assertThat(parsed.getKeyShareEntries().get(0).getKeyExchangeData()).isEqualTo(ByteUtils.hexToBytes("0001020304050607"));
+        assertThat(parsed.getKeyShareEntries().get(1).getKeyExchangeData()).isEqualTo(ByteUtils.hexToBytes("08090a0b"));
+    }
+
+    @Test
+    void multipleEntriesForTheSameGroupAreNotAllowed() throws Exception {
+        // https://datatracker.ietf.org/doc/html/rfc8446#section-4.2.8
+        // "Clients MUST NOT offer multiple KeyShareEntry values for the same group."
+        List<KeyShareExtension.KeyShareEntry> entries = List.of(
+                new KeyShareExtension.KeyShareEntry(TlsConstants.NamedGroup.x25519, ByteUtils.hexToBytes("0001020304050607")),
+                new KeyShareExtension.KeyShareEntry(TlsConstants.NamedGroup.x25519, ByteUtils.hexToBytes("08090a0b")));
+
+        assertThatThrownBy(
+                () -> new KeyShareExtension(entries, TlsConstants.HandshakeType.client_hello)
+        ).isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void emptyListOfKeyShareEntriesIsNotAllowed() throws Exception {
+        assertThatThrownBy(
+                () -> new KeyShareExtension(List.of(), TlsConstants.HandshakeType.client_hello)
+        ).isInstanceOf(IllegalArgumentException.class);
     }
 }
