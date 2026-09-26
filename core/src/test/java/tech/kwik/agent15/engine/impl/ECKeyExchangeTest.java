@@ -29,8 +29,10 @@ import java.math.BigInteger;
 import java.security.KeyFactory;
 import java.security.PrivateKey;
 import java.security.interfaces.ECPublicKey;
+import java.security.spec.ECFieldFp;
 import java.security.spec.ECPoint;
 import java.security.spec.ECPrivateKeySpec;
+import java.security.spec.EllipticCurve;
 import java.util.Arrays;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -199,6 +201,37 @@ class ECKeyExchangeTest {
 
         assertThatThrownBy(() -> ecKeyExchange.serialize(publicKey))
                 .isInstanceOf(RuntimeException.class);
+    }
+
+    @Test
+    void generatedKeyShareIsUncompressedPointRepresentation() {
+        // When
+        ecKeyExchange.generateClientKeyPair();
+
+        // Then: see https://www.rfc-editor.org/rfc/rfc8446.html#section-4.2.8.2
+        byte[] keyShare = ecKeyExchange.getClientKeyShare();
+        assertThat(keyShare).hasSize(65);
+        assertThat(keyShare[0]).isEqualTo((byte) 4);
+    }
+
+    @Test
+    void generatedKeyShareCanBeParsedBack() throws Exception {
+        // Repeat, because affine coordinates that need padding (leading zero bytes) or that get an extra sign byte from
+        // BigInteger.toByteArray() only occur now and then.
+        for (int i = 0; i < 50; i++) {
+            ECKeyExchange keyExchange = new ECKeyExchange(TlsConstants.NamedGroup.secp256r1);
+            keyExchange.generateClientKeyPair();
+            byte[] keyShare = keyExchange.getClientKeyShare();
+            assertThat(keyShare).hasSize(65);
+
+            // When
+            ECPublicKey parsed = keyExchange.parseKeyShare(keyShare);
+
+            // Then
+            assertThat(parsed.getW().getAffineX().bitLength()).isLessThanOrEqualTo(256);
+            assertThat(parsed.getW().getAffineY().bitLength()).isLessThanOrEqualTo(256);
+            assertThat(keyExchange.serialize(parsed)).isEqualTo(keyShare);
+        }
     }
 
     @Test
