@@ -20,51 +20,11 @@ dependencies {
     testImplementation("org.bouncycastle:bcprov-jdk18on:1.81")
 }
 
-publishing {
-    publications {
-        library(MavenPublication) {
-            artifactId = 'agent15-pqc'
-            from components.java
-            pom {
-                name = 'Agent15-PQC'
-                description = 'Post-quantum (ML-KEM) hybrid key exchange groups for Agent15.'
-                url = 'https://github.com/ptrd/agent15'
+mavenPublishing {
+    coordinates(null, 'agent15-pqc', null)
 
-                licenses {
-                    license {
-                        name = 'GNU Lesser General Public License v3'
-                        url = 'https://www.gnu.org/licenses/lgpl-3.0-standalone.html'
-                    }
-                }
-
-                developers {
-                    developer {
-                        id = 'peterd'
-                        name = 'Peter Doornbosch'
-                        email = 'peter.doornbosch@gmail.com'
-                    }
-                }
-
-                scm {
-                    connection = 'scm:git:git@github.com:ptrd/agent15.git'
-                    developerConnection = 'scm:git:git@github.com:ptrd/agent15.git'
-                    url = 'https://github.com/ptrd/agent15'
-                }
-            }
-        }
+    pom {
+        name = 'Agent15-PQC'
+        description = 'Post-quantum (ML-KEM) hybrid key exchange groups for Agent15.'
     }
-    repositories {
-        maven {
-            name = "ossrh-staging-api"
-            url = "https://ossrh-staging-api.central.sonatype.com/service/local/staging/deploy/maven2/"
-            credentials {
-                username = project.properties.ossrhUsername
-                password = project.properties.ossrhPassword
-            }
-        }
-    }
-}
-
-signing {
-    sign publishing.publications.library
 }

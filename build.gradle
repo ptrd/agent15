@@ -1,3 +1,38 @@
+import com.vanniktech.maven.publish.JavaLibrary
+import com.vanniktech.maven.publish.JavadocJar
+
+plugins {
+    id 'com.vanniktech.maven.publish' version '0.37.0' apply false
+}
+
+// Determines the version from the git tag. This has to happen at configuration time: the version is part of the
+// name of every artifact (jars, pom, signatures) that the publish plugin wires up while configuring the build.
+def determineVersion() {
+    def proc = "git describe --always --dirty".execute()
+    proc.waitFor()
+    if (proc.exitValue()) {
+        logger.quiet("Building development version.")
+        return null
+    }
+    def versionTag = proc.in.readLines()[0]
+    // Check that tag matches format like v1.0 or v1.0.19
+    if (versionTag ==~ /v?[0-9]+(\.\d+){1,2}/) {
+        if (versionTag.startsWith("v")) {
+            versionTag = versionTag[1..-1]
+        }
+        logger.quiet("Building version ${versionTag}.")
+    }
+    else {
+        logger.error("Version tag '${versionTag}' does not contain a valid version.");
+    }
+    return versionTag
+}
+
+def versionTag = determineVersion()
+if (versionTag != null) {
+    allprojects { it.version = versionTag }
+}
+
 allprojects {
     group = 'tech.kwik'
 
@@ -9,8 +44,7 @@ allprojects {
 subprojects {
     apply plugin: 'java-library'
     apply plugin: 'idea'
-    apply plugin: 'maven-publish'
-    apply plugin: 'signing'
+    apply plugin: 'com.vanniktech.maven.publish'
 
     dependencies {
         def junitVersion = "5.13.4"
@@ -38,14 +72,42 @@ subprojects {
         }
     }
 
-    java {
-        withJavadocJar()
-        withSourcesJar()
-    }
-
     javadoc {
         options.addStringOption('Xdoclint:none', '-quiet')
         options.addBooleanOption('html5', true)
+    }
+
+    mavenPublishing {
+        // Publish a sources jar, but no javadoc: Maven Central requires a javadoc jar, so publish an empty one.
+        configure(new JavaLibrary(new JavadocJar.Empty(), true))
+
+        publishToMavenCentral()
+        signAllPublications()
+
+        pom {
+            url = 'https://github.com/ptrd/agent15'
+
+            licenses {
+                license {
+                    name = 'GNU Lesser General Public License v3'
+                    url = 'https://www.gnu.org/licenses/lgpl-3.0-standalone.html'
+                }
+            }
+
+            developers {
+                developer {
+                    id = 'peterd'
+                    name = 'Peter Doornbosch'
+                    email = 'peter.doornbosch@gmail.com'
+                }
+            }
+
+            scm {
+                connection = 'scm:git:git@github.com:ptrd/agent15.git'
+                developerConnection = 'scm:git:git@github.com:ptrd/agent15.git'
+                url = 'https://github.com/ptrd/agent15'
+            }
+        }
     }
 
     tasks.withType(JavaCompile).configureEach {
@@ -54,39 +116,16 @@ subprojects {
         // on core's module path), and both module names have a component ending in a digit ("agent15").
         options.compilerArgs << '-Xlint:-module'
     }
-
-    // The version is only known once determineVersion has run, so make sure it has, before any archive is named.
-    tasks.withType(Jar).configureEach {
-        dependsOn rootProject.tasks.determineVersion
-    }
 }
 
-task determineVersion {
+// Writes the version.properties resource read by the Version class (which lives in the core module).
+task generateVersionResource {
+    def versionDir = project(':core').layout.buildDirectory.dir("generated/tech/kwik/agent15")
+    onlyIf { versionTag != null }
+    outputs.file versionDir.map { it.file("version.properties") }
     doLast {
-        def proc = "git describe --always --dirty".execute()
-        proc.waitFor()
-        if (proc.exitValue()) {
-            logger.quiet("Building development version.")
-        }
-        else {
-            def versionTag = proc.in.readLines()[0]
-            // Check that tag matches format like v1.0 or v1.0.19
-            if (versionTag ==~ /v?[0-9]+(\.\d+){1,2}/) {
-                if (versionTag.startsWith("v")) {
-                    versionTag = versionTag[1..-1]
-                }
-                logger.quiet("Building version ${versionTag}.")
-            }
-            else {
-                logger.error("Version tag '${versionTag}' does not contain a valid version.");
-            }
-            allprojects { it.version = versionTag }
-
-            // The Version class (and thus the version.properties resource it reads) lives in the core module.
-            ext.versionDir = project(':core').layout.buildDirectory.dir("generated/tech/kwik/agent15").get().asFile
-            versionDir.mkdirs()
-
-            new File(versionDir, "version.properties").text = versionTag
-        }
+        def dir = versionDir.get().asFile
+        dir.mkdirs()
+        new File(dir, "version.properties").text = versionTag
     }
 }
