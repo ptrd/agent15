@@ -21,10 +21,9 @@ package tech.kwik.agent15.engine.impl;
 import tech.kwik.agent15.TlsConstants;
 import tech.kwik.agent15.alert.ErrorAlert;
 import tech.kwik.agent15.alert.HandshakeFailureAlert;
-import tech.kwik.agent15.alert.InternalErrorAlert;
+import tech.kwik.agent15.engine.SignatureAlgorithm;
+import tech.kwik.agent15.engine.SignatureAlgorithmFactory;
 import tech.kwik.agent15.engine.TlsEngine;
-import tech.kwik.agent15.env.AlgorithmMapping;
-import tech.kwik.agent15.env.PlatformMapping;
 import tech.kwik.agent15.extension.Extension;
 import tech.kwik.agent15.extension.UnknownExtension;
 
@@ -33,19 +32,17 @@ import javax.crypto.spec.SecretKeySpec;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.security.*;
-import java.security.spec.MGF1ParameterSpec;
-import java.security.spec.PSSParameterSpec;
-
-import static tech.kwik.agent15.TlsConstants.SignatureScheme.*;
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
+import java.security.PrivateKey;
 
 public abstract class TlsEngineImpl implements TlsEngine {
 
     protected TlsState state;
-    protected AlgorithmMapping algorithmMapping;
+    protected final SignatureAlgorithmFactory signatureAlgorithmFactory;
 
-    public TlsEngineImpl() {
-        algorithmMapping = PlatformMapping.algorithmMapping();
+    public TlsEngineImpl(SignatureAlgorithmFactory signatureAlgorithmFactory) {
+        this.signatureAlgorithmFactory = signatureAlgorithmFactory;
     }
 
     public abstract TlsConstants.CipherSuite getSelectedCipher();
@@ -109,25 +106,28 @@ public abstract class TlsEngineImpl implements TlsEngine {
             signatureInput.write(contextString.getBytes(StandardCharsets.US_ASCII));
             signatureInput.write(0x00);
             signatureInput.write(content);
-        } catch (IOException e) {
+        }
+        catch (IOException e) {
             // Impossible
             throw new RuntimeException();
         }
 
-        try {
-            Signature signatureAlgorithm = getSignatureAlgorithm(signatureScheme);
-            signatureAlgorithm.initSign(certificatePrivateKey);
-            signatureAlgorithm.update(signatureInput.toByteArray());
-            byte[] digitalSignature = signatureAlgorithm.sign();
-            return digitalSignature;
+        return getSignatureAlgorithm(signatureScheme).sign(signatureInput.toByteArray(), certificatePrivateKey);
+    }
+
+    /**
+     * Returns the signature algorithm implementing the given signature scheme.
+     * @param signatureScheme
+     * @return  the signature algorithm, never null
+     * @throws HandshakeFailureAlert  when the scheme is not supported (i.e. no factory provides an implementation)
+     */
+    protected SignatureAlgorithm getSignatureAlgorithm(TlsConstants.SignatureScheme signatureScheme) throws HandshakeFailureAlert {
+        SignatureAlgorithm signatureAlgorithm = signatureAlgorithmFactory.forSignatureScheme(signatureScheme);
+        if (signatureAlgorithm == null) {
+            // Bad luck, not (yet) supported.
+            throw new HandshakeFailureAlert("Signature algorithm not supported " + signatureScheme);
         }
-        catch (SignatureException e) {
-            // sign() throws SignatureException: if this signature object is not initialized properly or if this
-            //                                   signature algorithm is unable to process the input data provided.
-            throw new RuntimeException();
-        } catch (InvalidKeyException e) {
-            throw new InternalErrorAlert("invalid private key");
-        }
+        return signatureAlgorithm;
     }
 
     // https://tools.ietf.org/html/rfc8446#section-4.4.4
@@ -148,93 +148,6 @@ public abstract class TlsEngineImpl implements TlsEngine {
         } catch (InvalidKeyException e) {
             throw new RuntimeException();
         }
-    }
-
-    protected Signature getSignatureAlgorithm(TlsConstants.SignatureScheme signatureScheme) throws HandshakeFailureAlert {
-        Signature signatureAlgorithm = null;
-        // https://tools.ietf.org/html/rfc8446#section-9.1
-        // "A TLS-compliant application MUST support digital signatures with rsa_pkcs1_sha256 (for certificates),
-        // rsa_pss_rsae_sha256 (for CertificateVerify and certificates), and ecdsa_secp256r1_sha256."
-        if (signatureScheme.equals(rsa_pss_rsae_sha256)) {
-            try {
-                signatureAlgorithm = Signature.getInstance(algorithmMapping.get("RSASSA-PSS", 256));
-                signatureAlgorithm.setParameter(new PSSParameterSpec("SHA-256", "MGF1", new MGF1ParameterSpec("SHA-256"), 32, 1));
-            }
-            catch (NoSuchAlgorithmException e) {
-                noRsaSsaPssSupport();
-            }
-            catch (InvalidAlgorithmParameterException e) {
-                // Fairly impossible (because the parameters is hard coded)
-                throw new RuntimeException(e);
-            }
-        }
-        else if (signatureScheme.equals(rsa_pss_rsae_sha384)) {
-            try {
-                signatureAlgorithm = Signature.getInstance(algorithmMapping.get("RSASSA-PSS", 384));
-                signatureAlgorithm.setParameter(new PSSParameterSpec("SHA-384", "MGF1", new MGF1ParameterSpec("SHA-384"), 48, 1));
-            }
-            catch (NoSuchAlgorithmException e) {
-                noRsaSsaPssSupport();
-            }
-            catch (InvalidAlgorithmParameterException e) {
-                // Fairly impossible (because the parameters is hard coded)
-                throw new RuntimeException(e);
-            }
-        }
-        else if (signatureScheme.equals(rsa_pss_rsae_sha512)) {
-            try {
-                signatureAlgorithm = Signature.getInstance(algorithmMapping.get("RSASSA-PSS", 512));
-                signatureAlgorithm.setParameter(new PSSParameterSpec("SHA-512", "MGF1", new MGF1ParameterSpec("SHA-512"), 64, 1));
-            }
-            catch (NoSuchAlgorithmException e) {
-                noRsaSsaPssSupport();
-            }
-            catch (InvalidAlgorithmParameterException e) {
-                // Fairly impossible (because the parameters is hard coded)
-                throw new RuntimeException(e);
-            }
-        }
-        else if (signatureScheme.equals(ecdsa_secp256r1_sha256)) {
-            try {
-                signatureAlgorithm = Signature.getInstance("SHA256withECDSA");
-                // Note that SHA256withECDSA excepts any EC public key, so additional check on the key's curve is necessary
-            }
-            catch (NoSuchAlgorithmException e) {
-                throw new RuntimeException("Missing SHA256withECDSA support");
-            }
-        }
-        else if (signatureScheme.equals(ecdsa_secp384r1_sha384)) {
-            try {
-                signatureAlgorithm = Signature.getInstance("SHA384withECDSA");
-                // Note that SHA384withECDSA excepts any EC public key, so additional check on the key's curve is necessary
-            }
-            catch (NoSuchAlgorithmException e) {
-                throw new RuntimeException("Missing SHA384withECDSA support");
-            }
-        }
-        else if (signatureScheme.equals(ecdsa_secp521r1_sha512)) {
-            try {
-                signatureAlgorithm = Signature.getInstance("SHA512withECDSA");
-                // Note that SHA512withECDSA excepts any EC public key, so additional check on the key's curve is necessary
-            }
-            catch (NoSuchAlgorithmException e) {
-                throw new RuntimeException("Missing SHA512withECDSA support");
-            }
-        }
-        else {
-            // Bad luck, not (yet) supported.
-            throw new HandshakeFailureAlert("Signature algorithm not supported " + signatureScheme);
-        }
-        return signatureAlgorithm;
-    }
-
-    private static void noRsaSsaPssSupport() {
-        boolean runningOnAndroid = System.getProperty("java.vendor") != null && System.getProperty("java.vendor").contains("Android");
-        String msg = "Missing RSASSA-PSS support";
-        if (runningOnAndroid) {
-            msg += ". Did you set PlatformMapping.usePlatformMapping(PlatformMapping.Platform.Android)?";
-        }
-        throw new RuntimeException(msg);
     }
 
     @Override
