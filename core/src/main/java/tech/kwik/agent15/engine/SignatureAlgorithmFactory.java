@@ -42,4 +42,11 @@ public interface SignatureAlgorithmFactory {
      * @return
      */
     List<TlsConstants.SignatureScheme> getSupportedSignatureSchemes();
+
+    /**
+     * Performs any one-time initialization this factory's signature algorithms need (e.g. warming up a lazily
+     * derived value), so that cost is paid here rather than during a handshake. Optional to call; implementations
+     * that need no warm-up may leave this empty.
+     */
+    void init();
 }

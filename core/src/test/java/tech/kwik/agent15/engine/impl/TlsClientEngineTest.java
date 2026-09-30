@@ -1673,6 +1673,10 @@ class TlsClientEngineTest {
                     public List<TlsConstants.SignatureScheme> getSupportedSignatureSchemes() {
                         return List.of();
                     }
+
+                    @Override
+                    public void init() {
+                    }
                 });
         X509Certificate cert = CertificateUtils.inflateCertificate(encodedKwikDotTechRsaCertificate);
 

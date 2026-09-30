@@ -55,4 +55,9 @@ public class SignatureAlgorithmFactoryScanner implements SignatureAlgorithmFacto
     public List<TlsConstants.SignatureScheme> getSupportedSignatureSchemes() {
         return new ArrayList<>(signatureAlgorithmFactories.keySet());
     }
+
+    @Override
+    public void init() {
+        signatureAlgorithmFactories.values().forEach(SignatureAlgorithmFactory::init);
+    }
 }
