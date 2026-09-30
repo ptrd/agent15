@@ -146,6 +146,11 @@ public class TlsConstants {
         /* Legacy algorithms */
         rsa_pkcs1_sha1(0x0201),
         ecdsa_sha1(0x0203),
+
+        /* ML-DSA algorithms (post-quantum, FIPS 204), see https://datatracker.ietf.org/doc/draft-ietf-tls-mldsa/ */
+        mldsa44(0x0904),
+        mldsa65(0x0905),
+        mldsa87(0x0906),
         ;
 
         public final short value;
