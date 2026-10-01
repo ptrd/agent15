@@ -34,8 +34,10 @@ public class KeyExchangeFactoryScanner implements KeyExchangeFactory {
 
     public KeyExchangeFactoryScanner() {
         for (KeyExchangeFactory factory : ServiceLoader.load(KeyExchangeFactory.class)) {
+            int priority = HandshakeFactoryRegistration.priority(factory);
             for (var group : factory.getSupportedGroups()) {
-                keyExchangeFactories.put(group, factory);
+                HandshakeFactoryRegistration.putIfHigherPriority(
+                        keyExchangeFactories, group, factory, priority, HandshakeFactoryRegistration::priority);
             }
         }
     }

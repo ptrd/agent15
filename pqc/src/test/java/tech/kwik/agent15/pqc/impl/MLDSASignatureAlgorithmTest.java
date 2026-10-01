@@ -110,6 +110,28 @@ class MLDSASignatureAlgorithmTest {
     }
 
     @Test
+    void keyMatchesSchemeShouldReturnFalseWhenEncodedKeyMaterialIsMissing() {
+        PublicKey keyWithoutEncoding = new PublicKey() {
+            @Override
+            public String getAlgorithm() {
+                return "ML-DSA";
+            }
+
+            @Override
+            public String getFormat() {
+                return "X.509";
+            }
+
+            @Override
+            public byte[] getEncoded() {
+                return null;
+            }
+        };
+
+        assertThat(new MLDSA65SignatureAlgorithm().keyMatchesScheme(keyWithoutEncoding)).isFalse();
+    }
+
+    @Test
     void keyMatchesSchemeShouldNotMatchEcKey() throws Exception {
         // Given: an EC public key, as a server using an ECDSA certificate would present
         KeyPairGenerator generator = KeyPairGenerator.getInstance("EC");

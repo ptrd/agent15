@@ -22,6 +22,18 @@ import tech.kwik.agent15.TlsConstants;
 
 import java.util.List;
 
+/**
+ * Creates the key exchange implementation for a given TLS named group.
+ * <p>
+ * The default {@link tech.kwik.agent15.engine.impl.TlsClientEngineImpl} and
+ * {@link tech.kwik.agent15.engine.impl.TlsServerEngineImpl} implementations locate factories with a
+ * {@link java.util.ServiceLoader}. Any JAR or module on the application class/module path may register another
+ * {@code KeyExchangeFactory} provider; that code runs during the handshake and can affect key agreement for the
+ * groups it claims. Only add providers you trust, the same way you would trust code on the classpath. When two
+ * providers advertise the same named group, Agent15's {@link tech.kwik.agent15.engine.impl.KeyExchangeFactoryScanner}
+ * keeps the bundled core implementation ({@link tech.kwik.agent15.engine.impl.KeyExchangeFactoryImpl}) and ignores
+ * the extension for that group.
+ */
 public interface KeyExchangeFactory {
 
     KeyExchange forGroup(TlsConstants.NamedGroup group);

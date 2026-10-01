@@ -93,7 +93,11 @@ public abstract class MLDSASignatureAlgorithm implements SignatureAlgorithm {
 
     @Override
     public boolean keyMatchesScheme(PublicKey publicKey) {
-        return JCA_ALGORITHM.equals(publicKey.getAlgorithm()) && publicKey.getEncoded().length == publicKeyEncodedLength;
+        if (!JCA_ALGORITHM.equals(publicKey.getAlgorithm())) {
+            return false;
+        }
+        byte[] encoded = publicKey.getEncoded();
+        return encoded != null && encoded.length == publicKeyEncodedLength;
     }
 
     /**

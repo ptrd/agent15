@@ -34,8 +34,10 @@ public class SignatureAlgorithmFactoryScanner implements SignatureAlgorithmFacto
 
     public SignatureAlgorithmFactoryScanner() {
         for (SignatureAlgorithmFactory factory : ServiceLoader.load(SignatureAlgorithmFactory.class)) {
+            int priority = HandshakeFactoryRegistration.priority(factory);
             for (var scheme : factory.getSupportedSignatureSchemes()) {
-                signatureAlgorithmFactories.put(scheme, factory);
+                HandshakeFactoryRegistration.putIfHigherPriority(
+                        signatureAlgorithmFactories, scheme, factory, priority, HandshakeFactoryRegistration::priority);
             }
         }
     }

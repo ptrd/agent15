@@ -13,7 +13,8 @@
  *
  * <p>Both are registered as services ({@link tech.kwik.agent15.engine.KeyExchangeFactory} and
  * {@link tech.kwik.agent15.engine.SignatureAlgorithmFactory}), so core Agent15 uses them automatically when this
- * module is present; there is no need to call anything in this module directly.
+ * module is present; there is no need to call anything in this module directly. Only place this module on the
+ * class/module path when you trust it; see the security notes on those factory interfaces in {@code tech.kwik.agent15}.
  */
 module tech.kwik.agent15.pqc {
 

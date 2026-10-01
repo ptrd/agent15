@@ -24,8 +24,15 @@ import java.util.List;
 
 /**
  * Creates the signature algorithm implementation for a given TLS signature scheme.
- * Implementations are located with a {@link java.util.ServiceLoader}, so support for additional signature schemes can
- * be added by providing an implementation of this interface as a service.
+ * <p>
+ * The default {@link tech.kwik.agent15.engine.impl.TlsClientEngineImpl} and
+ * {@link tech.kwik.agent15.engine.impl.TlsServerEngineImpl} implementations locate factories with a
+ * {@link java.util.ServiceLoader}. Any JAR or module on the application class/module path may register another
+ * {@code SignatureAlgorithmFactory} provider; that code runs during the handshake and can affect signing and
+ * certificate verification for the schemes it claims. Only add providers you trust, the same way you would trust
+ * code on the classpath. When two providers advertise the same signature scheme, Agent15's
+ * {@link tech.kwik.agent15.engine.impl.SignatureAlgorithmFactoryScanner} keeps the bundled core implementation
+ * ({@link tech.kwik.agent15.engine.impl.SignatureAlgorithmFactoryImpl}) and ignores the extension for that scheme.
  */
 public interface SignatureAlgorithmFactory {
 
