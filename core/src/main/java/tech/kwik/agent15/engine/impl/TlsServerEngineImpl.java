@@ -78,20 +78,29 @@ public class TlsServerEngineImpl extends TlsEngineImpl implements TlsServerEngin
     private byte[] additionalSessionData;
     private Function<ByteBuffer, Boolean> sessionDataVerificationCallback;
 
-    /**
-     * Create new TLS server engine.
-     * Caller must ensure that the preferred signature schemes are compatible with the provided certificate (i.e. that the certificate's public key can be used with all signature schemes).
-     * @param certificates  the certificate chain for the server certificate
-     * @param certificateKey  the private key for the server certificate
-     * @param preferredSignatureSchemes   the signature schemes that the server supports (must be compatible with the provided certificate)
-     * @param serverMessageSender  the callback that is used to send messages to the client
-     * @param tlsStatusHandler  the callback that is used to notify the context of status changes in the TLS engine, for example when secrets become available or when the handshake is finished
-     * @param tlsSessionRegistry  the registry that is used to store and retrieve session data for session resumption; can be null if session resumption is not supported
-     * @param keyExchangeFactory  the factory that creates the key exchange for a given named group
-     */
     public TlsServerEngineImpl(List<X509Certificate> certificates, PrivateKey certificateKey, List<SignatureScheme> preferredSignatureSchemes,
                                ServerMessageSender serverMessageSender, TlsStatusEventHandler tlsStatusHandler, TlsSessionRegistry tlsSessionRegistry,
                                KeyExchangeFactory keyExchangeFactory) {
+        this(certificates, certificateKey, preferredSignatureSchemes, serverMessageSender, tlsStatusHandler, tlsSessionRegistry, keyExchangeFactory, new SignatureAlgorithmFactoryImpl());
+    }
+
+    /**
+         * Create new TLS server engine.
+         * Caller must ensure that the preferred signature schemes are compatible with the provided certificate (i.e. that the certificate's public key can be used with all signature schemes).
+         *
+         * @param certificates              the certificate chain for the server certificate
+         * @param certificateKey            the private key for the server certificate
+         * @param preferredSignatureSchemes the signature schemes that the server supports (must be compatible with the provided certificate)
+         * @param serverMessageSender       the callback that is used to send messages to the client
+         * @param tlsStatusHandler          the callback that is used to notify the context of status changes in the TLS engine, for example when secrets become available or when the handshake is finished
+         * @param tlsSessionRegistry        the registry that is used to store and retrieve session data for session resumption; can be null if session resumption is not supported
+         * @param keyExchangeFactory        the factory that creates the key exchange for a given named group
+         * @param signatureAlgorithmFactory the factory that creates the signature algorithm for a given signature scheme
+         */
+    public TlsServerEngineImpl(List<X509Certificate> certificates, PrivateKey certificateKey, List<SignatureScheme> preferredSignatureSchemes,
+                               ServerMessageSender serverMessageSender, TlsStatusEventHandler tlsStatusHandler, TlsSessionRegistry tlsSessionRegistry,
+                               KeyExchangeFactory keyExchangeFactory, SignatureAlgorithmFactory signatureAlgorithmFactory) {
+        super(signatureAlgorithmFactory);
         this.serverCertificateChain = certificates;
         this.certificatePrivateKey = certificateKey;
         this.preferredSignatureSchemes = preferredSignatureSchemes;

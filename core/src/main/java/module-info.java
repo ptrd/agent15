@@ -57,6 +57,11 @@
  * <h2>Security</h2>
  * Certificates are validated against the default Java truststore; a custom trust manager can be configured to use other
  * certificate authorities.
+ * <p>
+ * Handshake cryptography can also be extended through {@link java.util.ServiceLoader}: {@link tech.kwik.agent15.engine.KeyExchangeFactory}
+ * and {@link tech.kwik.agent15.engine.SignatureAlgorithmFactory} providers on the class/module path are loaded
+ * automatically (for example the {@code agent15-pqc} module). Treat those providers like any other trusted classpath
+ * code; a malicious provider could alter key agreement or certificate verification for the groups or schemes it registers.
  */
 module tech.kwik.agent15 {
 
@@ -76,5 +81,10 @@ module tech.kwik.agent15 {
     // Key exchange groups that core does not implement itself (e.g. the hybrid groups provided by agent15-pqc).
     uses tech.kwik.agent15.engine.KeyExchangeFactory;
 
+    // Signature algorithms that core does not implement itself.
+    uses tech.kwik.agent15.engine.SignatureAlgorithmFactory;
+
     provides tech.kwik.agent15.engine.KeyExchangeFactory with tech.kwik.agent15.engine.impl.KeyExchangeFactoryImpl;
+
+    provides tech.kwik.agent15.engine.SignatureAlgorithmFactory with tech.kwik.agent15.engine.impl.SignatureAlgorithmFactoryImpl;
 }

@@ -112,6 +112,30 @@ class ClientServerHandshakeTest {
     }
 
     @Test
+    void handshakeWithEnginesThatLocateTheirFactoriesThemselvesShouldSucceed() throws Exception {
+        // Given: engines created the way an application would create them, i.e. without passing factories, so both
+        // the key exchange and the signature algorithm come from a service loader.
+        clientStatusHandler = mock(TlsStatusEventHandler.class);
+        client = new TlsClientEngineImpl(clientMessageSender(), clientStatusHandler);
+        client.setServerName(SERVER_NAME);
+        client.addSupportedCiphers(List.of(TLS_AES_128_GCM_SHA256));
+        client.setTrustManager(acceptAllTrustManager());
+        client.setHostnameVerifier(acceptAllHostnameVerifier());
+        server = new TlsServerEngineImpl(List.of(serverCertificate), serverPrivateKey, List.of(rsa_pss_rsae_sha256),
+                serverMessageSender, serverStatusHandler, sessionRegistry, new KeyExchangeFactoryScanner(),
+                new SignatureAlgorithmFactoryScanner());
+        server.addSupportedCiphers(List.of(TLS_AES_128_GCM_SHA256));
+
+        // When
+        client.startHandshake(List.of(secp256r1), List.of(secp256r1, x25519), List.of(rsa_pss_rsae_sha256));
+        deliverAll();
+
+        // Then: the server could sign, and the client could verify, the certificate verify message.
+        assertThat(client.handshakeFinished()).isTrue();
+        verify(serverStatusHandler).handshakeFinished();
+    }
+
+    @Test
     void whenClientOffersMultipleKeySharesNoHelloRetryRequestIsNeeded() throws Exception {
         // Given: a server that only offers x25519
         server.setSupportedGroups(List.of(x25519));
@@ -193,7 +217,7 @@ class ClientServerHandshakeTest {
     }
 
     private TlsClientEngineImpl createClient(TlsStatusEventHandler statusHandler) {
-        TlsClientEngineImpl client = new TlsClientEngineImpl(clientMessageSender(), statusHandler, new KeyExchangeFactoryImpl());
+        TlsClientEngineImpl client = new TlsClientEngineImpl(clientMessageSender(), statusHandler, new KeyExchangeFactoryImpl(), new SignatureAlgorithmFactoryImpl());
         client.setServerName(SERVER_NAME);
         client.addSupportedCiphers(List.of(TLS_AES_128_GCM_SHA256));
         client.setTrustManager(acceptAllTrustManager());
@@ -203,7 +227,7 @@ class ClientServerHandshakeTest {
 
     private TlsServerEngineImpl createServer(TlsStatusEventHandler statusHandler) {
         TlsServerEngineImpl server = new TlsServerEngineImpl(List.of(serverCertificate), serverPrivateKey,
-                List.of(rsa_pss_rsae_sha256), serverMessageSender, statusHandler, sessionRegistry, new KeyExchangeFactoryImpl());
+                List.of(rsa_pss_rsae_sha256), serverMessageSender, statusHandler, sessionRegistry, new KeyExchangeFactoryImpl(), new SignatureAlgorithmFactoryImpl());
         server.addSupportedCiphers(List.of(TLS_AES_128_GCM_SHA256));
         return server;
     }

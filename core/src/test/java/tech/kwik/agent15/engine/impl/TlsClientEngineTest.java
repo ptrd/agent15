@@ -33,6 +33,8 @@ import tech.kwik.agent15.engine.CertificateWithPrivateKey;
 import tech.kwik.agent15.engine.ClientMessageSender;
 import tech.kwik.agent15.engine.KeyExchange;
 import tech.kwik.agent15.engine.HostnameVerifier;
+import tech.kwik.agent15.engine.SignatureAlgorithm;
+import tech.kwik.agent15.engine.SignatureAlgorithmFactory;
 import tech.kwik.agent15.engine.TlsStatusEventHandler;
 import tech.kwik.agent15.extension.*;
 import tech.kwik.agent15.handshake.*;
@@ -96,7 +98,7 @@ class TlsClientEngineTest {
     @BeforeEach
     void initObjectUnderTest() {
         messageSender = Mockito.mock(ClientMessageSender.class);
-        engine = new TlsClientEngineImpl(messageSender, Mockito.mock(TlsStatusEventHandler.class), new KeyExchangeFactoryImpl());
+        engine = new TlsClientEngineImpl(messageSender, Mockito.mock(TlsStatusEventHandler.class), new KeyExchangeFactoryImpl(), new SignatureAlgorithmFactoryImpl());
         engine.setServerName("server");
         engineCipher = TLS_AES_128_GCM_SHA256;
         engine.addSupportedCiphers(List.of(engineCipher));
@@ -1628,6 +1630,73 @@ class TlsClientEngineTest {
 
         // When/Then
         assertThat(engine.keyMatchesSignatureAlgorithm(cert.getPublicKey(), ecdsa_secp521r1_sha512)).isTrue();
+    }
+
+    @Test
+    void certificateWithRsaKeyShouldNotSupportEcdsaScheme() throws Exception {
+        // Given: an RSA certificate, as a server may present with an ecdsa signature scheme
+        X509Certificate cert = CertificateUtils.inflateCertificate(encodedKwikDotTechRsaCertificate);
+
+        // When/Then: the key is simply not of the type the scheme needs
+        assertThat(engine.keyMatchesSignatureAlgorithm(cert.getPublicKey(), ecdsa_secp256r1_sha256)).isFalse();
+    }
+
+    @Test
+    void certificateWithEcKeyShouldNotSupportRsaPssScheme() throws Exception {
+        // Given
+        X509Certificate cert = CertificateUtils.inflateCertificate(encodedSampleEcdsa384Certificate);
+
+        // When/Then
+        assertThat(engine.keyMatchesSignatureAlgorithm(cert.getPublicKey(), rsa_pss_rsae_sha256)).isFalse();
+    }
+
+    @Test
+    void keyDoesNotMatchSignatureSchemeThatIsNotSupported() throws Exception {
+        // Given
+        X509Certificate cert = CertificateUtils.inflateCertificate(encodedKwikDotTechRsaCertificate);
+
+        // When/Then: no algorithm can be created for this scheme, so the key cannot match it
+        assertThat(engine.keyMatchesSignatureAlgorithm(cert.getPublicKey(), rsa_pkcs1_sha1)).isFalse();
+    }
+
+    @Test
+    void certificateVerifyWithSignatureSchemeThatIsNotSupportedLeadsToHandshakeFailure() throws Exception {
+        // Given: an engine whose factory does not provide an algorithm for any scheme
+        TlsClientEngineImpl engine = new TlsClientEngineImpl(messageSender, Mockito.mock(TlsStatusEventHandler.class),
+                new KeyExchangeFactoryImpl(), new SignatureAlgorithmFactory() {
+                    @Override
+                    public SignatureAlgorithm forSignatureScheme(TlsConstants.SignatureScheme signatureScheme) {
+                        return null;
+                    }
+
+                    @Override
+                    public List<TlsConstants.SignatureScheme> getSupportedSignatureSchemes() {
+                        return List.of();
+                    }
+
+                    @Override
+                    public void init() {
+                    }
+                });
+        X509Certificate cert = CertificateUtils.inflateCertificate(encodedKwikDotTechRsaCertificate);
+
+        assertThatThrownBy(() ->
+                // When
+                engine.verifySignature(new byte[256], rsa_pss_rsae_sha256, cert, new byte[32]))
+                // Then
+                .isInstanceOf(HandshakeFailureAlert.class)
+                .hasMessageContaining("rsa_pss_rsae_sha256");
+    }
+
+    @Test
+    void defaultConstructedEngineShouldResolveAllSignatureSchemesItOffers() {
+        // Given: an engine created the way an application would, i.e. with the factories located by a service loader
+        TlsClientEngineImpl engine = new TlsClientEngineImpl(messageSender, Mockito.mock(TlsStatusEventHandler.class));
+
+        // When/Then
+        for (TlsConstants.SignatureScheme scheme : TlsClientEngineImpl.AVAILABLE_SIGNATURES) {
+            assertThat(engine.signatureAlgorithmFactory.forSignatureScheme(scheme)).as("algorithm for " + scheme).isNotNull();
+        }
     }
 
     private HelloRetryRequest createHelloRetryRequest(TlsConstants.NamedGroup selectedGroup) {

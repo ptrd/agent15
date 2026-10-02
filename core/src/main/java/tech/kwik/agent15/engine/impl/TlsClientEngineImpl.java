@@ -34,17 +34,17 @@ import javax.security.auth.x500.X500Principal;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
-import java.security.*;
+import java.security.KeyStore;
+import java.security.KeyStoreException;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.security.PrivateKey;
+import java.security.PublicKey;
 import java.security.cert.CertPathBuilderException;
 import java.security.cert.CertPathValidatorException;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
-import java.security.interfaces.ECPublicKey;
-import java.security.interfaces.RSAPublicKey;
-import java.security.spec.ECGenParameterSpec;
-import java.security.spec.ECParameterSpec;
-import java.security.spec.InvalidParameterSpecException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -117,10 +117,11 @@ public class TlsClientEngineImpl extends TlsEngineImpl implements TlsClientEngin
 
 
     public TlsClientEngineImpl(ClientMessageSender clientMessageSender, TlsStatusEventHandler tlsStatusHandler) {
-        this(clientMessageSender, tlsStatusHandler, new KeyExchangeFactoryScanner());
+        this(clientMessageSender, tlsStatusHandler, new KeyExchangeFactoryScanner(), new SignatureAlgorithmFactoryScanner());
     }
 
-    public TlsClientEngineImpl(ClientMessageSender clientMessageSender, TlsStatusEventHandler tlsStatusHandler, KeyExchangeFactory keyExchangeFactory) {
+    public TlsClientEngineImpl(ClientMessageSender clientMessageSender, TlsStatusEventHandler tlsStatusHandler, KeyExchangeFactory keyExchangeFactory, SignatureAlgorithmFactory signatureAlgorithmFactory) {
+        super(signatureAlgorithmFactory);
         sender = clientMessageSender;
         statusHandler = tlsStatusHandler;
         supportedCiphers = new ArrayList<>();
@@ -855,56 +856,18 @@ public class TlsClientEngineImpl extends TlsEngineImpl implements TlsClientEngin
         status = Status.WaitCertificate;
     }
 
-    /**
-     * Checks that if the key is an EC key, the curve matches what the scheme requires, throwing an exception when it does not.
-     * @param publicKey
-     * @param signatureScheme
-     * @throws IllegalParameterAlert
-     */
-    private void checkKeyMatchesScheme(PublicKey publicKey, TlsConstants.SignatureScheme signatureScheme) throws IllegalParameterAlert {
-        if (! keyMatchesSignatureAlgorithm(publicKey, signatureScheme)) {
-            throw new IllegalParameterAlert("public key type does not match signature scheme");
-        }
-    }
-
     boolean keyMatchesSignatureAlgorithm(PublicKey publicKey, TlsConstants.SignatureScheme signatureScheme) {
-        if (publicKey instanceof RSAPublicKey) {
-            return List.of(rsa_pss_rsae_sha256, rsa_pss_rsae_sha384, rsa_pss_rsae_sha512).contains(signatureScheme);
-        }
-        else if (publicKey instanceof ECPublicKey) {
-            String expectedCurveName;
-            if (signatureScheme == ecdsa_secp256r1_sha256) {
-                expectedCurveName = "secp256r1";
-            }
-            else if (signatureScheme == ecdsa_secp384r1_sha384) {
-                expectedCurveName = "secp384r1";
-            }
-            else if (signatureScheme == ecdsa_secp521r1_sha512) {
-                expectedCurveName = "secp521r1";
-            }
-            else {
-                return false;
-            }
-            try {
-                AlgorithmParameters params = AlgorithmParameters.getInstance("EC");
-                params.init(new ECGenParameterSpec(expectedCurveName));
-                ECParameterSpec expectedSpec = params.getParameterSpec(ECParameterSpec.class);
-                ECParameterSpec actualSpec = ((ECPublicKey) publicKey).getParams();
-                return expectedSpec.getCurve().equals(actualSpec.getCurve());
-            }
-            catch (NoSuchAlgorithmException | InvalidParameterSpecException e) {
-                // NoSuchAlgorithmException from getInstance("EC"),
-                // InvalidParameterSpecException from init(ECGenParameterSpec) and getParameterSpec(ECParameterSpec)
-                throw new RuntimeException(e);
-            }
-        }
-        else {
-            return false;
-        }
+        SignatureAlgorithm signatureAlgorithm = signatureAlgorithmFactory.forSignatureScheme(signatureScheme);
+        // An unsupported scheme can never match the key.
+        return signatureAlgorithm != null && signatureAlgorithm.keyMatchesScheme(publicKey);
     }
 
     protected boolean verifySignature(byte[] signatureToVerify, TlsConstants.SignatureScheme signatureScheme, Certificate certificate, byte[] transcriptHash) throws HandshakeFailureAlert, IllegalParameterAlert {
-        checkKeyMatchesScheme(certificate.getPublicKey(), signatureScheme);
+        SignatureAlgorithm algorithm = getSignatureAlgorithm(signatureScheme);
+        if (!algorithm.keyMatchesScheme(certificate.getPublicKey())) {
+            throw new IllegalParameterAlert("public key type does not match signature scheme");
+        }
+
         // https://tools.ietf.org/html/rfc8446#section-4.4.3
         // "The digital signature is then computed over the concatenation of:
         //   -  A string that consists of octet 32 (0x20) repeated 64 times
@@ -925,20 +888,8 @@ public class TlsClientEngineImpl extends TlsEngineImpl implements TlsClientEngin
         //      Transcript-Hash(Handshake Context, Certificate)"
         contentToSign.put(transcriptHash);
 
-        boolean verified = false;
-        try {
-            Signature signatureAlgorithm = getSignatureAlgorithm(signatureScheme);
-            signatureAlgorithm.initVerify(certificate);
-            signatureAlgorithm.update(contentToSign.array());
-            verified = signatureAlgorithm.verify(signatureToVerify);
-        }
-        catch (InvalidKeyException e) {
-            Logger.debug("Certificate verify: invalid key.");
-        }
-        catch (SignatureException e) {
-            Logger.debug("Certificate verify: invalid signature.");
-        }
-        return verified;
+        // TODO: cert or public key?
+        return algorithm.verify(contentToSign.array(), signatureToVerify, certificate.getPublicKey());
     }
 
     protected void checkCertificateValidity(List<X509Certificate> certificates) throws BadCertificateAlert {

@@ -99,7 +99,7 @@ public class TlsServerEngineTest {
         tlsStatusHandler = mock(TlsStatusEventHandler.class);
         tlsSessionRegistry = new TlsSessionRegistryImpl();
         engine = new TlsServerEngineImpl(List.of(serverCertificate), privateKey, List.of(rsa_pss_rsae_sha256),
-                messageSender, tlsStatusHandler, tlsSessionRegistry, keyExchangeFactorySupporting(NamedGroup.secp256r1)) {
+                messageSender, tlsStatusHandler, tlsSessionRegistry, keyExchangeFactorySupporting(NamedGroup.secp256r1), new SignatureAlgorithmFactoryImpl()) {
             protected boolean validateBinder(ClientHelloPreSharedKeyExtension.PskBinderEntry pskBinderEntry, int binderPosition, ClientHello clientHello) {
                 return true;
             }
@@ -967,7 +967,7 @@ public class TlsServerEngineTest {
         PrivateKey privateKey = keyFactory.generatePrivate(keySpecPKCS8);
 
         TlsServerEngineImpl engine = new TlsServerEngineImpl(List.of(serverCertificate), privateKey, List.of(rsa_pss_rsae_sha256),
-                messageSender, tlsStatusHandler, sessionRegistry, keyExchangeFactory);
+                messageSender, tlsStatusHandler, sessionRegistry, keyExchangeFactory, new SignatureAlgorithmFactoryImpl());
         engine.addSupportedCiphers(List.of(TLS_AES_128_GCM_SHA256));
         return engine;
     }

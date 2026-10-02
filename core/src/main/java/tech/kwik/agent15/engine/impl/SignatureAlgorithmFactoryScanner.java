@@ -19,8 +19,8 @@
 package tech.kwik.agent15.engine.impl;
 
 import tech.kwik.agent15.TlsConstants;
-import tech.kwik.agent15.engine.KeyExchange;
-import tech.kwik.agent15.engine.KeyExchangeFactory;
+import tech.kwik.agent15.engine.SignatureAlgorithm;
+import tech.kwik.agent15.engine.SignatureAlgorithmFactory;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -28,24 +28,25 @@ import java.util.List;
 import java.util.Map;
 import java.util.ServiceLoader;
 
-public class KeyExchangeFactoryScanner implements KeyExchangeFactory {
+public class SignatureAlgorithmFactoryScanner implements SignatureAlgorithmFactory {
 
-    private final Map<TlsConstants.NamedGroup, KeyExchangeFactory> keyExchangeFactories = new HashMap<>();
+    private final Map<TlsConstants.SignatureScheme, SignatureAlgorithmFactory> signatureAlgorithmFactories = new HashMap<>();
 
-    public KeyExchangeFactoryScanner() {
-        for (KeyExchangeFactory factory : ServiceLoader.load(KeyExchangeFactory.class)) {
+    public SignatureAlgorithmFactoryScanner() {
+        for (SignatureAlgorithmFactory factory : ServiceLoader.load(SignatureAlgorithmFactory.class)) {
             int priority = HandshakeFactoryRegistration.priority(factory);
-            for (var group : factory.getSupportedGroups()) {
+            for (var scheme : factory.getSupportedSignatureSchemes()) {
                 HandshakeFactoryRegistration.putIfHigherPriority(
-                        keyExchangeFactories, group, factory, priority, HandshakeFactoryRegistration::priority);
+                        signatureAlgorithmFactories, scheme, factory, priority, HandshakeFactoryRegistration::priority);
             }
         }
     }
 
-    public KeyExchange forGroup(TlsConstants.NamedGroup group) {
-        KeyExchangeFactory factory = keyExchangeFactories.get(group);
+    @Override
+    public SignatureAlgorithm forSignatureScheme(TlsConstants.SignatureScheme signatureScheme) {
+        SignatureAlgorithmFactory factory = signatureAlgorithmFactories.get(signatureScheme);
         if (factory != null) {
-            return factory.forGroup(group);
+            return factory.forSignatureScheme(signatureScheme);
         }
         else {
             return null;
@@ -53,12 +54,12 @@ public class KeyExchangeFactoryScanner implements KeyExchangeFactory {
     }
 
     @Override
-    public List<TlsConstants.NamedGroup> getSupportedGroups() {
-        return new ArrayList<>(keyExchangeFactories.keySet());
+    public List<TlsConstants.SignatureScheme> getSupportedSignatureSchemes() {
+        return new ArrayList<>(signatureAlgorithmFactories.keySet());
     }
 
     @Override
     public void init() {
-        keyExchangeFactories.values().forEach(KeyExchangeFactory::init);
+        signatureAlgorithmFactories.values().forEach(SignatureAlgorithmFactory::init);
     }
 }
