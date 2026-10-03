@@ -1,1 +1,1 @@
-moduleSearchIndex = [{"l":"tech.kwik.agent15"}];updateSearchResults();
+moduleSearchIndex = [{"l":"tech.kwik.agent15"},{"l":"tech.kwik.agent15.pqc"}];updateSearchResults();

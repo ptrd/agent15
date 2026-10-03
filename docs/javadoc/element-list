@@ -9,3 +9,6 @@ tech.kwik.agent15.extension
 tech.kwik.agent15.handshake
 tech.kwik.agent15.log
 tech.kwik.agent15.util
+module:tech.kwik.agent15.pqc
+tech.kwik.agent15.pqc
+tech.kwik.agent15.pqc.impl
