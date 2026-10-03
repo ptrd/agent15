@@ -2,6 +2,8 @@ import com.vanniktech.maven.publish.JavaLibrary
 import com.vanniktech.maven.publish.JavadocJar
 
 plugins {
+    // Gives the root project a clean task too, which removes the javadoc generated for all modules.
+    id 'base'
     id 'com.vanniktech.maven.publish' version '0.37.0' apply false
 }
 
@@ -72,9 +74,9 @@ subprojects {
         }
     }
 
+    // Javadoc for all modules is generated in one go by the root project's javadoc task, see below.
     javadoc {
-        options.addStringOption('Xdoclint:none', '-quiet')
-        options.addBooleanOption('html5', true)
+        enabled = false
     }
 
     mavenPublishing {
@@ -128,4 +130,41 @@ task generateVersionResource {
         dir.mkdirs()
         new File(dir, "version.properties").text = versionTag
     }
+}
+
+// The name of a module is only stated in its module descriptor; there is no Gradle property that holds it.
+def moduleName(Project module) {
+    def descriptor = module.file('src/main/java/module-info.java').text
+    def name = descriptor =~ /(?m)^\s*(?:open\s+)?module\s+([\w.]+)/
+    if (!name) {
+        throw new GradleException("No module declaration found in ${module.path}'s module-info.java.")
+    }
+    return name[0][1]
+}
+
+// Generates one javadoc for all modules, rather than one per module: javadoc is run in multi-module mode, with
+// the sources of every subproject, so core and pqc (including their module descriptions) are documented as a
+// single whole, in build/docs/javadoc. The javadoc tasks of the subprojects themselves are disabled.
+tasks.register('javadoc', Javadoc) {
+    group = 'documentation'
+    description = 'Generates the javadoc of all modules, as one set of documentation.'
+    destinationDir = layout.buildDirectory.dir('docs/javadoc').get().asFile
+
+    source subprojects.collect { it.sourceSets.main.allJava }
+
+    // One --module-source-path per module: the pattern form ('*/src/main/java') is of no use here, as the
+    // directory names (core, pqc) are not the module names.
+    options.addMultilineStringsOption('-module-source-path').value =
+            subprojects.collect { "${moduleName(it)}=${it.file('src/main/java')}".toString() }
+
+    // The modules are documented from source, so only their external dependencies belong on the module path:
+    // a module read from the module path as well as from the module source path is an error.
+    classpath = files(subprojects.collect { module ->
+        module.configurations.compileClasspath.incoming.artifactView {
+            componentFilter { it instanceof ModuleComponentIdentifier }
+        }.files
+    })
+
+    options.addStringOption('Xdoclint:none', '-quiet')
+    options.addBooleanOption('html5', true)
 }
