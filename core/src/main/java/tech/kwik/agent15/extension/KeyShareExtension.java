@@ -1,0 +1,240 @@
+/*
+ * Copyright © 2019, 2020, 2021, 2022, 2023, 2024, 2025, 2026 Peter Doornbosch
+ *
+ * This file is part of Agent15, an implementation of TLS 1.3 in Java.
+ *
+ * Agent15 is free software: you can redistribute it and/or modify it under
+ * the terms of the GNU Lesser General Public License as published by the
+ * Free Software Foundation, either version 3 of the License, or (at your option)
+ * any later version.
+ *
+ * Agent15 is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE. See the GNU Lesser General Public License for
+ * more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ */
+package tech.kwik.agent15.extension;
+
+import tech.kwik.agent15.TlsConstants;
+import tech.kwik.agent15.TlsProtocolException;
+import tech.kwik.agent15.alert.DecodeErrorException;
+
+import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+import java.util.stream.Collectors;
+
+import static tech.kwik.agent15.extension.ExtensionBlockParser.parseExtensionHeader;
+
+/**
+ * The TLS "key_share" extension contains the endpoint's cryptographic parameters.
+ * See https://tools.ietf.org/html/rfc8446#section-4.2.8
+ */
+public class KeyShareExtension implements Extension {
+
+    private final TlsConstants.HandshakeType handshakeType;
+    private final boolean helloRetryRequestType;
+    private final List<KeyShareEntry> keyShareEntries;
+
+
+    public KeyShareExtension(byte[] keyExchangeData, TlsConstants.NamedGroup ecCurve, TlsConstants.HandshakeType handshakeType) {
+        this(List.of(new KeyShareEntry(ecCurve, keyExchangeData)), handshakeType);
+    }
+
+    /**
+     * Creates a key share extension carrying the given key share entries, in the given order.
+     * https://datatracker.ietf.org/doc/html/rfc8446#section-4.2.8
+     * "Clients MUST NOT offer multiple KeyShareEntry values for the same group."
+     *
+     * @param keyShareEntries  the key share entries, in descending order of preference; must not be empty and must not
+     *                         contain more than one entry for the same group.
+     * @param handshakeType    the message this extension will be part of
+     */
+    public KeyShareExtension(List<KeyShareEntry> keyShareEntries, TlsConstants.HandshakeType handshakeType) {
+        this(checkKeyShareEntries(keyShareEntries), handshakeType, false);
+    }
+
+    private static List<KeyShareEntry> checkKeyShareEntries(List<KeyShareEntry> keyShareEntries) {
+        if (keyShareEntries.isEmpty()) {
+            throw new IllegalArgumentException("at least one key share entry is required");
+        }
+        long distinctGroups = keyShareEntries.stream().map(KeyShareEntry::getNamedGroup).distinct().count();
+        if (distinctGroups != keyShareEntries.size()) {
+            throw new IllegalArgumentException("key share entries must not contain multiple entries for the same group");
+        }
+        return keyShareEntries;
+    }
+
+    /**
+     * Creates the key share extension as it occurs in a HelloRetryRequest, which carries the selected group only.
+     * https://datatracker.ietf.org/doc/html/rfc8446#section-4.2.8
+     * "struct {
+     *      NamedGroup selected_group;
+     *  } KeyShareHelloRetryRequest;"
+     */
+    public KeyShareExtension(TlsConstants.NamedGroup selectedGroup) {
+        this(List.of(new KeyShareEntry(selectedGroup, null)), TlsConstants.HandshakeType.server_hello, true);
+    }
+
+    private KeyShareExtension(List<KeyShareEntry> keyShareEntries, TlsConstants.HandshakeType handshakeType, boolean helloRetryRequestType) {
+        this.keyShareEntries = new ArrayList<>(keyShareEntries);
+        this.handshakeType = handshakeType;
+        this.helloRetryRequestType = helloRetryRequestType;
+    }
+
+    /**
+     * Parses a key share extension from a byte stream.
+     * @param buffer
+     * @param handshakeType  indicates in which handshake message the extension occurs
+     * @throws TlsProtocolException
+     */
+    public static KeyShareExtension parse(ByteBuffer buffer, TlsConstants.HandshakeType handshakeType) throws TlsProtocolException {
+        return parse(buffer, handshakeType, false);
+    }
+
+    /**
+     * Parses a key share extension from a byte stream.
+     * @param buffer
+     * @param handshakeType          indicates in which handshake message the extension occurs
+     * @param helloRetryRequestType  whether the extension is part of a HelloRetryRequest (and thus carries the
+     *                               selected group only)
+     * @throws TlsProtocolException
+     */
+    public static KeyShareExtension parse(ByteBuffer buffer, TlsConstants.HandshakeType handshakeType, boolean helloRetryRequestType) throws TlsProtocolException {
+        int extensionDataLength = parseExtensionHeader(buffer, TlsConstants.ExtensionType.key_share, 1);
+        if (extensionDataLength < 2) {
+            throw new DecodeErrorException("extension underflow");
+        }
+
+        List<KeyShareEntry> keyShareEntries = new ArrayList<>();
+        if (handshakeType == TlsConstants.HandshakeType.client_hello) {
+            int keyShareEntriesSize = buffer.getShort()& 0xffff;
+            if (extensionDataLength != 2 + keyShareEntriesSize) {
+                throw new DecodeErrorException("inconsistent length");
+            }
+            int remaining = keyShareEntriesSize;
+            while (remaining > 0) {
+                remaining -= parseKeyShareEntry(buffer, helloRetryRequestType, keyShareEntries);
+            }
+            if (remaining != 0) {
+                throw new DecodeErrorException("inconsistent length");
+            }
+        }
+        else if (handshakeType == TlsConstants.HandshakeType.server_hello) {
+            int remaining = extensionDataLength;
+            remaining -= parseKeyShareEntry(buffer, helloRetryRequestType, keyShareEntries);
+            if (remaining != 0) {
+                throw new DecodeErrorException("inconsistent length");
+            }
+        }
+        else {
+            throw new IllegalArgumentException();
+        }
+
+        return new KeyShareExtension(keyShareEntries, handshakeType, helloRetryRequestType);
+    }
+
+    private static int parseKeyShareEntry(ByteBuffer buffer, boolean namedGroupOnly, List<KeyShareEntry> keyShareEntries) throws TlsProtocolException {
+        int startPosition = buffer.position();
+        if (namedGroupOnly && buffer.remaining() < 2 || !namedGroupOnly && buffer.remaining() < 4 ) {
+            throw new DecodeErrorException("extension underflow");
+        }
+
+        Optional<TlsConstants.NamedGroup> recognizedNamedGroup = TlsConstants.decodeNamedGroup(buffer.getShort());
+
+        if (namedGroupOnly) {
+            recognizedNamedGroup.ifPresent(namedGroup -> keyShareEntries.add(new KeyShareEntry(namedGroup, null)));
+        }
+        else {
+            int keyLength = buffer.getShort() & 0xffff;
+            if (buffer.remaining() < keyLength) {
+                throw new DecodeErrorException("extension underflow");
+            }
+            if (recognizedNamedGroup.isPresent()) {
+                // Whether the key exchange data is valid for the given group, is up to the key exchange implementation.
+                byte[] keyExchangeData = new byte[keyLength];
+                buffer.get(keyExchangeData);
+                keyShareEntries.add(new KeyShareEntry(recognizedNamedGroup.get(), keyExchangeData));
+            }
+            else {
+                buffer.get(new byte[keyLength]);
+            }
+        }
+        return buffer.position() - startPosition;
+    }
+
+    @Override
+    public byte[] getBytes() {
+        if (helloRetryRequestType) {
+            // In a HelloRetryRequest, the extension contains the selected group only.
+            ByteBuffer buffer = ByteBuffer.allocate(4 + 2);
+            buffer.putShort(TlsConstants.ExtensionType.key_share.value);
+            buffer.putShort((short) 2);  // Extension data length (in bytes)
+            buffer.putShort(keyShareEntries.get(0).getNamedGroup().value);
+            return buffer.array();
+        }
+
+        int keyShareEntryLength = keyShareEntries.stream()
+                .mapToInt(ks -> 2 + 2 + ks.getKeyExchangeData().length)  // Named Group: 2 bytes, key length: 2 bytes
+                .sum();
+        int extensionLength = keyShareEntryLength;
+        if (handshakeType == TlsConstants.HandshakeType.client_hello) {
+            extensionLength += 2;
+        }
+
+        ByteBuffer buffer = ByteBuffer.allocate(4 + extensionLength);
+        buffer.putShort(TlsConstants.ExtensionType.key_share.value);
+        buffer.putShort((short) extensionLength);  // Extension data length (in bytes)
+
+        if (handshakeType == TlsConstants.HandshakeType.client_hello) {
+            buffer.putShort((short) keyShareEntryLength);
+        }
+
+        for (KeyShareEntry keyShare: keyShareEntries) {
+            buffer.putShort(keyShare.getNamedGroup().value);
+            byte[] keyExchangeData = keyShare.getKeyExchangeData();
+            buffer.putShort((short) keyExchangeData.length);
+            buffer.put(keyExchangeData);
+        }
+
+        return buffer.array();
+    }
+
+    public List<KeyShareEntry> getKeyShareEntries() {
+        return keyShareEntries;
+    }
+
+    public static class KeyShareEntry {
+        private TlsConstants.NamedGroup namedGroup;
+        private final byte[] rawKey;
+
+        public KeyShareEntry(TlsConstants.NamedGroup namedGroup, byte[] keyExchangeData) {
+            this.namedGroup = namedGroup;
+            this.rawKey = keyExchangeData;
+        }
+
+        public TlsConstants.NamedGroup getNamedGroup() {
+            return namedGroup;
+        }
+
+        public byte[] getKeyExchangeData() {
+            return rawKey;
+        }
+    }
+
+    @Override
+    public int getType() {
+        return TlsConstants.ExtensionType.key_share.value;
+    }
+
+    @Override
+    public String toString() {
+        return "KeyShareExtension[" + keyShareEntries.stream()
+                .map(entry -> entry.getNamedGroup().toString())
+                .collect(Collectors.joining(",")) + "]";
+    }
+}

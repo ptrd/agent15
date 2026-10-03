@@ -1,154 +1,170 @@
-apply plugin: 'java'
-apply plugin: 'idea'
-apply plugin: 'maven-publish'
-apply plugin: 'signing'
+import com.vanniktech.maven.publish.JavaLibrary
+import com.vanniktech.maven.publish.JavadocJar
 
-java {
-    sourceCompatibility = JavaVersion.VERSION_11
-    targetCompatibility = JavaVersion.VERSION_11
+plugins {
+    // Gives the root project a clean task too, which removes the javadoc generated for all modules.
+    id 'base'
+    id 'com.vanniktech.maven.publish' version '0.37.0' apply false
 }
 
-repositories {
-    mavenCentral()
-}
-
-dependencies {
-    def junitVersion = "5.13.4"
-
-    // https://mvnrepository.com/artifact/at.favre.lib/hkdf
-    implementation group: 'at.favre.lib', name: 'hkdf', version: '2.0.0'
-
-    testImplementation("org.junit.jupiter:junit-jupiter-api:$junitVersion")
-    testImplementation("org.junit.jupiter:junit-jupiter-params:$junitVersion")
-    testImplementation("org.junit.jupiter:junit-jupiter-engine:$junitVersion")
-    testImplementation("org.mockito:mockito-core:5.23.0")
-    testImplementation("org.assertj:assertj-core:3.27.7")
-    testImplementation("org.bouncycastle:bcprov-jdk18on:1.78.1")
-
-    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
-}
-
-sourceSets {
-    main {
-        resources {
-            srcDir "${buildDir}/generated"
-            exclude 'sources/**'
+// Determines the version from the git tag. This has to happen at configuration time: the version is part of the
+// name of every artifact (jars, pom, signatures) that the publish plugin wires up while configuring the build.
+def determineVersion() {
+    def proc = "git describe --always --dirty".execute()
+    proc.waitFor()
+    if (proc.exitValue()) {
+        logger.quiet("Building development version.")
+        return null
+    }
+    def versionTag = proc.in.readLines()[0]
+    // Check that tag matches format like v1.0 or v1.0.19
+    if (versionTag ==~ /v?[0-9]+(\.\d+){1,2}/) {
+        if (versionTag.startsWith("v")) {
+            versionTag = versionTag[1..-1]
         }
+        logger.quiet("Building version ${versionTag}.")
     }
+    else {
+        logger.error("Version tag '${versionTag}' does not contain a valid version.");
+    }
+    return versionTag
 }
 
-test {
-    useJUnitPlatform()
-
-    testLogging {
-        events "passed", "skipped", "failed"
-    }
-
-    afterSuite { desc, result ->
-        if (!desc.parent) { // will match the outermost suite
-            println "Results: ${result.resultType} (${result.testCount} tests, ${result.successfulTestCount} successes, ${result.failedTestCount} failures, ${result.skippedTestCount} skipped)"
-        }
-    }
+def versionTag = determineVersion()
+if (versionTag != null) {
+    allprojects { it.version = versionTag }
 }
 
-jar {
-    manifest {
-        attributes 'Main-Class': 'tech.kwik.agent15.Version'
-    }
-}
+allprojects {
+    group = 'tech.kwik'
 
-task determineVersion {
-    doLast {
-        def proc = "git describe --always --dirty".execute()
-        proc.waitFor()
-        if (proc.exitValue()) {
-            logger.quiet("Building development version.")
-        }
-        else {
-            def versionTag = proc.in.readLines()[0]
-            // Check that tag matches format like v1.0 or v1.0.19
-            if (versionTag ==~ /v?[0-9]+(\.\d+){1,2}/) {
-                if (versionTag.startsWith("v")) {
-                    versionTag = versionTag[1..-1]
-                }
-                logger.quiet("Building version ${versionTag}.")
-            }
-            else {
-                logger.error("Version tag '${versionTag}' does not contain a valid version.");
-            }
-            project.version = versionTag
-
-            ext.versionDir = new File("${buildDir}", "generated/tech/kwik/agent15")
-            versionDir.mkdirs()
-
-            new File(versionDir, "version.properties").text = versionTag
-        }
-    }
-}
-
-compileJava.dependsOn (determineVersion, processResources)
-
-tasks.compileJava {
-    options.javaModuleMainClass = "tech.kwik.agent15.Version"
-}
-
-group = 'tech.kwik'
-
-java {
-    withJavadocJar()
-    withSourcesJar()
-}
-
-publishing {
-    publications {
-        library(MavenPublication) {
-            artifactId = 'agent15'
-            from components.java
-            pom {
-                name = 'Agent15'
-                description = 'A (partial) TLS 1.3 implementation in Java, suitable and intended for use in a QUIC implementation.'
-                url = 'https://github.com/ptrd/agent15'
-
-                licenses {
-                    license {
-                        name = 'GNU Lesser General Public License v3'
-                        url = 'https://www.gnu.org/licenses/lgpl-3.0-standalone.html'
-                    }
-                }
-
-                developers {
-                    developer {
-                        id = 'peterd'
-                        name = 'Peter Doornbosch'
-                        email = 'peter.doornbosch@gmail.com'
-                    }
-                }
-
-                scm {
-                    connection = 'scm:git:git@github.com:ptrd/agent15.git'
-                    developerConnection = 'scm:git:git@github.com:ptrd/agent15.git'
-                    url = 'https://github.com/ptrd/agent15'
-                }
-            }
-        }
-    }
     repositories {
-        maven {
-            name = "ossrh-staging-api"
-            url = "https://ossrh-staging-api.central.sonatype.com/service/local/staging/deploy/maven2/"
-            credentials {
-                username = project.properties.ossrhUsername
-                password = project.properties.ossrhPassword
-            }
-        }
+        mavenCentral()
     }
 }
 
-signing {
-    sign publishing.publications.library
+subprojects {
+    apply plugin: 'java-library'
+    apply plugin: 'idea'
+    apply plugin: 'com.vanniktech.maven.publish'
+
+    dependencies {
+        def junitVersion = "5.13.4"
+
+        testImplementation("org.junit.jupiter:junit-jupiter-api:$junitVersion")
+        testImplementation("org.junit.jupiter:junit-jupiter-params:$junitVersion")
+        testImplementation("org.junit.jupiter:junit-jupiter-engine:$junitVersion")
+        testImplementation("org.mockito:mockito-core:5.23.0")
+        testImplementation("org.assertj:assertj-core:3.27.7")
+
+        testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+    }
+
+    test {
+        useJUnitPlatform()
+
+        testLogging {
+            events "passed", "skipped", "failed"
+        }
+
+        afterSuite { desc, result ->
+            if (!desc.parent) { // will match the outermost suite
+                println "Results: ${result.resultType} (${result.testCount} tests, ${result.successfulTestCount} successes, ${result.failedTestCount} failures, ${result.skippedTestCount} skipped)"
+            }
+        }
+    }
+
+    // Javadoc for all modules is generated in one go by the root project's javadoc task, see below.
+    javadoc {
+        enabled = false
+    }
+
+    mavenPublishing {
+        // Publish a sources jar, but no javadoc: Maven Central requires a javadoc jar, so publish an empty one.
+        configure(new JavaLibrary(new JavadocJar.Empty(), true))
+
+        publishToMavenCentral()
+        signAllPublications()
+
+        pom {
+            url = 'https://github.com/ptrd/agent15'
+
+            licenses {
+                license {
+                    name = 'GNU Lesser General Public License v3'
+                    url = 'https://www.gnu.org/licenses/lgpl-3.0-standalone.html'
+                }
+            }
+
+            developers {
+                developer {
+                    id = 'peterd'
+                    name = 'Peter Doornbosch'
+                    email = 'peter.doornbosch@gmail.com'
+                }
+            }
+
+            scm {
+                connection = 'scm:git:git@github.com:ptrd/agent15.git'
+                developerConnection = 'scm:git:git@github.com:ptrd/agent15.git'
+                url = 'https://github.com/ptrd/agent15'
+            }
+        }
+    }
+
+    tasks.withType(JavaCompile).configureEach {
+        // Suppresses two module warnings that are both expected: core's qualified 'exports ... to
+        // tech.kwik.agent15.pqc' cannot be resolved when compiling core (the pqc module is not, and must not be,
+        // on core's module path), and both module names have a component ending in a digit ("agent15").
+        options.compilerArgs << '-Xlint:-module'
+    }
 }
 
-javadoc {
+// Writes the version.properties resource read by the Version class (which lives in the core module).
+task generateVersionResource {
+    def versionDir = project(':core').layout.buildDirectory.dir("generated/tech/kwik/agent15")
+    onlyIf { versionTag != null }
+    outputs.file versionDir.map { it.file("version.properties") }
+    doLast {
+        def dir = versionDir.get().asFile
+        dir.mkdirs()
+        new File(dir, "version.properties").text = versionTag
+    }
+}
+
+// The name of a module is only stated in its module descriptor; there is no Gradle property that holds it.
+def moduleName(Project module) {
+    def descriptor = module.file('src/main/java/module-info.java').text
+    def name = descriptor =~ /(?m)^\s*(?:open\s+)?module\s+([\w.]+)/
+    if (!name) {
+        throw new GradleException("No module declaration found in ${module.path}'s module-info.java.")
+    }
+    return name[0][1]
+}
+
+// Generates one javadoc for all modules, rather than one per module: javadoc is run in multi-module mode, with
+// the sources of every subproject, so core and pqc (including their module descriptions) are documented as a
+// single whole, in build/docs/javadoc. The javadoc tasks of the subprojects themselves are disabled.
+tasks.register('javadoc', Javadoc) {
+    group = 'documentation'
+    description = 'Generates the javadoc of all modules, as one set of documentation.'
+    destinationDir = layout.buildDirectory.dir('docs/javadoc').get().asFile
+
+    source subprojects.collect { it.sourceSets.main.allJava }
+
+    // One --module-source-path per module: the pattern form ('*/src/main/java') is of no use here, as the
+    // directory names (core, pqc) are not the module names.
+    options.addMultilineStringsOption('-module-source-path').value =
+            subprojects.collect { "${moduleName(it)}=${it.file('src/main/java')}".toString() }
+
+    // The modules are documented from source, so only their external dependencies belong on the module path:
+    // a module read from the module path as well as from the module source path is an error.
+    classpath = files(subprojects.collect { module ->
+        module.configurations.compileClasspath.incoming.artifactView {
+            componentFilter { it instanceof ModuleComponentIdentifier }
+        }.files
+    })
+
     options.addStringOption('Xdoclint:none', '-quiet')
     options.addBooleanOption('html5', true)
 }

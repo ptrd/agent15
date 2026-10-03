@@ -1,0 +1,30 @@
+// The ML-KEM based (hybrid) key exchange groups of RFC 10024, and the ML-DSA signature schemes. These need
+// java.security.KEM and the ML-KEM/ML-DSA key pair generators, which are only finalized in Java 25 -- hence this
+// module targets 25, where core Agent15 targets 11.
+java {
+    sourceCompatibility = JavaVersion.VERSION_25
+    targetCompatibility = JavaVersion.VERSION_25
+}
+
+base {
+    archivesName = 'agent15-pqc'
+}
+
+dependencies {
+    api project(':core')
+
+    // 1.78.1 predates ML-KEM/ML-DSA support (only pre-standardisation Kyber/Dilithium,
+    // not wire-compatible with the FIPS 203/204 finals); 1.79+ has the real, standardised
+    // algorithms, used to cross-check this module's wire format against an independent
+    // implementation.
+    testImplementation("org.bouncycastle:bcprov-jdk18on:1.81")
+}
+
+mavenPublishing {
+    coordinates(null, 'agent15-pqc', null)
+
+    pom {
+        name = 'Agent15-PQC'
+        description = 'Post-quantum (ML-KEM hybrid key exchange, ML-DSA signatures) support for Agent15.'
+    }
+}
