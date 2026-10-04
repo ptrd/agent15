@@ -60,15 +60,6 @@ import static tech.kwik.agent15.TlsConstants.SignatureScheme.*;
 
 public class TlsClientEngineImpl extends TlsEngineImpl implements TlsClientEngine, ClientMessageProcessor {
 
-    public static final List<TlsConstants.SignatureScheme> AVAILABLE_SIGNATURES = List.of(
-            rsa_pss_rsae_sha256,
-            rsa_pss_rsae_sha384,
-            rsa_pss_rsae_sha512,
-            ecdsa_secp256r1_sha256,
-            ecdsa_secp384r1_sha384,
-            ecdsa_secp521r1_sha512
-            );
-
     private static final Charset ISO_8859_1 = Charset.forName("ISO-8859-1");
 
     // The maximum number of (most recent) NewSessionTickets that are retained; older tickets are evicted.
@@ -178,10 +169,10 @@ public class TlsClientEngineImpl extends TlsEngineImpl implements TlsClientEngin
             // "Clients MUST NOT offer multiple KeyShareEntry values for the same group."
             throw new IllegalArgumentException("Duplicate named group(s) for the key share: " + keyShareGroups);
         }
-        if (signatureSchemes.stream().anyMatch(scheme -> !AVAILABLE_SIGNATURES.contains(scheme))) {
+        if (!signatureAlgorithmFactory.getSupportedSignatureSchemes().containsAll(signatureSchemes)) {
             // Remove available leaves the ones that are not available (cannot be supported)
             var unsupportedSignatures = new ArrayList<>(signatureSchemes);
-            unsupportedSignatures.removeAll(AVAILABLE_SIGNATURES);
+            unsupportedSignatures.removeAll(signatureAlgorithmFactory.getSupportedSignatureSchemes());
             throw new IllegalArgumentException("Unsupported signature scheme(s): " + unsupportedSignatures);
         }
         if (!supportedGroups.containsAll(keyShareGroups)) {

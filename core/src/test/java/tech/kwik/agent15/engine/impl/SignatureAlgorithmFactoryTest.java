@@ -34,11 +34,10 @@ import static tech.kwik.agent15.TlsConstants.SignatureScheme.rsa_pss_rsae_sha512
 class SignatureAlgorithmFactoryTest {
 
     @Test
-    void factoryShouldSupportAllSignatureSchemesTheClientEngineOffers() {
-        // The client engine validates the schemes it is asked to offer against AVAILABLE_SIGNATURES, so the factory
-        // must be able to create an algorithm for each of those; otherwise a negotiated scheme cannot be used.
+    void factoryShouldSupportTheSignatureSchemesCoreImplements() {
         assertThat(new SignatureAlgorithmFactoryImpl().getSupportedSignatureSchemes())
-                .containsExactlyInAnyOrderElementsOf(TlsClientEngineImpl.AVAILABLE_SIGNATURES);
+                .containsExactlyInAnyOrder(rsa_pss_rsae_sha256, rsa_pss_rsae_sha384, rsa_pss_rsae_sha512,
+                        ecdsa_secp256r1_sha256, ecdsa_secp384r1_sha384, ecdsa_secp521r1_sha512);
     }
 
     @Test

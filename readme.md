@@ -52,6 +52,8 @@ The following digital signatures are supported:
 - rsa_pss_rsae_sha384
 - rsa_pss_rsae_sha512
 - ecdsa_secp256r1_sha256
+- ecdsa_secp384r1_sha384
+- ecdsa_secp521r1_sha512
 
 For key exchange, the following elliptic curves ("named groups") are supported:
 

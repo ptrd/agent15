@@ -1689,14 +1689,21 @@ class TlsClientEngineTest {
     }
 
     @Test
-    void defaultConstructedEngineShouldResolveAllSignatureSchemesItOffers() {
+    void defaultConstructedEngineShouldOfferAllSignatureSchemesItsFactoryHasDiscovered() throws Exception {
         // Given: an engine created the way an application would, i.e. with the factories located by a service loader
         TlsClientEngineImpl engine = new TlsClientEngineImpl(messageSender, Mockito.mock(TlsStatusEventHandler.class));
+        engine.setServerName("server");
+        engine.addSupportedCiphers(List.of(engineCipher));
+        List<TlsConstants.SignatureScheme> discoveredSchemes = engine.signatureAlgorithmFactory.getSupportedSignatureSchemes();
 
-        // When/Then
-        for (TlsConstants.SignatureScheme scheme : TlsClientEngineImpl.AVAILABLE_SIGNATURES) {
-            assertThat(engine.signatureAlgorithmFactory.forSignatureScheme(scheme)).as("algorithm for " + scheme).isNotNull();
-        }
+        // When
+        engine.startHandshake(secp256r1, discoveredSchemes);
+
+        // Then
+        ArgumentCaptor<ClientHello> captor = ArgumentCaptor.forClass(ClientHello.class);
+        verify(messageSender).send(captor.capture());
+        SignatureAlgorithmsExtension extension = (SignatureAlgorithmsExtension) extensionOfType(captor.getValue(), SignatureAlgorithmsExtension.class);
+        assertThat(extension.getSignatureAlgorithms()).containsExactlyElementsOf(discoveredSchemes);
     }
 
     private HelloRetryRequest createHelloRetryRequest(TlsConstants.NamedGroup selectedGroup) {
