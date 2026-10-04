@@ -28,7 +28,8 @@ Not all extensions listed in [RFC 8446](https://www.rfc-editor.org/info/rfc8446/
 However, the message parser will create an `UnknownExtension` object for unsupported extensions, so parsing will not fail 
 (as it would for the unsupported handshake message types).
 
-Agent15 also implements [RFC 10024](https://www.rfc-editor.org/info/rfc10024/): Post-Quantum Traditional (PQ/T) Hybrid Key Agreement Mechanisms for TLS 1.3.
+Agent15 also implements [RFC 10024](https://www.rfc-editor.org/info/rfc10024/): "Post-Quantum Traditional (PQ/T) Hybrid Key Agreement Mechanisms for TLS 1.3" and "ML-DSA" as specified by [Use of ML-DSA in TLS 1.3](https://datatracker.ietf.org/doc/draft-ietf-tls-mldsa/).
+All Post-Quantum cryptography is provided by means of a separate module, `agent15-pqc`, which requires Java 25.
 
 #### QUIC extension support
 
@@ -36,16 +37,9 @@ QUIC defines a custom TLS extension for carrying [Transport parameters](https://
 this is supported by Agent15 by means of a custom extension parser function that can be injected by the client application.
 
 
-### Supported cipher suites etc.
+### Supported signature algorithms
 
-Agent15 supports the following cipher suites:
-
-- TLS_AES_128_GCM_SHA256 (mandated by TLS 1.3 specification)
-- TLS_AES_256_GCM_SHA384
-- TLS_CHACHA20_POLY1305_SHA256
-
-
-The following digital signatures are supported:
+Agent15 core supports the following digital signatures:
 
 - rsa_pkcs1_sha256 (for certificates only, in accordance with TLS 1.3 specification)
 - rsa_pss_rsae_sha256
@@ -54,6 +48,14 @@ The following digital signatures are supported:
 - ecdsa_secp256r1_sha256
 - ecdsa_secp384r1_sha384
 - ecdsa_secp521r1_sha512
+
+and the post-quantum module supports
+
+- mldsa44
+- mldsa65
+- mldsa87
+
+### Supported key exchange algorithms
 
 For key exchange, the following elliptic curves ("named groups") are supported:
 
@@ -65,7 +67,11 @@ and the post-quantum hybrid key exchanges:
 - X25519MLKEM768
 - SecP256r1MLKEM768 and SecP384r1MLKEM1024
 
-Post quantum cryptography is provided by means of a separate module, `agent15-pqc`, that requires Java 25 _runtime_.
+
+### Supported cipher suites
+
+As Agent15 does not implement the TLS record layer, it does not (need) to implement cipher suites either; however,
+it does limit settings ciphers to the ones defined in [RFC 8446](https://www.rfc-editor.org/rfc/rfc8446.html#appendix-B.4).
 
 ### Features
 
